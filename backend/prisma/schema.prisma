@@ -1,0 +1,226 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            Int       @id @default(autoincrement())
+  telegramId    String    @unique
+  firstName     String
+  lastName      String?
+  username      String?
+  languageCode  String    @default("ru")
+  isPremium     Boolean   @default(false)
+  photoUrl      String?
+  nickname      String?
+  country       String?
+  avatar        String?
+  level         Int       @default(1)
+  xp            Int       @default(0)
+  narCoin       Int       @default(100) // Стартовый набор
+  energy        Int       @default(100)
+  energyMax     Int       @default(100)
+  lives         Int       @default(3)
+  livesMax      Int       @default(3)
+  referralCode  String    @unique
+  referredBy    Int?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  ratings       Rating[]
+  gameHistory   GameHistory[]
+  tournaments   TournamentParticipant[]
+  quests        QuestProgress[]
+  cityBuildings CityBuilding[]
+  subscription  Subscription?
+  academyRole   AcademyRole?
+
+  @@map("users")
+}
+
+model Rating {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  mode        String   // SHORT, LONG
+  rating      Int      @default(1500) // Elo рейтинг
+  wins        Int      @default(0)
+  losses      Int      @default(0)
+  draws       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, mode])
+  @@map("ratings")
+}
+
+model GameHistory {
+  id          Int      @id @default(autoincrement())
+  roomId      String
+  mode        String   // SHORT, LONG
+  whitePlayerId Int
+  blackPlayerId Int
+  winnerId    Int?
+  gameState   Json     // Полное состояние игры
+  moves       Json     // История ходов
+  duration    Int?      // Длительность в секундах
+  createdAt   DateTime @default(now())
+
+  whitePlayer User     @relation("WhiteGames", fields: [whitePlayerId], references: [id])
+  blackPlayer User     @relation("BlackGames", fields: [blackPlayerId], references: [id])
+
+  @@map("game_history")
+}
+
+model Tournament {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  mode        String   // SHORT, LONG
+  format      String   // BRACKET, ROUND_ROBIN
+  status      String   @default("UPCOMING") // UPCOMING, IN_PROGRESS, FINISHED
+  startDate   DateTime
+  endDate     DateTime?
+  maxParticipants Int?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  participants TournamentParticipant[]
+
+  @@map("tournaments")
+}
+
+model TournamentParticipant {
+  id            Int      @id @default(autoincrement())
+  tournamentId  Int
+  userId        Int
+  position      Int?
+  wins          Int      @default(0)
+  losses        Int      @default(0)
+  createdAt     DateTime @default(now())
+
+  tournament    Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tournamentId, userId])
+  @@map("tournament_participants")
+}
+
+model Quest {
+  id          Int      @id @default(autoincrement())
+  type        String   // DAILY, WEEKLY
+  title       String
+  description String
+  target      Int      // Целевое значение
+  rewardCoin  Int      @default(0)
+  rewardXp    Int      @default(0)
+  rewardSkin  Int?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  progress    QuestProgress[]
+
+  @@map("quests")
+}
+
+model QuestProgress {
+  id          Int      @id @default(autoincrement())
+  questId     Int
+  userId      Int
+  progress    Int      @default(0)
+  completed   Boolean  @default(false)
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  quest       Quest    @relation(fields: [questId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([questId, userId])
+  @@map("quest_progress")
+}
+
+model CityBuilding {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  buildingType String  // CLUB, WORKSHOP, FACTORY, SCHOOL, etc.
+  level       Int      @default(1)
+  incomePerHour Int    @default(10)
+  lastCollected DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, buildingType])
+  @@map("city_buildings")
+}
+
+model Subscription {
+  id          Int      @id @default(autoincrement())
+  userId      Int      @unique
+  plan        String   // MONTHLY, QUARTERLY, YEARLY
+  startDate   DateTime
+  endDate     DateTime
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
+}
+
+model AcademyRole {
+  id          Int      @id @default(autoincrement())
+  userId      Int      @unique
+  role        String   @default("STUDENT") // STUDENT, TRAINER
+  level       Int      @default(1)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("academy_roles")
+}
+
+model AcademyArticle {
+  id          Int      @id @default(autoincrement())
+  title       String
+  content     String   @db.Text
+  authorId    Int?
+  isPaid      Boolean  @default(false)
+  priceCoin   Int      @default(0)
+  priceCrypto String?
+  category    String?
+  isPublished Boolean  @default(false)
+  views       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("academy_articles")
+}
+
+model Skin {
+  id          Int      @id @default(autoincrement())
+  name        String
+  type        String   // BOARD, DICE
+  previewUrl  String
+  isDefault   Boolean  @default(false)
+  priceCoin   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  @@map("skins")
+}
+
