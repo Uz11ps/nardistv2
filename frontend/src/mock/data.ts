@@ -8,6 +8,12 @@ import type {
   AcademyArticle,
   Skin,
   GameHistory,
+  InventoryItem,
+  Resource,
+  District,
+  Business,
+  Clan,
+  ClanMember,
 } from '../types';
 
 export const mockUser: User = {
@@ -29,6 +35,14 @@ export const mockUser: User = {
   livesMax: 3,
   referralCode: 'IVAN2024',
   isPremium: false,
+  power: 45,
+  powerMax: 50,
+  stats: {
+    economy: 3,
+    energy: 2,
+    lives: 1,
+    power: 2,
+  },
 };
 
 export const mockRatings: Rating[] = [
@@ -369,6 +383,14 @@ export const mockGameHistory: GameHistory[] = [
       livesMax: 3,
       referralCode: 'MARIA2024',
       isPremium: true,
+      power: 60,
+      powerMax: 60,
+      stats: {
+        economy: 5,
+        energy: 4,
+        lives: 3,
+        power: 4,
+      },
     },
   },
   {
@@ -395,7 +417,160 @@ export const mockGameHistory: GameHistory[] = [
       livesMax: 3,
       referralCode: 'ALEX2024',
       isPremium: false,
+      power: 40,
+      powerMax: 45,
+      stats: {
+        economy: 2,
+        energy: 3,
+        lives: 2,
+        power: 2,
+      },
     },
+  },
+];
+
+// Инвентарь игрока
+export const mockInventory: InventoryItem[] = [
+  {
+    id: 1,
+    skinId: 1,
+    userId: 1,
+    rarity: 'COMMON',
+    durability: 85,
+    durabilityMax: 100,
+    weight: 5,
+    isEquipped: true,
+    skin: mockSkins[0],
+  },
+  {
+    id: 2,
+    skinId: 2,
+    userId: 1,
+    rarity: 'RARE',
+    durability: 250,
+    durabilityMax: 300,
+    weight: 8,
+    isEquipped: false,
+    skin: mockSkins[1],
+  },
+  {
+    id: 3,
+    skinId: 4,
+    userId: 1,
+    rarity: 'EPIC',
+    durability: 4500,
+    durabilityMax: 5000,
+    weight: 3,
+    isEquipped: true,
+    skin: mockSkins[3],
+  },
+];
+
+// Ресурсы игрока
+export const mockResources: Resource[] = [
+  { id: 1, userId: 1, type: 'WOOD', amount: 150 },
+  { id: 2, userId: 1, type: 'STONE', amount: 80 },
+  { id: 3, userId: 1, type: 'METAL', amount: 45 },
+  { id: 4, userId: 1, type: 'LEATHER', amount: 30 },
+];
+
+// Районы города
+export const mockDistricts: District[] = [
+  {
+    id: 1,
+    name: 'Дворы',
+    description: 'Уличные столы для начинающих',
+    type: 'COURTS',
+    icon: '🏘️',
+    commissionRate: 5,
+  },
+  {
+    id: 2,
+    name: 'Клубы Нардистов',
+    description: 'Премиум-клубы для опытных игроков',
+    type: 'CLUBS',
+    icon: '🎩',
+    commissionRate: 5,
+  },
+  {
+    id: 3,
+    name: 'Мастерские досок',
+    description: 'Производство игровых досок',
+    type: 'WORKSHOPS',
+    icon: '🔨',
+    commissionRate: 5,
+  },
+  {
+    id: 4,
+    name: 'Фабрики зариков',
+    description: 'Производство кубиков',
+    type: 'FACTORIES',
+    icon: '🏭',
+    commissionRate: 5,
+  },
+  {
+    id: 5,
+    name: 'Цеха стаканов и фишек',
+    description: 'Производство аксессуаров',
+    type: 'WORKSHOPS_CUPS',
+    icon: '⚙️',
+    commissionRate: 5,
+  },
+  {
+    id: 6,
+    name: 'Школа Нардиста',
+    description: 'Обучение и развитие',
+    type: 'SCHOOL',
+    icon: '📚',
+    commissionRate: 5,
+  },
+  {
+    id: 7,
+    name: 'Турнирная Арена',
+    description: 'Центр соревнований и спонсоров',
+    type: 'ARENA',
+    icon: '🏟️',
+    commissionRate: 5,
+    clanId: 1,
+  },
+];
+
+// Предприятия игрока
+export const mockBusinesses: Business[] = [
+  {
+    id: 1,
+    userId: 1,
+    districtId: 1,
+    type: 'COURT_TABLE',
+    level: 2,
+    incomePerHour: 15,
+    lastCollected: '2025-12-10T10:00:00Z',
+  },
+  {
+    id: 2,
+    userId: 1,
+    districtId: 3,
+    type: 'BOARD_WORKSHOP',
+    level: 3,
+    incomePerHour: 45,
+    productionPerHour: 2,
+    storageLimit: 50,
+    maintenanceCost: 10,
+    lastCollected: '2025-12-10T09:30:00Z',
+  },
+];
+
+// Кланы
+export const mockClans: Clan[] = [
+  {
+    id: 1,
+    name: 'Мастера Нарда',
+    description: 'Элитный клан чемпионов',
+    leaderId: 2,
+    treasury: 5000,
+    members: [],
+    districts: [mockDistricts[6]],
+    createdAt: '2025-11-01T10:00:00Z',
   },
 ];
 

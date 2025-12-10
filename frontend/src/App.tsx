@@ -12,9 +12,13 @@ import { Leaderboard } from './pages/Leaderboard';
 import { Tournaments } from './pages/Tournaments';
 import { Quests } from './pages/Quests';
 import { City } from './pages/City';
+import { DistrictDetail } from './pages/DistrictDetail';
 import { Subscription } from './pages/Subscription';
 import { Academy } from './pages/Academy';
 import { Skins } from './pages/Skins';
+import { Market } from './pages/Market';
+import { Clans } from './pages/Clans';
+import { ClanDetail } from './pages/ClanDetail';
 import { AdminDashboard } from './admin/pages/AdminDashboard';
 import { AdminGames } from './admin/pages/AdminGames';
 import { AdminTournaments } from './admin/pages/AdminTournaments';
@@ -92,9 +96,13 @@ function App() {
           <Route path="tournaments" element={<Tournaments />} />
           <Route path="quests" element={<Quests />} />
           <Route path="city" element={<City />} />
+          <Route path="city/district/:id" element={<DistrictDetail />} />
           <Route path="subscription" element={<Subscription />} />
           <Route path="academy" element={<Academy />} />
           <Route path="skins" element={<Skins />} />
+          <Route path="market" element={<Market />} />
+          <Route path="clans" element={<Clans />} />
+          <Route path="clans/:id" element={<ClanDetail />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

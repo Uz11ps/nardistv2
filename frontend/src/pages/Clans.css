@@ -1,0 +1,156 @@
+.clans-page {
+  padding: var(--spacing-md);
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.clans-page__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-lg);
+}
+
+.clans-page__title {
+  font-size: var(--font-size-2xl);
+  font-weight: 700;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.clans-page__user-clan {
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-xl);
+  background: linear-gradient(135deg, rgba(25, 118, 210, 0.1), rgba(25, 118, 210, 0.05));
+  border: 2px solid var(--color-primary);
+}
+
+.clans-page__user-clan-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-md);
+}
+
+.clans-page__user-clan-title {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.clans-page__user-clan-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.clans-page__clan-name {
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.clans-page__clan-description {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.clans-page__clan-stats {
+  display: flex;
+  gap: var(--spacing-md);
+  flex-wrap: wrap;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.clans-page__section {
+  margin-bottom: var(--spacing-lg);
+}
+
+.clans-page__section-title {
+  margin: 0 0 var(--spacing-md) 0;
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.clans-page__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.clans-page__clan-card {
+  padding: var(--spacing-md);
+  cursor: pointer;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+  text-decoration: none;
+  color: inherit;
+  position: relative;
+}
+
+.clans-page__clan-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.clans-page__clan-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-sm);
+}
+
+.clans-page__clan-card-name {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.clans-page__clan-card-badge {
+  padding: 2px var(--spacing-xs);
+  background-color: rgba(25, 118, 210, 0.1);
+  color: var(--color-primary);
+  border-radius: var(--border-radius-small);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+}
+
+.clans-page__clan-card-description {
+  margin: 0 0 var(--spacing-sm) 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.clans-page__clan-card-stats {
+  display: flex;
+  gap: var(--spacing-md);
+}
+
+.clans-page__clan-card-stat {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.clans-page__clan-card-stat-icon {
+  font-size: 16px;
+}
+
+.clans-page__clan-card-stat-value {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.clans-page__clan-card-arrow {
+  position: absolute;
+  top: var(--spacing-md);
+  right: var(--spacing-md);
+  font-size: 24px;
+  color: var(--text-secondary);
+}
+

@@ -40,9 +40,15 @@
 
 .home__stats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: var(--spacing-sm);
   margin-bottom: var(--spacing-lg);
+}
+
+@media (min-width: 480px) {
+  .home__stats {
+    grid-template-columns: repeat(4, 1fr);
+  }
 }
 
 .home__stat-card {
@@ -65,6 +71,29 @@
 .home__stat-label {
   font-size: var(--font-size-xs);
   color: var(--text-secondary);
+  margin-bottom: var(--spacing-xs);
+}
+
+.home__stat-bar {
+  height: 4px;
+  background-color: var(--bg-secondary);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: var(--spacing-xs);
+}
+
+.home__stat-bar-fill {
+  height: 100%;
+  background-color: var(--color-primary);
+  transition: width var(--transition-normal);
+}
+
+.home__stat-bar-fill--lives {
+  background-color: var(--color-error);
+}
+
+.home__stat-bar-fill--power {
+  background-color: var(--color-secondary);
 }
 
 .home__section-title {

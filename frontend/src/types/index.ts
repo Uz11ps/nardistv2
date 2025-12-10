@@ -17,6 +17,15 @@ export interface User {
   livesMax: number;
   referralCode: string;
   isPremium: boolean;
+  // Новые характеристики экономики
+  power: number; // Сила для ношения тяжелых скинов
+  powerMax: number;
+  stats: {
+    economy: number; // Ветка Экономика (снижает комиссию)
+    energy: number; // Ветка Энергия (улучшает реген)
+    lives: number; // Ветка Жизни (улучшает реген)
+    power: number; // Ветка Сила (увеличивает лимит)
+  };
 }
 
 export interface Rating {
@@ -110,11 +119,81 @@ export interface AcademyArticle {
 export interface Skin {
   id: number;
   name: string;
-  type: 'BOARD' | 'DICE';
+  type: 'BOARD' | 'DICE' | 'CHECKERS' | 'CUP' | 'FRAME';
   previewUrl: string;
   isDefault: boolean;
   priceCoin: number;
   isActive: boolean;
+}
+
+// Предмет в инвентаре игрока
+export interface InventoryItem {
+  id: number;
+  skinId: number;
+  userId: number;
+  rarity: 'COMMON' | 'RARE' | 'EPIC' | 'LEGENDARY' | 'MYTHIC';
+  durability: number;
+  durabilityMax: number;
+  weight: number; // Вес предмета
+  isEquipped: boolean;
+  skin?: Skin;
+}
+
+// Ресурсы
+export interface Resource {
+  id: number;
+  userId: number;
+  type: 'WOOD' | 'STONE' | 'MARBLE' | 'BONE' | 'PLASTIC' | 'METAL' | 'LEATHER' | 'FABRIC';
+  amount: number;
+}
+
+// Район города
+export interface District {
+  id: number;
+  name: string;
+  description: string;
+  type: 'COURTS' | 'CLUBS' | 'WORKSHOPS' | 'FACTORIES' | 'WORKSHOPS_CUPS' | 'SCHOOL' | 'ARENA';
+  icon: string;
+  clanId?: number; // Клан, контролирующий район
+  clan?: Clan;
+  commissionRate: number; // Комиссия с игр (5%)
+}
+
+// Предприятие
+export interface Business {
+  id: number;
+  userId: number;
+  districtId: number;
+  type: 'COURT_TABLE' | 'BOARD_WORKSHOP' | 'DICE_FACTORY' | 'CUPS_WORKSHOP' | 'CLUB' | 'SCHOOL' | 'ARENA';
+  level: number;
+  incomePerHour: number; // NAR в час
+  productionPerHour?: number; // Ресурсов/предметов в час
+  storageLimit?: number; // Лимит склада
+  maintenanceCost?: number; // Стоимость обслуживания в NAR/час
+  lastCollected?: string;
+  district?: District;
+}
+
+// Клан
+export interface Clan {
+  id: number;
+  name: string;
+  description?: string;
+  leaderId: number;
+  leader?: User;
+  members: ClanMember[];
+  treasury: number; // NAR в казне
+  districts: District[];
+  createdAt: string;
+}
+
+export interface ClanMember {
+  id: number;
+  clanId: number;
+  userId: number;
+  role: 'LEADER' | 'OFFICER' | 'MEMBER';
+  joinedAt: string;
+  user?: User;
 }
 
 export interface GameHistory {

@@ -24,7 +24,7 @@ export const Home = () => {
         <Card className="home__stat-card">
           <div className="home__stat-icon">💰</div>
           <div className="home__stat-info">
-            <div className="home__stat-value">{mockUser.narCoin}</div>
+            <div className="home__stat-value">{mockUser.narCoin.toLocaleString()}</div>
             <div className="home__stat-label">NAR-coin</div>
           </div>
         </Card>
@@ -33,6 +33,12 @@ export const Home = () => {
           <div className="home__stat-info">
             <div className="home__stat-value">{mockUser.energy}/{mockUser.energyMax}</div>
             <div className="home__stat-label">Энергия</div>
+            <div className="home__stat-bar">
+              <div
+                className="home__stat-bar-fill"
+                style={{ width: `${(mockUser.energy / mockUser.energyMax) * 100}%` }}
+              />
+            </div>
           </div>
         </Card>
         <Card className="home__stat-card">
@@ -40,6 +46,25 @@ export const Home = () => {
           <div className="home__stat-info">
             <div className="home__stat-value">{mockUser.lives}/{mockUser.livesMax}</div>
             <div className="home__stat-label">Жизни</div>
+            <div className="home__stat-bar">
+              <div
+                className="home__stat-bar-fill home__stat-bar-fill--lives"
+                style={{ width: `${(mockUser.lives / mockUser.livesMax) * 100}%` }}
+              />
+            </div>
+          </div>
+        </Card>
+        <Card className="home__stat-card">
+          <div className="home__stat-icon">💪</div>
+          <div className="home__stat-info">
+            <div className="home__stat-value">{mockUser.power}/{mockUser.powerMax}</div>
+            <div className="home__stat-label">Сила</div>
+            <div className="home__stat-bar">
+              <div
+                className="home__stat-bar-fill home__stat-bar-fill--power"
+                style={{ width: `${(mockUser.power / mockUser.powerMax) * 100}%` }}
+              />
+            </div>
           </div>
         </Card>
       </div>

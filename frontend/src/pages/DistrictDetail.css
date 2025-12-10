@@ -1,0 +1,201 @@
+.district-detail {
+  padding: var(--spacing-md);
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.district-detail__back {
+  display: inline-block;
+  margin-bottom: var(--spacing-md);
+  color: var(--color-primary);
+  text-decoration: none;
+  font-weight: 500;
+  transition: color var(--transition-fast);
+}
+
+.district-detail__back:hover {
+  color: var(--color-primary-light);
+}
+
+.district-detail__header {
+  margin-bottom: var(--spacing-lg);
+}
+
+.district-detail__title-section {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.district-detail__icon {
+  font-size: 64px;
+  flex-shrink: 0;
+}
+
+.district-detail__title {
+  margin: 0 0 var(--spacing-xs) 0;
+  font-size: var(--font-size-2xl);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.district-detail__description {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-md);
+}
+
+.district-detail__section-title {
+  margin: 0 0 var(--spacing-md) 0;
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.district-detail__clan-info {
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+  background: linear-gradient(135deg, rgba(255, 193, 7, 0.1), rgba(255, 152, 0, 0.1));
+}
+
+.district-detail__clan-details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.district-detail__clan-name {
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  color: var(--color-warning);
+}
+
+.district-detail__clan-description {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.district-detail__clan-stats {
+  display: flex;
+  gap: var(--spacing-md);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.district-detail__info {
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+}
+
+.district-detail__info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--spacing-md);
+}
+
+.district-detail__info-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.district-detail__info-label {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.district-detail__info-value {
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.district-detail__businesses {
+  margin-bottom: var(--spacing-lg);
+}
+
+.district-detail__businesses-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.district-detail__business {
+  padding: var(--spacing-md);
+}
+
+.district-detail__business-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: var(--spacing-sm);
+}
+
+.district-detail__business-info {
+  flex: 1;
+}
+
+.district-detail__business-name {
+  margin: 0 0 var(--spacing-xs) 0;
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.district-detail__business-owner {
+  padding: 2px var(--spacing-xs);
+  background-color: rgba(25, 118, 210, 0.1);
+  color: var(--color-primary);
+  border-radius: var(--border-radius-small);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+}
+
+.district-detail__business-level {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.district-detail__business-income {
+  font-size: var(--font-size-sm);
+  color: var(--color-success);
+  font-weight: 600;
+  text-align: right;
+}
+
+.district-detail__business-available {
+  padding: var(--spacing-sm);
+  background-color: rgba(76, 175, 80, 0.1);
+  color: var(--color-success);
+  border-radius: var(--border-radius);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  margin-bottom: var(--spacing-sm);
+}
+
+.district-detail__business-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+.district-detail__businesses-empty {
+  padding: var(--spacing-xl);
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.district-detail__create-business {
+  padding: var(--spacing-lg);
+  text-align: center;
+}
+
+.district-detail__create-hint {
+  margin: 0 0 var(--spacing-md) 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+
