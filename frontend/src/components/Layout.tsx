@@ -1,30 +1,37 @@
-import { ReactNode } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, Outlet } from 'react-router-dom';
+import './Layout.css';
 
-interface LayoutProps {
-  children: ReactNode;
-}
+const navItems = [
+  { path: '/', icon: '🏠', label: 'Главная' },
+  { path: '/game', icon: '🎲', label: 'Игра' },
+  { path: '/tournaments', icon: '🏆', label: 'Турниры' },
+  { path: '/leaderboard', icon: '📊', label: 'Рейтинг' },
+  { path: '/profile', icon: '👤', label: 'Профиль' },
+];
 
-export const Layout = ({ children }: LayoutProps) => {
+export const Layout = () => {
   const location = useLocation();
 
   return (
     <div className="layout">
-      <nav className="navbar">
-        <Link to="/" className={location.pathname === '/' ? 'active' : ''}>
-          Главная
-        </Link>
-        <Link to="/game" className={location.pathname === '/game' ? 'active' : ''}>
-          Игра
-        </Link>
-        <Link to="/profile" className={location.pathname === '/profile' ? 'active' : ''}>
-          Профиль
-        </Link>
-      </nav>
-      <main className="main-content">
-        {children}
+      <header className="layout__header">
+        <h1 className="layout__logo">🎲 Нарды</h1>
+      </header>
+      <main className="layout__main">
+        <Outlet />
       </main>
+      <nav className="layout__nav">
+        {navItems.map((item) => (
+          <Link
+            key={item.path}
+            to={item.path}
+            className={`layout__nav-item ${location.pathname === item.path ? 'layout__nav-item--active' : ''}`}
+          >
+            <span className="layout__nav-icon">{item.icon}</span>
+            <span className="layout__nav-label">{item.label}</span>
+          </Link>
+        ))}
+      </nav>
     </div>
   );
 };
-

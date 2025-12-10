@@ -1,0 +1,48 @@
+.admin-tournaments {
+  max-width: 1400px;
+}
+
+.admin-tournaments__actions {
+  display: flex;
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-lg);
+  padding: var(--spacing-md);
+  background-color: var(--bg-card);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-sm);
+}
+
+.tournament-status {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--border-radius-small);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.tournament-status--upcoming {
+  background-color: rgba(33, 150, 243, 0.1);
+  color: var(--color-info);
+}
+
+.tournament-status--in_progress {
+  background-color: rgba(76, 175, 80, 0.1);
+  color: var(--color-success);
+}
+
+.tournament-status--finished {
+  background-color: rgba(158, 158, 158, 0.1);
+  color: var(--text-secondary);
+}
+
+.tournament-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.tournament-form__actions {
+  display: flex;
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-md);
+}
+

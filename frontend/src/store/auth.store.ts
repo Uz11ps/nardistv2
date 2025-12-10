@@ -1,36 +1,31 @@
 import { create } from 'zustand';
-import { authService, AuthResponse } from '../services/auth.service';
+import { mockUser } from '../mock';
+import type { User } from '../types';
 
 interface AuthState {
-  user: AuthResponse['user'] | null;
+  user: User | null;
   token: string | null;
   isAuthenticated: boolean;
   login: (initData: string) => Promise<void>;
   logout: () => void;
-  setUser: (user: AuthResponse['user']) => void;
+  setUser: (user: User) => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
-  user: null,
-  token: authService.getToken(),
-  isAuthenticated: !!authService.getToken(),
+  user: mockUser,
+  token: 'mock_token',
+  isAuthenticated: true,
   
   login: async (initData: string) => {
-    try {
-      const response = await authService.authenticate(initData);
-      set({
-        user: response.user,
-        token: response.token,
-        isAuthenticated: true,
-      });
-    } catch (error) {
-      console.error('Auth error:', error);
-      throw error;
-    }
+    // Для локальной разработки используем мок-данные
+    set({
+      user: mockUser,
+      token: 'mock_token',
+      isAuthenticated: true,
+    });
   },
   
   logout: () => {
-    authService.logout();
     set({
       user: null,
       token: null,
@@ -38,7 +33,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     });
   },
   
-  setUser: (user: AuthResponse['user']) => {
+  setUser: (user: User) => {
     set({ user });
   },
 }));

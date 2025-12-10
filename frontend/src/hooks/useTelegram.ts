@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
-import { initDataRaw, WebApp } from '@twa-dev/sdk';
 
 export const useTelegram = () => {
-  const [webApp, setWebApp] = useState<WebApp | null>(null);
+  const [webApp, setWebApp] = useState<any | null>(null);
   const [initData, setInitData] = useState<string | null>(null);
 
   useEffect(() => {
@@ -13,7 +12,11 @@ export const useTelegram = () => {
         tg.ready();
         tg.expand();
         setWebApp(tg);
-        setInitData(initDataRaw || '');
+        // Для локальной разработки используем мок данные
+        setInitData(tg.initData || 'mock_init_data_for_local_dev');
+      } else {
+        // Мок для локальной разработки
+        setInitData('mock_init_data_for_local_dev');
       }
     }
   }, []);
@@ -21,7 +24,12 @@ export const useTelegram = () => {
   return {
     webApp,
     initData,
-    user: webApp?.initDataUnsafe?.user,
+    user: webApp?.initDataUnsafe?.user || {
+      id: 123456789,
+      first_name: 'Test',
+      last_name: 'User',
+      username: 'testuser',
+    },
   };
 };
 

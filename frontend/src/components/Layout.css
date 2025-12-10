@@ -1,0 +1,74 @@
+.layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: var(--bg-secondary);
+}
+
+.layout__header {
+  background-color: var(--bg-card);
+  padding: var(--spacing-md);
+  box-shadow: var(--shadow-sm);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.layout__logo {
+  margin: 0;
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  color: var(--color-primary);
+  text-align: center;
+}
+
+.layout__main {
+  flex: 1;
+  padding-bottom: 80px; /* Отступ для нижней навигации */
+}
+
+.layout__nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: var(--bg-card);
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-around;
+  padding: var(--spacing-sm) 0;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
+  z-index: 100;
+}
+
+.layout__nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  text-decoration: none;
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
+  border-radius: var(--border-radius-small);
+  min-width: 60px;
+}
+
+.layout__nav-item:hover {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.layout__nav-item--active {
+  color: var(--color-primary);
+}
+
+.layout__nav-icon {
+  font-size: 20px;
+}
+
+.layout__nav-label {
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+}
+

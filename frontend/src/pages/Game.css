@@ -1,0 +1,76 @@
+.game-page {
+  padding: var(--spacing-md);
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.game-content {
+  margin-top: var(--spacing-md);
+}
+
+.game-menu__card {
+  text-align: center;
+  padding: var(--spacing-xl);
+}
+
+.game-menu__card h2 {
+  margin: 0 0 var(--spacing-lg) 0;
+  font-size: var(--font-size-xl);
+}
+
+.game-menu__options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.game-play {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.game-board-container {
+  width: 100%;
+  background-color: var(--bg-card);
+  border-radius: var(--border-radius);
+  padding: var(--spacing-md);
+}
+
+.game-controls__card {
+  padding: var(--spacing-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  align-items: center;
+}
+
+.game-dice {
+  display: flex;
+  justify-content: center;
+}
+
+.game-dice__result {
+  display: flex;
+  gap: var(--spacing-md);
+}
+
+.game-dice__die {
+  width: 60px;
+  height: 60px;
+  background-color: var(--bg-card);
+  border: 2px solid var(--border-color);
+  border-radius: var(--border-radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-2xl);
+  font-weight: 700;
+}
+
+.game-timer {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--color-warning);
+}
+

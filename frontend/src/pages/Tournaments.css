@@ -1,0 +1,71 @@
+.tournaments-page {
+  padding: var(--spacing-md);
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.tournaments-page__title {
+  font-size: var(--font-size-2xl);
+  font-weight: 700;
+  margin: 0 0 var(--spacing-lg) 0;
+  text-align: center;
+}
+
+.tournaments-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.tournament-card {
+  padding: var(--spacing-md);
+}
+
+.tournament-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  margin-bottom: var(--spacing-sm);
+}
+
+.tournament-card__title {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+}
+
+.tournament-card__status {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--border-radius-small);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+}
+
+.tournament-card__status--upcoming {
+  background-color: var(--color-info);
+  color: var(--text-light);
+}
+
+.tournament-card__status--in_progress {
+  background-color: var(--color-success);
+  color: var(--text-light);
+}
+
+.tournament-card__status--finished {
+  background-color: var(--text-secondary);
+  color: var(--text-light);
+}
+
+.tournament-card__description {
+  margin: 0 0 var(--spacing-md) 0;
+  color: var(--text-secondary);
+}
+
+.tournament-card__info {
+  display: flex;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+

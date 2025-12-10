@@ -1,0 +1,122 @@
+.admin-games {
+  max-width: 1400px;
+}
+
+.admin-games__filters {
+  display: flex;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+  flex-wrap: wrap;
+}
+
+.game-mode {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--border-radius-small);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.game-mode--short {
+  background-color: rgba(25, 118, 210, 0.1);
+  color: var(--color-primary);
+}
+
+.game-mode--long {
+  background-color: rgba(255, 107, 53, 0.1);
+  color: var(--color-secondary);
+}
+
+.game-players {
+  display: flex;
+  gap: var(--spacing-xs);
+  align-items: center;
+  font-size: var(--font-size-sm);
+}
+
+.game-winner {
+  color: var(--color-success);
+  font-weight: 600;
+}
+
+.game-loser {
+  color: var(--text-secondary);
+}
+
+.game-details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+}
+
+.game-details__section h4 {
+  margin: 0 0 var(--spacing-md) 0;
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.game-details__info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.game-details__item {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--spacing-sm) 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.game-details__item:last-child {
+  border-bottom: none;
+}
+
+.game-details__label {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.game-details__value {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.game-details__players {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  background-color: var(--bg-secondary);
+  border-radius: var(--border-radius);
+}
+
+.game-details__player {
+  flex: 1;
+  text-align: center;
+}
+
+.game-details__player-name {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--spacing-xs);
+}
+
+.game-details__player-info {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.game-details__vs {
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.game-details__actions {
+  display: flex;
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-md);
+}
+
