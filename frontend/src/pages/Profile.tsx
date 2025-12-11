@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Card, Button, Tabs } from '../components/ui';
+import { Card, Button, Tabs, ConfirmModal, NotificationModal, Modal, Input } from '../components/ui';
 import { RepairModal } from '../components/inventory';
 import { userService, gameHistoryService, inventoryService, resourceService } from '../services';
 import { useAuthStore } from '../store/auth.store';
@@ -22,11 +22,17 @@ export const Profile = () => {
     return <div className="profile-page">Загрузка...</div>;
   }
 
+  const refreshProfile = () => {
+    userService.getProfile()
+      .then(setUser)
+      .catch(console.error);
+  };
+
   const tabs = [
     {
       id: 'info',
       label: 'Информация',
-      content: <ProfileInfo user={user} />,
+      content: <ProfileInfo user={user} onUpdate={refreshProfile} />,
     },
     {
       id: 'stats',
@@ -69,7 +75,35 @@ export const Profile = () => {
   );
 };
 
-const ProfileInfo = ({ user }: { user: any }) => {
+const ProfileInfo = ({ user, onUpdate }: { user: any; onUpdate: () => void }) => {
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editData, setEditData] = useState({
+    nickname: user.nickname || '',
+    country: user.country || '',
+    avatar: user.avatar || '',
+  });
+  const [notification, setNotification] = useState<{ title: string; message: string; type: 'success' | 'error' | 'info' } | null>(null);
+
+  const handleSave = async () => {
+    try {
+      await userService.updateProfile(editData);
+      setNotification({
+        title: 'Успех',
+        message: 'Профиль успешно обновлен',
+        type: 'success',
+      });
+      setIsEditModalOpen(false);
+      onUpdate();
+    } catch (error: any) {
+      setNotification({
+        title: 'Ошибка',
+        message: error.response?.data?.message || 'Ошибка при обновлении профиля',
+        type: 'error',
+      });
+      console.error('Error updating profile:', error);
+    }
+  };
+
   return (
     <div className="profile-info">
       <Card>
@@ -89,7 +123,7 @@ const ProfileInfo = ({ user }: { user: any }) => {
           <span className="profile-info__label">Реферальный код:</span>
           <span className="profile-info__value">{user.referralCode || 'N/A'}</span>
         </div>
-        <Button variant="outline" fullWidth>
+        <Button variant="outline" fullWidth onClick={() => setIsEditModalOpen(true)}>
           Редактировать профиль
         </Button>
       </Card>
@@ -107,13 +141,128 @@ const ProfileInfo = ({ user }: { user: any }) => {
           <Button variant="ghost" fullWidth>🎨 Скины</Button>
         </Link>
       </div>
+
+      {isEditModalOpen && (
+        <Modal
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          title="Редактировать профиль"
+          size="md"
+        >
+          <div className="profile-edit-form">
+            <Input
+              label="Никнейм"
+              value={editData.nickname}
+              onChange={(e) => setEditData({ ...editData, nickname: e.target.value })}
+              placeholder="Введите никнейм"
+              maxLength={30}
+            />
+            <Input
+              label="Страна"
+              value={editData.country}
+              onChange={(e) => setEditData({ ...editData, country: e.target.value })}
+              placeholder="Введите страну"
+            />
+            <Input
+              label="URL аватара"
+              value={editData.avatar}
+              onChange={(e) => setEditData({ ...editData, avatar: e.target.value })}
+              placeholder="https://..."
+              type="url"
+            />
+            <div className="profile-edit-form__actions">
+              <Button variant="outline" fullWidth onClick={() => setIsEditModalOpen(false)}>
+                Отмена
+              </Button>
+              <Button variant="primary" fullWidth onClick={handleSave}>
+                Сохранить
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {notification && (
+        <NotificationModal
+          isOpen={!!notification}
+          onClose={() => setNotification(null)}
+          title={notification.title}
+          message={notification.message}
+          type={notification.type}
+        />
+      )}
     </div>
+  );
+};
+
+const DevelopmentBranch = ({ 
+  label, 
+  currentLevel, 
+  maxLevel, 
+  onUpgrade, 
+  upgradeCost, 
+  userBalance 
+}: { 
+  label: string; 
+  currentLevel: number; 
+  maxLevel: number; 
+  onUpgrade: () => void; 
+  upgradeCost: number;
+  userBalance: number;
+}) => {
+  const [showConfirm, setShowConfirm] = useState(false);
+  const canUpgrade = currentLevel < maxLevel && userBalance >= upgradeCost;
+
+  return (
+    <>
+      <div className="profile-stats__dev-branch">
+        <span className="profile-stats__dev-label">{label}:</span>
+        <div className="profile-stats__dev-level">
+          {Array.from({ length: maxLevel }).map((_, i) => (
+            <span
+              key={i}
+              className={`profile-stats__dev-point ${i < currentLevel ? 'profile-stats__dev-point--active' : ''}`}
+            />
+          ))}
+        </div>
+        <span className="profile-stats__dev-value">{currentLevel}/{maxLevel}</span>
+        {canUpgrade && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowConfirm(true)}
+          >
+            Улучшить ({upgradeCost.toLocaleString()} NAR)
+          </Button>
+        )}
+      </div>
+
+      {showConfirm && (
+        <ConfirmModal
+          isOpen={showConfirm}
+          onClose={() => setShowConfirm(false)}
+          onConfirm={async () => {
+            setShowConfirm(false);
+            await onUpgrade();
+          }}
+          title="Улучшение ветки развития"
+          message={`Улучшить ветку "${label}" до уровня ${currentLevel + 1}?`}
+          confirmText="Улучшить"
+          cancelText="Отмена"
+          cost={upgradeCost}
+          balance={userBalance}
+        />
+      )}
+    </>
   );
 };
 
 const ProfileStats = ({ user }: { user: any }) => {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [confirmRestoreEnergy, setConfirmRestoreEnergy] = useState<{ needed: number; cost: number } | null>(null);
+  const [confirmRestoreLives, setConfirmRestoreLives] = useState<{ needed: number; cost: number } | null>(null);
+  const [notification, setNotification] = useState<{ title: string; message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
   useEffect(() => {
     userService.getStats()
@@ -135,14 +284,33 @@ const ProfileStats = ({ user }: { user: any }) => {
         <h3>Короткие нарды</h3>
         <div className="profile-stats__rating">{shortRating?.rating || 1500}</div>
         <div className="profile-stats__record">
-          Побед: {shortRating?.wins || 0} | Поражений: {shortRating?.losses || 0}
+          Побед: {shortRating?.wins || 0} | Поражений: {shortRating?.losses || 0} | Ничьих: {shortRating?.draws || 0}
+        </div>
+        <div className="profile-stats__winrate">
+          Винрейт: {shortRating ? Math.round((shortRating.wins / (shortRating.wins + shortRating.losses || 1)) * 100) : 0}%
         </div>
       </Card>
       <Card>
         <h3>Длинные нарды</h3>
         <div className="profile-stats__rating">{longRating?.rating || 1500}</div>
         <div className="profile-stats__record">
-          Побед: {longRating?.wins || 0} | Поражений: {longRating?.losses || 0}
+          Побед: {longRating?.wins || 0} | Поражений: {longRating?.losses || 0} | Ничьих: {longRating?.draws || 0}
+        </div>
+        <div className="profile-stats__winrate">
+          Винрейт: {longRating ? Math.round((longRating.wins / (longRating.wins + longRating.losses || 1)) * 100) : 0}%
+        </div>
+      </Card>
+      <Card>
+        <h3>Общая статистика</h3>
+        <div className="profile-stats__general">
+          <div className="profile-stats__stat-item">
+            <span className="profile-stats__stat-label">Всего игр:</span>
+            <span className="profile-stats__stat-value">{stats.totalGames || 0}</span>
+          </div>
+          <div className="profile-stats__stat-item">
+            <span className="profile-stats__stat-label">Выполнено квестов:</span>
+            <span className="profile-stats__stat-value">{stats.completedQuests || 0}</span>
+          </div>
         </div>
       </Card>
       <Card>
@@ -155,18 +323,10 @@ const ProfileStats = ({ user }: { user: any }) => {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={async () => {
-                  try {
-                    const needed = user.energyMax - user.energy;
-                    const cost = needed * 10;
-                    if (window.confirm(`Восстановить ${needed} энергии за ${cost} NAR?`)) {
-                      const result = await userService.restoreEnergy();
-                      alert(`Восстановлено ${result.restored} энергии за ${result.cost} NAR`);
-                      window.location.reload();
-                    }
-                  } catch (error: any) {
-                    alert(error.response?.data?.message || 'Ошибка при восстановлении энергии');
-                  }
+                onClick={() => {
+                  const needed = user.energyMax - user.energy;
+                  const cost = needed * 10;
+                  setConfirmRestoreEnergy({ needed, cost });
                 }}
               >
                 Восстановить ({((user.energyMax - user.energy) * 10).toLocaleString()} NAR)
@@ -179,18 +339,10 @@ const ProfileStats = ({ user }: { user: any }) => {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={async () => {
-                  try {
-                    const needed = user.livesMax - user.lives;
-                    const cost = needed * 50;
-                    if (window.confirm(`Восстановить ${needed} жизней за ${cost} NAR?`)) {
-                      const result = await userService.restoreLives();
-                      alert(`Восстановлено ${result.restored} жизней за ${result.cost} NAR`);
-                      window.location.reload();
-                    }
-                  } catch (error: any) {
-                    alert(error.response?.data?.message || 'Ошибка при восстановлении жизней');
-                  }
+                onClick={() => {
+                  const needed = user.livesMax - user.lives;
+                  const cost = needed * 50;
+                  setConfirmRestoreLives({ needed, cost });
                 }}
               >
                 Восстановить ({((user.livesMax - user.lives) * 50).toLocaleString()} NAR)
@@ -203,56 +355,180 @@ const ProfileStats = ({ user }: { user: any }) => {
       <Card>
         <h3>Ветки развития</h3>
         <div className="profile-stats__development">
-          <div className="profile-stats__dev-branch">
-            <span className="profile-stats__dev-label">💰 Экономика:</span>
-            <div className="profile-stats__dev-level">
-              {Array.from({ length: 10 }).map((_, i) => (
-                <span
-                  key={i}
-                  className={`profile-stats__dev-point ${i < (user.statsEconomy || 0) ? 'profile-stats__dev-point--active' : ''}`}
-                />
-              ))}
-            </div>
-            <span className="profile-stats__dev-value">{user.statsEconomy || 0}/10</span>
-          </div>
-          <div className="profile-stats__dev-branch">
-            <span className="profile-stats__dev-label">⚡ Энергия:</span>
-            <div className="profile-stats__dev-level">
-              {Array.from({ length: 10 }).map((_, i) => (
-                <span
-                  key={i}
-                  className={`profile-stats__dev-point ${i < (user.statsEnergy || 0) ? 'profile-stats__dev-point--active' : ''}`}
-                />
-              ))}
-            </div>
-            <span className="profile-stats__dev-value">{user.statsEnergy || 0}/10</span>
-          </div>
-          <div className="profile-stats__dev-branch">
-            <span className="profile-stats__dev-label">❤️ Жизни:</span>
-            <div className="profile-stats__dev-level">
-              {Array.from({ length: 10 }).map((_, i) => (
-                <span
-                  key={i}
-                  className={`profile-stats__dev-point ${i < (user.statsLives || 0) ? 'profile-stats__dev-point--active' : ''}`}
-                />
-              ))}
-            </div>
-            <span className="profile-stats__dev-value">{user.statsLives || 0}/10</span>
-          </div>
-          <div className="profile-stats__dev-branch">
-            <span className="profile-stats__dev-label">💪 Сила:</span>
-            <div className="profile-stats__dev-level">
-              {Array.from({ length: 10 }).map((_, i) => (
-                <span
-                  key={i}
-                  className={`profile-stats__dev-point ${i < (user.statsPower || 0) ? 'profile-stats__dev-point--active' : ''}`}
-                />
-              ))}
-            </div>
-            <span className="profile-stats__dev-value">{user.statsPower || 0}/10</span>
-          </div>
+          <DevelopmentBranch
+            label="💰 Экономика"
+            currentLevel={user.statsEconomy || 0}
+            maxLevel={10}
+            onUpgrade={async () => {
+              try {
+                await userService.upgradeStat('ECONOMY');
+                setNotification({
+                  title: 'Успех',
+                  message: 'Ветка "Экономика" улучшена!',
+                  type: 'success',
+                });
+                window.location.reload();
+              } catch (error: any) {
+                setNotification({
+                  title: 'Ошибка',
+                  message: error.response?.data?.message || 'Ошибка при улучшении ветки',
+                  type: 'error',
+                });
+              }
+            }}
+            upgradeCost={100 * ((user.statsEconomy || 0) + 1)}
+            userBalance={user.narCoin}
+          />
+          <DevelopmentBranch
+            label="⚡ Энергия"
+            currentLevel={user.statsEnergy || 0}
+            maxLevel={10}
+            onUpgrade={async () => {
+              try {
+                await userService.upgradeStat('ENERGY');
+                setNotification({
+                  title: 'Успех',
+                  message: 'Ветка "Энергия" улучшена!',
+                  type: 'success',
+                });
+                window.location.reload();
+              } catch (error: any) {
+                setNotification({
+                  title: 'Ошибка',
+                  message: error.response?.data?.message || 'Ошибка при улучшении ветки',
+                  type: 'error',
+                });
+              }
+            }}
+            upgradeCost={100 * ((user.statsEnergy || 0) + 1)}
+            userBalance={user.narCoin}
+          />
+          <DevelopmentBranch
+            label="❤️ Жизни"
+            currentLevel={user.statsLives || 0}
+            maxLevel={10}
+            onUpgrade={async () => {
+              try {
+                await userService.upgradeStat('LIVES');
+                setNotification({
+                  title: 'Успех',
+                  message: 'Ветка "Жизни" улучшена!',
+                  type: 'success',
+                });
+                window.location.reload();
+              } catch (error: any) {
+                setNotification({
+                  title: 'Ошибка',
+                  message: error.response?.data?.message || 'Ошибка при улучшении ветки',
+                  type: 'error',
+                });
+              }
+            }}
+            upgradeCost={100 * ((user.statsLives || 0) + 1)}
+            userBalance={user.narCoin}
+          />
+          <DevelopmentBranch
+            label="💪 Сила"
+            currentLevel={user.statsPower || 0}
+            maxLevel={10}
+            onUpgrade={async () => {
+              try {
+                await userService.upgradeStat('POWER');
+                setNotification({
+                  title: 'Успех',
+                  message: 'Ветка "Сила" улучшена!',
+                  type: 'success',
+                });
+                window.location.reload();
+              } catch (error: any) {
+                setNotification({
+                  title: 'Ошибка',
+                  message: error.response?.data?.message || 'Ошибка при улучшении ветки',
+                  type: 'error',
+                });
+              }
+            }}
+            upgradeCost={100 * ((user.statsPower || 0) + 1)}
+            userBalance={user.narCoin}
+          />
         </div>
       </Card>
+
+      {confirmRestoreEnergy && (
+        <ConfirmModal
+          isOpen={!!confirmRestoreEnergy}
+          onClose={() => setConfirmRestoreEnergy(null)}
+          onConfirm={async () => {
+            if (!confirmRestoreEnergy) return;
+            try {
+              const result = await userService.restoreEnergy();
+              setConfirmRestoreEnergy(null);
+              setNotification({
+                title: 'Успех',
+                message: `Восстановлено ${result.restored} энергии за ${result.cost} NAR`,
+                type: 'success',
+              });
+              window.location.reload();
+            } catch (error: any) {
+              setNotification({
+                title: 'Ошибка',
+                message: error.response?.data?.message || 'Ошибка при восстановлении энергии',
+                type: 'error',
+              });
+              console.error('Error restoring energy:', error);
+            }
+          }}
+          title="Восстановление энергии"
+          message={`Восстановить ${confirmRestoreEnergy.needed} энергии?`}
+          confirmText="Восстановить"
+          cancelText="Отмена"
+          cost={confirmRestoreEnergy.cost}
+          balance={user.narCoin}
+        />
+      )}
+
+      {confirmRestoreLives && (
+        <ConfirmModal
+          isOpen={!!confirmRestoreLives}
+          onClose={() => setConfirmRestoreLives(null)}
+          onConfirm={async () => {
+            if (!confirmRestoreLives) return;
+            try {
+              const result = await userService.restoreLives();
+              setConfirmRestoreLives(null);
+              setNotification({
+                title: 'Успех',
+                message: `Восстановлено ${result.restored} жизней за ${result.cost} NAR`,
+                type: 'success',
+              });
+              window.location.reload();
+            } catch (error: any) {
+              setNotification({
+                title: 'Ошибка',
+                message: error.response?.data?.message || 'Ошибка при восстановлении жизней',
+                type: 'error',
+              });
+              console.error('Error restoring lives:', error);
+            }
+          }}
+          title="Восстановление жизней"
+          message={`Восстановить ${confirmRestoreLives.needed} жизней?`}
+          confirmText="Восстановить"
+          cancelText="Отмена"
+          cost={confirmRestoreLives.cost}
+          balance={user.narCoin}
+        />
+      )}
+
+      {notification && (
+        <NotificationModal
+          isOpen={!!notification}
+          onClose={() => setNotification(null)}
+          title={notification.title}
+          message={notification.message}
+          type={notification.type}
+        />
+      )}
     </div>
   );
 };
@@ -262,19 +538,47 @@ const ProfileInventory = () => {
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [resources, setResources] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<any>(null);
+  const [notification, setNotification] = useState<{ title: string; message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
   useEffect(() => {
     Promise.all([
       inventoryService.getMyInventory(),
       resourceService.getMyResources(),
+      userService.getProfile(),
     ])
-      .then(([inv, res]) => {
+      .then(([inv, res, userData]) => {
         setInventory(inv);
         setResources(res);
+        setUser(userData);
       })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
+
+  const handleToggleEquip = async (itemId: number) => {
+    try {
+      await inventoryService.toggleEquip(itemId);
+      const [inv, userData] = await Promise.all([
+        inventoryService.getMyInventory(),
+        userService.getProfile(),
+      ]);
+      setInventory(inv);
+      setUser(userData);
+      setNotification({
+        title: 'Успех',
+        message: 'Экипировка изменена',
+        type: 'success',
+      });
+    } catch (error: any) {
+      setNotification({
+        title: 'Ошибка',
+        message: error.response?.data?.message || 'Ошибка при изменении экипировки',
+        type: 'error',
+      });
+      console.error('Error toggling equip:', error);
+    }
+  };
 
   const rarityColors: Record<string, string> = {
     COMMON: '#9e9e9e',
@@ -307,58 +611,136 @@ const ProfileInventory = () => {
     return <div>Загрузка инвентаря...</div>;
   }
 
+  const equippedItems = inventory.filter(item => item.isEquipped);
+  const unequippedItems = inventory.filter(item => !item.isEquipped);
+
   return (
     <div className="profile-inventory">
       <div className="profile-inventory__section">
-        <h3 className="profile-inventory__title">Предметы</h3>
+        <h3 className="profile-inventory__title">Экипированные предметы</h3>
         <div className="profile-inventory__items">
-          {inventory.map((item) => (
-            <Card key={item.id} className="profile-inventory__item">
-              <div className="profile-inventory__item-header">
-                <div className="profile-inventory__item-info">
-                  <span className="profile-inventory__item-name">{item.skin?.name || 'Предмет'}</span>
-                  <span
-                    className="profile-inventory__item-rarity"
-                    style={{ color: rarityColors[item.rarity] }}
-                  >
-                    {rarityLabels[item.rarity]}
+          {equippedItems.length > 0 ? (
+            equippedItems.map((item) => (
+              <Card key={item.id} className="profile-inventory__item">
+                <div className="profile-inventory__item-header">
+                  <div className="profile-inventory__item-info">
+                    <span className="profile-inventory__item-name">{item.skin?.name || 'Предмет'}</span>
+                    <span
+                      className="profile-inventory__item-rarity"
+                      style={{ color: rarityColors[item.rarity] }}
+                    >
+                      {rarityLabels[item.rarity]}
+                    </span>
+                  </div>
+                  <span className="profile-inventory__item-equipped">✓ Надето</span>
+                </div>
+                <div className="profile-inventory__item-durability">
+                  <div className="profile-inventory__durability-bar">
+                    <div
+                      className="profile-inventory__durability-fill"
+                      style={{
+                        width: `${(item.durability / item.durabilityMax) * 100}%`,
+                        backgroundColor:
+                          item.durability / item.durabilityMax > 0.5
+                            ? '#4caf50'
+                            : item.durability / item.durabilityMax > 0.2
+                            ? '#ff9800'
+                            : '#f44336',
+                      }}
+                    />
+                  </div>
+                  <span className="profile-inventory__durability-text">
+                    Прочность: {item.durability}/{item.durabilityMax}
                   </span>
                 </div>
-                {item.isEquipped && <span className="profile-inventory__item-equipped">✓ Надето</span>}
-              </div>
-              <div className="profile-inventory__item-durability">
-                <div className="profile-inventory__durability-bar">
-                  <div
-                    className="profile-inventory__durability-fill"
-                    style={{
-                      width: `${(item.durability / item.durabilityMax) * 100}%`,
-                      backgroundColor:
-                        item.durability / item.durabilityMax > 0.5
-                          ? '#4caf50'
-                          : item.durability / item.durabilityMax > 0.2
-                          ? '#ff9800'
-                          : '#f44336',
-                    }}
-                  />
-                </div>
-                <span className="profile-inventory__durability-text">
-                  Прочность: {item.durability}/{item.durabilityMax}
-                </span>
-              </div>
-              <div className="profile-inventory__item-meta">
-                <span>Вес: {item.weight}</span>
-                {item.durability < item.durabilityMax && (
+                <div className="profile-inventory__item-meta">
+                  <span>Вес: {item.weight} / {user?.powerMax || 0}</span>
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setRepairItem(item)}
+                    onClick={() => handleToggleEquip(item.id)}
                   >
-                    🔧 Ремонт
+                    Снять
                   </Button>
-                )}
-              </div>
-            </Card>
-          ))}
+                  {item.durability < item.durabilityMax && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setRepairItem(item)}
+                    >
+                      🔧 Ремонт
+                    </Button>
+                  )}
+                </div>
+              </Card>
+            ))
+          ) : (
+            <Card>Нет экипированных предметов</Card>
+          )}
+        </div>
+      </div>
+
+      <div className="profile-inventory__section">
+        <h3 className="profile-inventory__title">Инвентарь</h3>
+        <div className="profile-inventory__items">
+          {unequippedItems.length > 0 ? (
+            unequippedItems.map((item) => (
+              <Card key={item.id} className="profile-inventory__item">
+                <div className="profile-inventory__item-header">
+                  <div className="profile-inventory__item-info">
+                    <span className="profile-inventory__item-name">{item.skin?.name || 'Предмет'}</span>
+                    <span
+                      className="profile-inventory__item-rarity"
+                      style={{ color: rarityColors[item.rarity] }}
+                    >
+                      {rarityLabels[item.rarity]}
+                    </span>
+                  </div>
+                </div>
+                <div className="profile-inventory__item-durability">
+                  <div className="profile-inventory__durability-bar">
+                    <div
+                      className="profile-inventory__durability-fill"
+                      style={{
+                        width: `${(item.durability / item.durabilityMax) * 100}%`,
+                        backgroundColor:
+                          item.durability / item.durabilityMax > 0.5
+                            ? '#4caf50'
+                            : item.durability / item.durabilityMax > 0.2
+                            ? '#ff9800'
+                            : '#f44336',
+                      }}
+                    />
+                  </div>
+                  <span className="profile-inventory__durability-text">
+                    Прочность: {item.durability}/{item.durabilityMax}
+                  </span>
+                </div>
+                <div className="profile-inventory__item-meta">
+                  <span>Вес: {item.weight} / {user?.powerMax || 0}</span>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => handleToggleEquip(item.id)}
+                    disabled={!user || item.weight > (user.powerMax - (user.power || 0))}
+                  >
+                    Экипировать
+                  </Button>
+                  {item.durability < item.durabilityMax && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setRepairItem(item)}
+                    >
+                      🔧 Ремонт
+                    </Button>
+                  )}
+                </div>
+              </Card>
+            ))
+          ) : (
+            <Card>Инвентарь пуст</Card>
+          )}
         </div>
       </div>
 
@@ -392,10 +774,36 @@ const ProfileInventory = () => {
           isOpen={!!repairItem}
           onClose={() => setRepairItem(null)}
           item={repairItem}
-          onRepair={(itemId, cost) => {
-            console.log('Repairing item:', itemId, 'cost:', cost);
-            setRepairItem(null);
+          onRepair={async (itemId, cost) => {
+            try {
+              await inventoryService.repair(itemId, 'FULL');
+              setNotification({
+                title: 'Успех',
+                message: `Предмет отремонтирован за ${cost} NAR`,
+                type: 'success',
+              });
+              setRepairItem(null);
+              const inv = await inventoryService.getMyInventory();
+              setInventory(inv);
+            } catch (error: any) {
+              setNotification({
+                title: 'Ошибка',
+                message: error.response?.data?.message || 'Ошибка при ремонте',
+                type: 'error',
+              });
+              console.error('Error repairing item:', error);
+            }
           }}
+        />
+      )}
+
+      {notification && (
+        <NotificationModal
+          isOpen={!!notification}
+          onClose={() => setNotification(null)}
+          title={notification.title}
+          message={notification.message}
+          type={notification.type}
         />
       )}
     </div>
@@ -441,6 +849,15 @@ const ProfileHistory = () => {
             <div className="profile-history__meta">
               {game.duration && (
                 <span>⏱️ {Math.floor(game.duration / 60)}:{(game.duration % 60).toString().padStart(2, '0')}</span>
+              )}
+              {game.betAmount && game.betAmount > 0 && (
+                <span>💰 Ставка: {game.betAmount} NAR</span>
+              )}
+              {game.commission && game.commission > 0 && (
+                <span>📊 Комиссия: {game.commission} NAR</span>
+              )}
+              {game.districtId && (
+                <span>🏙️ Район: {game.districtId}</span>
               )}
               <span>{new Date(game.createdAt).toLocaleDateString('ru-RU')}</span>
             </div>

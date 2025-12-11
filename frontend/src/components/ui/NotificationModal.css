@@ -1,0 +1,33 @@
+.notification-modal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.notification-modal__message {
+  margin: 0;
+  font-size: var(--font-size-md);
+  line-height: 1.5;
+  padding: var(--spacing-md);
+  border-radius: var(--border-radius);
+}
+
+.notification-modal__message--success {
+  color: var(--color-success);
+  background-color: rgba(76, 175, 80, 0.1);
+}
+
+.notification-modal__message--error {
+  color: var(--color-error);
+  background-color: rgba(244, 67, 54, 0.1);
+}
+
+.notification-modal__message--info {
+  color: var(--text-primary);
+  background-color: var(--bg-secondary);
+}
+
+.notification-modal__actions {
+  margin-top: var(--spacing-sm);
+}
+

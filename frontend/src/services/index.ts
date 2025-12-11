@@ -14,4 +14,5 @@ export * from './tournaments.service';
 export * from './quests.service';
 export * from './subscription.service';
 export * from './academy.service';
+export * from './admin.service';
 

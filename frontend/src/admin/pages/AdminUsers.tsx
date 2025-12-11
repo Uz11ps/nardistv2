@@ -1,15 +1,25 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { PageHeader, DataTable, Input } from '../components';
 import { Button, Modal } from '../../components/ui';
-import { adminUsers } from '../mock/adminData';
+import { adminService } from '../../services';
 import type { User } from '../../types';
 import './AdminUsers.css';
 
 export const AdminUsers = () => {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [users, setUsers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
 
-  const filteredUsers = adminUsers.filter(
+  useEffect(() => {
+    adminService.getUsers(page, 50)
+      .then((data) => setUsers(data.users))
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [page]);
+
+  const filteredUsers = users.filter(
     (user) =>
       searchQuery === '' ||
       user.nickname?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -76,21 +86,36 @@ export const AdminUsers = () => {
     },
   ];
 
-  const handleBan = (user: User) => {
-    console.log('Бан пользователя:', user.id);
-    // Здесь будет логика бана
+  const handleBan = async (user: User) => {
+    try {
+      await adminService.banUser(user.id);
+      alert('Пользователь заблокирован');
+      window.location.reload();
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'Ошибка при блокировке');
+    }
   };
 
-  const handleUnban = (user: User) => {
-    console.log('Разбан пользователя:', user.id);
-    // Здесь будет логика разбана
+  const handleUnban = async (user: User) => {
+    try {
+      await adminService.unbanUser(user.id);
+      alert('Пользователь разблокирован');
+      window.location.reload();
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'Ошибка при разблокировке');
+    }
   };
 
-  const handleAddCoins = (user: User) => {
-    const amount = prompt('Введите количество монет:');
-    if (amount) {
-      console.log('Добавление монет:', user.id, amount);
-      // Здесь будет логика добавления монет
+  const handleAddCoins = async (user: User) => {
+    const amount = window.prompt('Введите количество монет:');
+    if (amount && !isNaN(parseInt(amount))) {
+      try {
+        await adminService.addCoins(user.id, parseInt(amount));
+        alert(`Добавлено ${amount} монет пользователю`);
+        window.location.reload();
+      } catch (error: any) {
+        alert(error.response?.data?.message || 'Ошибка при добавлении монет');
+      }
     }
   };
 
@@ -100,7 +125,33 @@ export const AdminUsers = () => {
         title="Пользователи"
         description="Управление пользователями и их данными"
         actions={
-          <Button variant="primary" onClick={() => console.log('Export')}>
+          <Button
+            variant="primary"
+            onClick={() => {
+              const csv = [
+                ['ID', 'Никнейм', 'Имя', 'Уровень', 'Монеты', 'Энергия', 'Жизни', 'Premium'].join(','),
+                ...users.map((u) =>
+                  [
+                    u.id,
+                    u.nickname || '',
+                    u.firstName || '',
+                    u.level,
+                    u.narCoin,
+                    `${u.energy}/${u.energyMax}`,
+                    `${u.lives}/${u.livesMax}`,
+                    u.isPremium ? 'Да' : 'Нет',
+                  ].join(','),
+                ),
+              ].join('\n');
+              const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `users-${new Date().toISOString().split('T')[0]}.csv`;
+              a.click();
+              URL.revokeObjectURL(url);
+            }}
+          >
             📥 Экспорт
           </Button>
         }
@@ -115,12 +166,16 @@ export const AdminUsers = () => {
         />
       </div>
 
-      <DataTable
-        columns={columns}
-        data={filteredUsers}
-        onRowClick={(user) => setSelectedUser(user as User)}
-        emptyMessage="Пользователи не найдены"
-      />
+      {loading ? (
+        <div>Загрузка...</div>
+      ) : (
+        <DataTable
+          columns={columns}
+          data={filteredUsers}
+          onRowClick={(user) => setSelectedUser(user as User)}
+          emptyMessage="Пользователи не найдены"
+        />
+      )}
 
       {selectedUser && (
         <Modal
@@ -192,9 +247,6 @@ export const AdminUsers = () => {
               </Button>
               <Button variant="danger" onClick={() => handleBan(selectedUser)}>
                 🚫 Заблокировать
-              </Button>
-              <Button variant="outline" onClick={() => setSelectedUser(null)}>
-                Закрыть
               </Button>
             </div>
           </div>

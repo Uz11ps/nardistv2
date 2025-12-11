@@ -1,0 +1,49 @@
+.confirm-modal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.confirm-modal__message {
+  margin: 0;
+  font-size: var(--font-size-md);
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+.confirm-modal__cost {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md);
+  background-color: var(--bg-secondary);
+  border-radius: var(--border-radius);
+}
+
+.confirm-modal__cost-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.confirm-modal__cost-label {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.confirm-modal__cost-value {
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.confirm-modal__cost-value--insufficient {
+  color: var(--color-error);
+}
+
+.confirm-modal__actions {
+  display: flex;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-sm);
+}
+

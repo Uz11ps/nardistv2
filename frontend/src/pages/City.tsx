@@ -38,13 +38,6 @@ export const City = () => {
       .finally(() => setLoading(false));
   }, []);
 
-  const calculateIncome = (business: any) => {
-    if (!business.lastCollected) return 0;
-    const hours = (Date.now() - new Date(business.lastCollected).getTime()) / (1000 * 60 * 60);
-    return Math.min(Math.floor(hours * business.incomePerHour), business.incomePerHour * 24);
-  };
-
-  const totalIncome = businesses.reduce((sum, b) => sum + calculateIncome(b), 0);
 
   if (loading) {
     return <div className="city-page">Загрузка...</div>;
@@ -54,11 +47,6 @@ export const City = () => {
     <div className="city-page">
       <div className="city-page__header">
         <h1 className="city-page__title">🏙️ Город Нард</h1>
-        {totalIncome > 0 && (
-          <div className="city-page__total-income">
-            💰 Доступно к сбору: {totalIncome} NAR
-          </div>
-        )}
       </div>
 
       <div className="city-districts">
@@ -92,79 +80,6 @@ export const City = () => {
         </div>
       </div>
 
-      <div className="city-buildings">
-        <h2 className="city-section__title">Ваши предприятия</h2>
-        {businesses.length > 0 ? (
-          <div className="city-buildings__list">
-            {businesses.map((business) => {
-              const district = districts.find((d) => d.id === business.districtId);
-              const income = calculateIncome(business);
-              return (
-                <Card key={business.id} className="city-building">
-                  <div className="city-building__icon">
-                    {district?.icon || '🏢'}
-                  </div>
-                  <div className="city-building__info">
-                    <h3 className="city-building__name">
-                      {district?.name || 'Предприятие'}
-                    </h3>
-                    <div className="city-building__level">Уровень {business.level}</div>
-                    <div className="city-building__income">
-                      💰 {business.incomePerHour} NAR/час
-                    </div>
-                    {income > 0 && (
-                      <div className="city-building__available">
-                        Доступно: {income} NAR
-                      </div>
-                    )}
-                  </div>
-                  <div className="city-building__actions">
-                    {income > 0 && (
-                      <Button 
-                        variant="primary" 
-                        size="sm"
-                        onClick={async () => {
-                          try {
-                            await businessService.collectIncome(business.id);
-                            const updated = await businessService.getMyBusinesses();
-                            setBusinesses(updated);
-                          } catch (error) {
-                            console.error('Error collecting income:', error);
-                          }
-                        }}
-                      >
-                        Собрать
-                      </Button>
-                    )}
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={async () => {
-                        try {
-                          await businessService.upgrade(business.id);
-                          const updated = await businessService.getMyBusinesses();
-                          setBusinesses(updated);
-                        } catch (error) {
-                          console.error('Error upgrading:', error);
-                        }
-                      }}
-                    >
-                      Улучшить
-                    </Button>
-                  </div>
-                </Card>
-              );
-            })}
-          </div>
-        ) : (
-          <Card className="city-buildings__empty">
-            <p>У вас пока нет предприятий</p>
-            <p className="city-buildings__empty-hint">
-              Откройте район, чтобы начать бизнес
-            </p>
-          </Card>
-        )}
-      </div>
     </div>
   );
 };

@@ -22,6 +22,8 @@ import { ClanDetail } from './pages/ClanDetail';
 import { AdminDashboard } from './admin/pages/AdminDashboard';
 import { AdminGames } from './admin/pages/AdminGames';
 import { AdminTournaments } from './admin/pages/AdminTournaments';
+import { AdminQuests } from './admin/pages/AdminQuests';
+import { AdminCity } from './admin/pages/AdminCity';
 import { AdminUsers } from './admin/pages/AdminUsers';
 import { AdminSettings } from './admin/pages/AdminSettings';
 import './App.css';
@@ -174,6 +176,8 @@ function App() {
           <Route index element={<AdminDashboard />} />
           <Route path="games" element={<AdminGames />} />
           <Route path="tournaments" element={<AdminTournaments />} />
+          <Route path="quests" element={<AdminQuests />} />
+          <Route path="city" element={<AdminCity />} />
           <Route path="users" element={<AdminUsers />} />
           <Route path="settings" element={<AdminSettings />} />
         </Route>

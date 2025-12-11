@@ -137,7 +137,7 @@ model TournamentParticipant {
 
 model Quest {
   id          Int      @id @default(autoincrement())
-  type        String   // DAILY, WEEKLY
+  type        String   // DAILY, WEEKLY, EVENT, INFINITE
   title       String
   description String
   target      Int      // Целевое значение
@@ -145,6 +145,13 @@ model Quest {
   rewardXp    Int      @default(0)
   rewardSkin  Int?
   isActive    Boolean  @default(true)
+  // Новые поля для управления датами и длительностью
+  startDate   DateTime? // Дата начала (null = сразу активен)
+  endDate     DateTime? // Дата окончания (null = бесконечный)
+  durationType String?  // EVER, DAY, WEEK, MONTH, CUSTOM
+  isHoliday   Boolean  @default(false) // Приурочен к празднику
+  isInfinite  Boolean  @default(false) // Бесконечный цикл (повторяется)
+  holidayName String?  // Название праздника
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

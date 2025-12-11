@@ -1,13 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { PageHeader, DataTable, Input, Select } from '../components';
 import { Button, Modal, Card } from '../../components/ui';
-import { adminTournaments } from '../mock/adminData';
+import { adminService } from '../../services';
 import type { Tournament } from '../../types';
 import './AdminTournaments.css';
 
 export const AdminTournaments = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedTournament, setSelectedTournament] = useState<Tournament | null>(null);
+  const [tournaments, setTournaments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -16,6 +18,13 @@ export const AdminTournaments = () => {
     startDate: '',
     maxParticipants: '',
   });
+
+  useEffect(() => {
+    adminService.getTournaments()
+      .then(setTournaments)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
 
   const columns = [
     {
@@ -79,20 +88,42 @@ export const AdminTournaments = () => {
     });
   };
 
-  const handleSave = () => {
-    console.log('Создание турнира:', formData);
-    setIsCreateModalOpen(false);
-    // Здесь будет логика сохранения
+  const handleSave = async () => {
+    try {
+      await adminService.createTournament({
+        name: formData.name,
+        description: formData.description || undefined,
+        mode: formData.mode,
+        format: formData.format,
+        startDate: new Date(formData.startDate),
+        maxParticipants: formData.maxParticipants ? parseInt(formData.maxParticipants) : undefined,
+      });
+      alert('Турнир создан!');
+      setIsCreateModalOpen(false);
+      window.location.reload();
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'Ошибка при создании турнира');
+    }
   };
 
-  const handleStart = (tournament: Tournament) => {
-    console.log('Запуск турнира:', tournament.id);
-    // Здесь будет логика запуска
+  const handleStart = async (tournament: Tournament) => {
+    try {
+      await adminService.startTournament(tournament.id);
+      alert('Турнир запущен!');
+      window.location.reload();
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'Ошибка при запуске турнира');
+    }
   };
 
-  const handleFinish = (tournament: Tournament) => {
-    console.log('Завершение турнира:', tournament.id);
-    // Здесь будет логика завершения
+  const handleFinish = async (tournament: Tournament) => {
+    try {
+      await adminService.finishTournament(tournament.id);
+      alert('Турнир завершен!');
+      window.location.reload();
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'Ошибка при завершении турнира');
+    }
   };
 
   return (
@@ -103,29 +134,48 @@ export const AdminTournaments = () => {
         actions={<Button variant="primary" onClick={handleCreate}>➕ Создать турнир</Button>}
       />
 
-      <DataTable
-        columns={columns}
-        data={adminTournaments}
-        onRowClick={(tournament) => setSelectedTournament(tournament as Tournament)}
-        emptyMessage="Турниры не найдены"
-      />
+      {loading ? (
+        <div>Загрузка...</div>
+      ) : (
+        <DataTable
+          columns={columns}
+          data={tournaments}
+          onRowClick={(tournament) => setSelectedTournament(tournament as Tournament)}
+          emptyMessage="Турниры не найдены"
+        />
+      )}
 
       {selectedTournament && (
-        <div className="admin-tournaments__actions">
-          {selectedTournament.status === 'UPCOMING' && (
-            <Button variant="primary" onClick={() => handleStart(selectedTournament)}>
-              ▶️ Запустить турнир
-            </Button>
-          )}
-          {selectedTournament.status === 'IN_PROGRESS' && (
-            <Button variant="danger" onClick={() => handleFinish(selectedTournament)}>
-              🏁 Завершить турнир
-            </Button>
-          )}
-          <Button variant="outline" onClick={() => setSelectedTournament(null)}>
-            Закрыть
-          </Button>
-        </div>
+        <Modal
+          isOpen={!!selectedTournament}
+          onClose={() => setSelectedTournament(null)}
+          title={`Турнир: ${selectedTournament.name}`}
+          size="md"
+        >
+          <div className="tournament-details">
+            <div className="tournament-details__info">
+              <p><strong>Режим:</strong> {selectedTournament.mode === 'SHORT' ? 'Короткие' : 'Длинные'} нарды</p>
+              <p><strong>Формат:</strong> {selectedTournament.format === 'BRACKET' ? 'Брекет' : 'Круговой'}</p>
+              <p><strong>Участников:</strong> {selectedTournament.participants?.length || 0}/{selectedTournament.maxParticipants || '∞'}</p>
+              <p><strong>Дата начала:</strong> {new Date(selectedTournament.startDate).toLocaleString('ru-RU')}</p>
+            </div>
+            <div className="tournament-details__actions">
+              {selectedTournament.status === 'UPCOMING' && (
+                <Button variant="primary" fullWidth onClick={() => handleStart(selectedTournament)}>
+                  ▶️ Запустить турнир
+                </Button>
+              )}
+              {selectedTournament.status === 'IN_PROGRESS' && (
+                <Button variant="danger" fullWidth onClick={() => handleFinish(selectedTournament)}>
+                  🏁 Завершить турнир
+                </Button>
+              )}
+              <Button variant="outline" fullWidth onClick={() => setSelectedTournament(null)}>
+                Закрыть
+              </Button>
+            </div>
+          </div>
+        </Modal>
       )}
 
       <Modal

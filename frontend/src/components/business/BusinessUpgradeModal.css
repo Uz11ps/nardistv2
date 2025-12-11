@@ -84,6 +84,12 @@
   color: var(--color-primary);
 }
 
+.business-upgrade__balance {
+  margin-top: var(--spacing-xs);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
 .business-upgrade__actions {
   display: flex;
   gap: var(--spacing-md);

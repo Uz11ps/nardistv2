@@ -51,5 +51,17 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   async expire(key: string, seconds: number): Promise<void> {
     await this.client.expire(key, seconds);
   }
+
+  async zadd(key: string, score: number, member: string): Promise<void> {
+    await this.client.zadd(key, score, member);
+  }
+
+  async zrem(key: string, member: string): Promise<void> {
+    await this.client.zrem(key, member);
+  }
+
+  async zrange(key: string, start: number, stop: number): Promise<string[]> {
+    return this.client.zrange(key, start, stop);
+  }
 }
 

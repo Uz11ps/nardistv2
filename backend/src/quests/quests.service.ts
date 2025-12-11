@@ -6,8 +6,34 @@ export class QuestsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getActiveQuests(userId: number) {
+    const now = new Date();
+    
     const quests = await this.prisma.quest.findMany({
-      where: { isActive: true },
+      where: {
+        isActive: true,
+        // Фильтруем по датам: квест должен быть активен сейчас
+        OR: [
+          // Квесты без дат (всегда активны)
+          {
+            startDate: null,
+            endDate: null,
+          },
+          // Квесты с датой начала в прошлом или сейчас, и без даты окончания
+          {
+            startDate: { lte: now },
+            endDate: null,
+          },
+          // Квесты в диапазоне дат
+          {
+            startDate: { lte: now },
+            endDate: { gte: now },
+          },
+          // Бесконечные квесты
+          {
+            isInfinite: true,
+          },
+        ],
+      },
       include: {
         progress: {
           where: { userId },
@@ -15,13 +41,19 @@ export class QuestsService {
       },
     });
 
-    return quests.map((quest) => ({
-      ...quest,
-      progress: quest.progress[0] || {
-        progress: 0,
-        completed: false,
-      },
-    }));
+    return quests.map((quest) => {
+      const questProgress = quest.progress && quest.progress.length > 0 
+        ? quest.progress[0] 
+        : {
+            progress: 0,
+            completed: false,
+          };
+      
+      return {
+        ...quest,
+        progress: questProgress,
+      };
+    });
   }
 
   async updateQuestProgress(

@@ -244,5 +244,109 @@ export class GameLogicService {
       turnStartTime: Date.now(),
     };
   }
+
+  /**
+   * Обработка дубля (одинаковые значения на кубиках)
+   */
+  isDouble(dice: DiceRoll): boolean {
+    return dice.die1 === dice.die2;
+  }
+
+  /**
+   * Получить доступные значения кубиков для хода
+   */
+  getAvailableDice(state: GameState): number[] {
+    if (!state.dice) return [];
+
+    const { die1, die2 } = state.dice;
+    const isDouble = this.isDouble(state.dice);
+
+    if (isDouble) {
+      // При дубле можно использовать 4 раза одно значение
+      return [die1, die1, die1, die1];
+    }
+
+    return [die1, die2];
+  }
+
+  /**
+   * Проверка, использованы ли все кубики
+   */
+  areAllDiceUsed(state: GameState, usedDice: number[]): boolean {
+    const available = this.getAvailableDice(state);
+    return usedDice.length >= available.length;
+  }
+
+  /**
+   * Обновление счетчика фишек в доме
+   */
+  updateHomeCount(state: GameState): GameState {
+    const newState = { ...state };
+    newState.home = { white: 0, black: 0 };
+
+    // Считаем фишки белых в доме (позиции 0-5)
+    for (let i = 0; i < 6; i++) {
+      if (state.board[i] < 0) {
+        newState.home.white += Math.abs(state.board[i]);
+      }
+    }
+
+    // Считаем фишки черных в доме (позиции 18-23)
+    for (let i = 18; i < 24; i++) {
+      if (state.board[i] > 0) {
+        newState.home.black += state.board[i];
+      }
+    }
+
+    return newState;
+  }
+
+  /**
+   * Проверка валидности хода с учетом использованных кубиков
+   */
+  isValidMoveWithDice(
+    state: GameState,
+    from: number,
+    to: number,
+    dieValue: number,
+    usedDice: number[],
+  ): boolean {
+    const available = this.getAvailableDice(state);
+    const usedCount = usedDice.filter(d => d === dieValue).length;
+    const availableCount = available.filter(d => d === dieValue).length;
+
+    if (usedCount >= availableCount) {
+      return false; // Кубик уже использован
+    }
+
+    const isValid = state.mode === GameMode.SHORT
+      ? this.isValidMoveShort(state, from, to, dieValue)
+      : this.isValidMoveLong(state, from, to, dieValue);
+
+    return isValid;
+  }
+
+  /**
+   * Выполнение хода с обновлением дома
+   */
+  makeMoveWithHomeUpdate(state: GameState, from: number, to: number, dieValue: number): GameState {
+    let newState = this.makeMove(state, from, to, dieValue);
+    
+    // Если это вывод фишки (bear off)
+    if (to === -2) {
+      const isWhite = state.currentPlayer === PlayerColor.WHITE;
+      const direction = isWhite ? -1 : 1;
+      
+      if (from >= 0 && from < 24 && newState.board[from] * direction < 0) {
+        newState.board[from] += direction;
+        newState.home[isWhite ? 'white' : 'black']++;
+      }
+    }
+
+    // Обновляем счетчик фишек в доме
+    newState = this.updateHomeCount(newState);
+
+    return newState;
+  }
 }
 

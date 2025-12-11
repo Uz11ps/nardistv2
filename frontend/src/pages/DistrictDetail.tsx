@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Card, Button } from '../components/ui';
+import { Card, Button, ConfirmModal, NotificationModal } from '../components/ui';
 import { BusinessUpgradeModal } from '../components/business';
 import { districtService, businessService, clanService, userService } from '../services';
 import { useAuthStore } from '../store/auth.store';
@@ -16,6 +16,9 @@ export const DistrictDetail = () => {
   const [loading, setLoading] = useState(true);
   const [upgradeBusiness, setUpgradeBusiness] = useState<any | null>(null);
   const [userBalance, setUserBalance] = useState(0);
+  const [confirmCreate, setConfirmCreate] = useState<{ type: string; cost: number } | null>(null);
+  const [confirmUpgrade, setConfirmUpgrade] = useState<{ business: any; cost: number } | null>(null);
+  const [notification, setNotification] = useState<{ title: string; message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
   useEffect(() => {
     if (districtId) {
@@ -157,10 +160,25 @@ export const DistrictDetail = () => {
                           onClick={async () => {
                             try {
                               const result = await businessService.collectIncome(business.id);
-                              alert(`Собрано ${result.income} NAR`);
-                              window.location.reload();
+                              setNotification({
+                                title: 'Успех',
+                                message: `Собрано ${result.income} NAR`,
+                                type: 'success',
+                              });
+                              const [districtData, businessesData, userData] = await Promise.all([
+                                districtService.getById(districtId),
+                                businessService.getDistrictBusinesses(districtId),
+                                userService.getProfile(),
+                              ]);
+                              setDistrict(districtData);
+                              setBusinesses(businessesData);
+                              setUserBalance(userData.narCoin || 0);
                             } catch (error: any) {
-                              alert(error.response?.data?.message || 'Ошибка при сборе дохода');
+                              setNotification({
+                                title: 'Ошибка',
+                                message: error.response?.data?.message || 'Ошибка при сборе дохода',
+                                type: 'error',
+                              });
                               console.error('Error collecting income:', error);
                             }
                           }}
@@ -171,15 +189,20 @@ export const DistrictDetail = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={async () => {
-                          try {
-                            await businessService.upgrade(business.id);
-                            alert('Предприятие улучшено!');
-                            window.location.reload();
-                          } catch (error: any) {
-                            alert(error.response?.data?.message || 'Ошибка при улучшении');
-                            console.error('Error upgrading business:', error);
-                          }
+                        onClick={() => {
+                          // Расчет стоимости улучшения по формуле backend: baseCost * level * 2
+                          const businessCreationCosts: Record<string, number> = {
+                            COURT_TABLE: 50,
+                            BOARD_WORKSHOP: 200,
+                            DICE_FACTORY: 300,
+                            CUPS_WORKSHOP: 250,
+                            CLUB: 500,
+                            SCHOOL: 400,
+                            ARENA: 1000,
+                          };
+                          const baseCost = businessCreationCosts[business.type] || 100;
+                          const upgradeCost = baseCost * business.level * 2;
+                          setConfirmUpgrade({ business, cost: upgradeCost });
                         }}
                       >
                         Улучшить
@@ -197,65 +220,58 @@ export const DistrictDetail = () => {
         )}
       </div>
 
-      {userBusinesses.length === 0 && (
-        <Card className="district-detail__create-business">
-          <h3 className="district-detail__section-title">Создать предприятие</h3>
-          <p className="district-detail__create-hint">
-            Начните свой бизнес в этом районе и получайте пассивный доход
-          </p>
-          
-          <div className="district-detail__business-types">
-            {[
-              { type: 'COURT_TABLE', name: 'Дворовый стол', cost: 50, icon: '🏠' },
-              { type: 'BOARD_WORKSHOP', name: 'Мастерская досок', cost: 200, icon: '🔨' },
-              { type: 'DICE_FACTORY', name: 'Фабрика зариков', cost: 300, icon: '🎲' },
-              { type: 'CUPS_WORKSHOP', name: 'Цех стаканов', cost: 250, icon: '🥤' },
-              { type: 'CLUB', name: 'Клуб Нардиста', cost: 500, icon: '🎪' },
-              { type: 'SCHOOL', name: 'Школа Нардиста', cost: 400, icon: '🏫' },
-              { type: 'ARENA', name: 'Турнирная Арена', cost: 1000, icon: '🏟️' },
-            ].map((businessType) => {
-              const canAfford = userBalance >= businessType.cost;
-              return (
-                <Card
-                  key={businessType.type}
-                  className={`district-detail__business-type ${
-                    !canAfford ? 'district-detail__business-type--disabled' : ''
-                  }`}
+      <Card className="district-detail__create-business">
+        <h3 className="district-detail__section-title">Создать предприятие</h3>
+        <p className="district-detail__create-hint">
+          Начните свой бизнес в этом районе и получайте пассивный доход
+        </p>
+        
+        <div className="district-detail__business-types">
+          {[
+            { type: 'COURT_TABLE', name: 'Дворовый стол', cost: 50, icon: '🏠' },
+            { type: 'BOARD_WORKSHOP', name: 'Мастерская досок', cost: 200, icon: '🔨' },
+            { type: 'DICE_FACTORY', name: 'Фабрика зариков', cost: 300, icon: '🎲' },
+            { type: 'CUPS_WORKSHOP', name: 'Цех стаканов', cost: 250, icon: '🥤' },
+            { type: 'CLUB', name: 'Клуб Нардиста', cost: 500, icon: '🎪' },
+            { type: 'SCHOOL', name: 'Школа Нардиста', cost: 400, icon: '🏫' },
+            { type: 'ARENA', name: 'Турнирная Арена', cost: 1000, icon: '🏟️' },
+          ].map((businessType) => {
+            const canAfford = userBalance >= businessType.cost;
+            const alreadyExists = userBusinesses.some((b) => b.type === businessType.type);
+            return (
+              <Card
+                key={businessType.type}
+                className={`district-detail__business-type ${
+                  !canAfford ? 'district-detail__business-type--disabled' : ''
+                } ${alreadyExists ? 'district-detail__business-type--exists' : ''}`}
+              >
+                <div className="district-detail__business-type-icon">
+                  {businessType.icon}
+                </div>
+                <div className="district-detail__business-type-info">
+                  <div className="district-detail__business-type-name">
+                    {businessType.name}
+                    {alreadyExists && <span className="district-detail__business-type-badge">✓ Уже создано</span>}
+                  </div>
+                  <div className="district-detail__business-type-cost">
+                    💰 {businessType.cost.toLocaleString()} NAR
+                  </div>
+                </div>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  disabled={!canAfford || alreadyExists}
+                  onClick={() => {
+                    setConfirmCreate({ type: businessType.type, cost: businessType.cost });
+                  }}
                 >
-                  <div className="district-detail__business-type-icon">
-                    {businessType.icon}
-                  </div>
-                  <div className="district-detail__business-type-info">
-                    <div className="district-detail__business-type-name">
-                      {businessType.name}
-                    </div>
-                    <div className="district-detail__business-type-cost">
-                      💰 {businessType.cost.toLocaleString()} NAR
-                    </div>
-                  </div>
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    disabled={!canAfford}
-                    onClick={async () => {
-                      try {
-                        await businessService.create({ districtId, type: businessType.type });
-                        alert('Предприятие создано!');
-                        window.location.reload();
-                      } catch (error: any) {
-                        alert(error.response?.data?.message || 'Ошибка при создании предприятия');
-                        console.error('Error creating business:', error);
-                      }
-                    }}
-                  >
-                    Создать
-                  </Button>
-                </Card>
-              );
-            })}
-          </div>
-        </Card>
-      )}
+                  {alreadyExists ? 'Уже создано' : 'Создать'}
+                </Button>
+              </Card>
+            );
+          })}
+        </div>
+      </Card>
 
       {upgradeBusiness && (
         <BusinessUpgradeModal
@@ -266,12 +282,118 @@ export const DistrictDetail = () => {
             try {
               await businessService.upgrade(businessId);
               setUpgradeBusiness(null);
-              window.location.reload();
+              setNotification({
+                title: 'Успех',
+                message: 'Предприятие успешно улучшено!',
+                type: 'success',
+              });
+              const [districtData, businessesData, userData] = await Promise.all([
+                districtService.getById(districtId),
+                businessService.getDistrictBusinesses(districtId),
+                userService.getProfile(),
+              ]);
+              setDistrict(districtData);
+              setBusinesses(businessesData);
+              setUserBalance(userData.narCoin || 0);
             } catch (error: any) {
-              alert(error.response?.data?.message || 'Ошибка при улучшении');
+              setNotification({
+                title: 'Ошибка',
+                message: error.response?.data?.message || 'Ошибка при улучшении',
+                type: 'error',
+              });
               console.error('Error upgrading business:', error);
             }
           }}
+        />
+      )}
+
+      {confirmCreate && (
+        <ConfirmModal
+          isOpen={!!confirmCreate}
+          onClose={() => setConfirmCreate(null)}
+          onConfirm={async () => {
+            if (!confirmCreate) return;
+            try {
+              await businessService.create({ districtId, type: confirmCreate.type });
+              setConfirmCreate(null);
+              setNotification({
+                title: 'Успех',
+                message: 'Предприятие успешно создано!',
+                type: 'success',
+              });
+              const [districtData, businessesData, userData] = await Promise.all([
+                districtService.getById(districtId),
+                businessService.getDistrictBusinesses(districtId),
+                userService.getProfile(),
+              ]);
+              setDistrict(districtData);
+              setBusinesses(businessesData);
+              setUserBalance(userData.narCoin || 0);
+            } catch (error: any) {
+              setNotification({
+                title: 'Ошибка',
+                message: error.response?.data?.message || 'Ошибка при создании предприятия',
+                type: 'error',
+              });
+              console.error('Error creating business:', error);
+            }
+          }}
+          title="Создание предприятия"
+          message={`Вы уверены, что хотите создать предприятие "${businessTypeNames[confirmCreate.type] || confirmCreate.type}"?`}
+          confirmText="Создать"
+          cancelText="Отмена"
+          cost={confirmCreate.cost}
+          balance={userBalance}
+        />
+      )}
+
+      {confirmUpgrade && (
+        <ConfirmModal
+          isOpen={!!confirmUpgrade}
+          onClose={() => setConfirmUpgrade(null)}
+          onConfirm={async () => {
+            if (!confirmUpgrade) return;
+            try {
+              await businessService.upgrade(confirmUpgrade.business.id);
+              setConfirmUpgrade(null);
+              setNotification({
+                title: 'Успех',
+                message: 'Предприятие успешно улучшено!',
+                type: 'success',
+              });
+              const [districtData, businessesData, userData] = await Promise.all([
+                districtService.getById(districtId),
+                businessService.getDistrictBusinesses(districtId),
+                userService.getProfile(),
+              ]);
+              setDistrict(districtData);
+              setBusinesses(businessesData);
+              setUserBalance(userData.narCoin || 0);
+            } catch (error: any) {
+              setNotification({
+                title: 'Ошибка',
+                message: error.response?.data?.message || 'Ошибка при улучшении',
+                type: 'error',
+              });
+              console.error('Error upgrading business:', error);
+            }
+          }}
+          title="Улучшение предприятия"
+          message={`Вы уверены, что хотите улучшить предприятие до уровня ${confirmUpgrade.business.level + 1}?`}
+          confirmText="Улучшить"
+          cancelText="Отмена"
+          cost={confirmUpgrade.cost}
+          balance={userBalance}
+        />
+      )}
+
+      {notification && (
+        <NotificationModal
+          isOpen={!!notification}
+          onClose={() => setNotification(null)}
+          title={notification.title}
+          message={notification.message}
+          type={notification.type}
         />
       )}
 

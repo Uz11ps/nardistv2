@@ -1,28 +1,51 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { PageHeader, Input } from '../components';
 import { Button, Card } from '../../components/ui';
-import { adminSettings } from '../mock/adminData';
+import { adminService } from '../../services';
 import './AdminSettings.css';
 
 export const AdminSettings = () => {
-  const [settings, setSettings] = useState(adminSettings);
+  const [settings, setSettings] = useState<any>(null);
   const [hasChanges, setHasChanges] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    adminService.getSettings()
+      .then(setSettings)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
 
   const handleChange = (key: string, value: number) => {
+    if (!settings) return;
     setSettings({ ...settings, [key]: value });
     setHasChanges(true);
   };
 
-  const handleSave = () => {
-    console.log('Сохранение настроек:', settings);
-    setHasChanges(false);
-    // Здесь будет логика сохранения
+  const handleSave = async () => {
+    if (!settings) return;
+    try {
+      await adminService.updateSettings(settings);
+      alert('Настройки сохранены!');
+      setHasChanges(false);
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'Ошибка при сохранении настроек');
+    }
   };
 
-  const handleReset = () => {
-    setSettings(adminSettings);
-    setHasChanges(false);
+  const handleReset = async () => {
+    try {
+      const defaultSettings = await adminService.getSettings();
+      setSettings(defaultSettings);
+      setHasChanges(false);
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'Ошибка при загрузке настроек');
+    }
   };
+
+  if (loading || !settings) {
+    return <div className="admin-settings">Загрузка...</div>;
+  }
 
   return (
     <div className="admin-settings">
@@ -95,43 +118,6 @@ export const AdminSettings = () => {
               value={settings.referralRewardXp}
               onChange={(e) => handleChange('referralRewardXp', parseInt(e.target.value) || 0)}
               helperText="Количество опыта, начисляемого за каждого приглашенного пользователя"
-            />
-          </div>
-        </Card>
-
-        <Card className="admin-settings__section">
-          <h3 className="admin-settings__section-title">✅ Система квестов</h3>
-          <p className="admin-settings__section-description">
-            Награды за выполнение ежедневных и еженедельных заданий
-          </p>
-          <div className="admin-settings__fields">
-            <Input
-              label="Монеты за ежедневный квест"
-              type="number"
-              value={settings.dailyQuestRewardCoin}
-              onChange={(e) => handleChange('dailyQuestRewardCoin', parseInt(e.target.value) || 0)}
-              helperText="Награда в монетах за выполнение ежедневного задания"
-            />
-            <Input
-              label="Опыт за ежедневный квест"
-              type="number"
-              value={settings.dailyQuestRewardXp}
-              onChange={(e) => handleChange('dailyQuestRewardXp', parseInt(e.target.value) || 0)}
-              helperText="Награда в опыте за выполнение ежедневного задания"
-            />
-            <Input
-              label="Монеты за еженедельный квест"
-              type="number"
-              value={settings.weeklyQuestRewardCoin}
-              onChange={(e) => handleChange('weeklyQuestRewardCoin', parseInt(e.target.value) || 0)}
-              helperText="Награда в монетах за выполнение еженедельного задания"
-            />
-            <Input
-              label="Опыт за еженедельный квест"
-              type="number"
-              value={settings.weeklyQuestRewardXp}
-              onChange={(e) => handleChange('weeklyQuestRewardXp', parseInt(e.target.value) || 0)}
-              helperText="Награда в опыте за выполнение еженедельного задания"
             />
           </div>
         </Card>

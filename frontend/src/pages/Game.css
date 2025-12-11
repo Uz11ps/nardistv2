@@ -74,3 +74,42 @@
   color: var(--color-warning);
 }
 
+.game-info {
+  margin-bottom: var(--spacing-md);
+}
+
+.game-info__player {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-sm);
+}
+
+.game-info__status {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.game-search-animation {
+  font-size: 48px;
+  animation: pulse 1.5s ease-in-out infinite;
+  margin: var(--spacing-lg) 0;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.7;
+  }
+}
+
+.game-dice__used {
+  margin-top: var(--spacing-sm);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+

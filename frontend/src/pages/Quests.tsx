@@ -20,7 +20,7 @@ export const Quests = () => {
   const tabs = [
     {
       id: 'daily',
-      label: 'Ежедневные',
+      label: 'Дневные',
       content: <QuestsList quests={dailyQuests} loading={loading} />,
     },
     {

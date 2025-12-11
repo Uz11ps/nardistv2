@@ -10,6 +10,8 @@ const menuItems = [
   { path: '/admin', icon: '📊', label: 'Дашборд' },
   { path: '/admin/games', icon: '🎲', label: 'Игры' },
   { path: '/admin/tournaments', icon: '🏆', label: 'Турниры' },
+  { path: '/admin/quests', icon: '📜', label: 'Квесты' },
+  { path: '/admin/city', icon: '🏙️', label: 'Город' },
   { path: '/admin/users', icon: '👥', label: 'Пользователи' },
   { path: '/admin/settings', icon: '⚙️', label: 'Настройки' },
 ];
