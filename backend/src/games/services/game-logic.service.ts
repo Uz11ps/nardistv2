@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { GameMode, GameState, PlayerColor, DiceRoll, Move } from '../types/game.types';
+import { GameMode, GameState, GameStatus, PlayerColor, DiceRoll, Move } from '../types/game.types';
 
 @Injectable()
 export class GameLogicService {
@@ -11,7 +11,7 @@ export class GameLogicService {
     
     return {
       mode,
-      status: 'WAITING' as const,
+      status: GameStatus.WAITING,
       currentPlayer: PlayerColor.WHITE,
       board,
       bar: {

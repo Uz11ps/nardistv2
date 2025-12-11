@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, Tabs } from '../components/ui';
-import { mockLeaderboard } from '../mock';
+import { ratingsService } from '../services';
 import './Leaderboard.css';
 
 export const Leaderboard = () => {
@@ -28,21 +28,37 @@ export const Leaderboard = () => {
 };
 
 const LeaderboardTable = ({ mode }: { mode: 'SHORT' | 'LONG' }) => {
-  const filtered = mockLeaderboard.filter((r) => r.mode === mode);
+  const [ratings, setRatings] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    ratingsService.getLeaderboard(mode)
+      .then(setRatings)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [mode]);
+
+  if (loading) {
+    return <div className="leaderboard-table">Загрузка...</div>;
+  }
+
+  if (ratings.length === 0) {
+    return <div className="leaderboard-table">Нет данных</div>;
+  }
 
   return (
     <div className="leaderboard-table">
-      {filtered.map((rating, index) => (
+      {ratings.map((rating, index) => (
         <Card key={rating.id} className="leaderboard-item">
           <div className="leaderboard-item__rank">#{index + 1}</div>
           <div className="leaderboard-item__avatar">
             <img
-              src={rating.user?.avatar || 'https://via.placeholder.com/50'}
-              alt={rating.user?.nickname}
+              src={rating.user?.avatar || rating.user?.photoUrl || 'https://via.placeholder.com/50'}
+              alt={rating.user?.nickname || rating.user?.firstName}
             />
           </div>
           <div className="leaderboard-item__info">
-            <div className="leaderboard-item__name">{rating.user?.nickname || 'Игрок'}</div>
+            <div className="leaderboard-item__name">{rating.user?.nickname || rating.user?.firstName || 'Игрок'}</div>
             <div className="leaderboard-item__stats">
               {rating.wins}W / {rating.losses}L
             </div>

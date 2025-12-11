@@ -1,9 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { EconomyService } from '../economy/economy.service';
+import { InventoryService } from '../inventory/inventory.service';
 
 @Injectable()
 export class GameHistoryService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly economyService: EconomyService,
+    private readonly inventoryService: InventoryService,
+  ) {}
 
   async saveGame(data: {
     roomId: string;
@@ -14,9 +20,82 @@ export class GameHistoryService {
     gameState: any;
     moves: any[];
     duration?: number;
+    betAmount?: number;
+    districtId?: number;
   }) {
-    return this.prisma.gameHistory.create({
-      data,
+    const { betAmount, districtId, winnerId, whitePlayerId, blackPlayerId } = data;
+
+    // Обрабатываем экономику игры (если была ставка)
+    let commission = 0;
+    if (betAmount && betAmount > 0 && winnerId) {
+      const economyResult = await this.economyService.processGameEconomy({
+        whitePlayerId,
+        blackPlayerId,
+        winnerId,
+        betAmount,
+        districtId,
+      });
+      commission = economyResult.totalCommission;
+    }
+
+    // Сохраняем игру
+    const gameHistory = await this.prisma.gameHistory.create({
+      data: {
+        roomId: data.roomId,
+        mode: data.mode,
+        whitePlayerId,
+        blackPlayerId,
+        winnerId,
+        gameState: data.gameState,
+        moves: data.moves,
+        duration: data.duration,
+        betAmount,
+        commission,
+        districtId,
+      },
+    });
+
+    // Применяем расход энергии и жизней
+    if (winnerId) {
+      await this.applyGameCosts(whitePlayerId, whitePlayerId === winnerId);
+      await this.applyGameCosts(blackPlayerId, blackPlayerId === winnerId);
+    }
+
+    // Применяем износ предметов
+    if (winnerId) {
+      await this.inventoryService.applyGameWear(whitePlayerId, data.mode);
+      await this.inventoryService.applyGameWear(blackPlayerId, data.mode);
+    }
+
+    return gameHistory;
+  }
+
+  /**
+   * Применить расход энергии и жизней после игры
+   */
+  private async applyGameCosts(userId: number, isWinner: boolean) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      return;
+    }
+
+    // Расход энергии: победа -5, поражение -10
+    const energyCost = isWinner ? 5 : 10;
+    const newEnergy = Math.max(0, user.energy - energyCost);
+
+    // Расход жизней: поражение -1
+    const livesCost = isWinner ? 0 : 1;
+    const newLives = Math.max(0, user.lives - livesCost);
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        energy: newEnergy,
+        lives: newLives,
+      },
     });
   }
 

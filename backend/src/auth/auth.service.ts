@@ -86,6 +86,54 @@ export class AuthService {
     return user;
   }
 
+  async testLogin(telegramId?: string) {
+    // Тестовый вход для разработки - создает/находит пользователя и возвращает токен
+    const tgId = telegramId || '123456789';
+    
+    let user = await this.prisma.user.findUnique({
+      where: { telegramId: tgId },
+    });
+
+    if (!user) {
+      user = await this.prisma.user.create({
+        data: {
+          telegramId: tgId,
+          firstName: 'Test',
+          lastName: 'User',
+          username: 'testuser',
+          languageCode: 'ru',
+          referralCode: this.generateReferralCode(),
+        },
+      });
+    }
+
+    const token = this.jwtService.sign({
+      userId: user.id,
+      telegramId: parseInt(tgId),
+    });
+
+    return {
+      token,
+      user: {
+        id: user.id,
+        telegramId: user.telegramId,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        username: user.username,
+        nickname: user.nickname,
+        level: user.level,
+        xp: user.xp,
+        narCoin: user.narCoin,
+        energy: user.energy,
+        energyMax: user.energyMax,
+        lives: user.lives,
+        livesMax: user.livesMax,
+        power: user.power,
+        powerMax: user.powerMax,
+      },
+    };
+  }
+
   private generateReferralCode(): string {
     return randomBytes(4).toString('hex').toUpperCase();
   }

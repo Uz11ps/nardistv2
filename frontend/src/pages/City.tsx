@@ -1,6 +1,8 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, Button } from '../components/ui';
-import { mockDistricts, mockBusinesses, mockCityBuildings, mockUser } from '../mock';
+import { districtService, businessService } from '../services';
+import { useAuthStore } from '../store/auth.store';
 import './City.css';
 
 const buildingNames: Record<string, string> = {
@@ -18,19 +20,35 @@ const buildingIcons: Record<string, string> = {
 };
 
 export const City = () => {
-  const calculateIncome = (building: typeof mockCityBuildings[0]) => {
-    if (!building.lastCollected) return 0;
-    const hours = (Date.now() - new Date(building.lastCollected).getTime()) / (1000 * 60 * 60);
-    return Math.min(Math.floor(hours * building.incomePerHour), building.incomePerHour * 24);
+  const [districts, setDistricts] = useState<any[]>([]);
+  const [businesses, setBusinesses] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { user } = useAuthStore();
+
+  useEffect(() => {
+    Promise.all([
+      districtService.getAll(),
+      businessService.getMyBusinesses(),
+    ])
+      .then(([dists, bus]) => {
+        setDistricts(dists);
+        setBusinesses(bus);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  const calculateIncome = (business: any) => {
+    if (!business.lastCollected) return 0;
+    const hours = (Date.now() - new Date(business.lastCollected).getTime()) / (1000 * 60 * 60);
+    return Math.min(Math.floor(hours * business.incomePerHour), business.incomePerHour * 24);
   };
 
-  const userBusinesses = mockBusinesses.filter((b) => b.userId === mockUser.id);
-  const totalIncome = userBusinesses.reduce((sum, b) => {
-    const hours = b.lastCollected
-      ? (Date.now() - new Date(b.lastCollected).getTime()) / (1000 * 60 * 60)
-      : 0;
-    return sum + Math.min(Math.floor(hours * b.incomePerHour), b.incomePerHour * 24);
-  }, 0);
+  const totalIncome = businesses.reduce((sum, b) => sum + calculateIncome(b), 0);
+
+  if (loading) {
+    return <div className="city-page">Загрузка...</div>;
+  }
 
   return (
     <div className="city-page">
@@ -46,9 +64,8 @@ export const City = () => {
       <div className="city-districts">
         <h2 className="city-section__title">Районы города</h2>
         <div className="city-districts__grid">
-          {mockDistricts.map((district) => {
-            const districtBusinesses = mockBusinesses.filter((b) => b.districtId === district.id);
-            const userDistrictBusinesses = districtBusinesses.filter((b) => b.userId === mockUser.id);
+          {districts.map((district) => {
+            const userDistrictBusinesses = businesses.filter((b) => b.districtId === district.id);
             return (
               <Link key={district.id} to={`/city/district/${district.id}`}>
                 <Card className="city-district">
@@ -77,19 +94,11 @@ export const City = () => {
 
       <div className="city-buildings">
         <h2 className="city-section__title">Ваши предприятия</h2>
-        {userBusinesses.length > 0 ? (
+        {businesses.length > 0 ? (
           <div className="city-buildings__list">
-            {userBusinesses.map((business) => {
-              const district = mockDistricts.find((d) => d.id === business.districtId);
-              const income = business.lastCollected
-                ? Math.min(
-                    Math.floor(
-                      ((Date.now() - new Date(business.lastCollected).getTime()) / (1000 * 60 * 60)) *
-                        business.incomePerHour,
-                    ),
-                    business.incomePerHour * 24,
-                  )
-                : 0;
+            {businesses.map((business) => {
+              const district = districts.find((d) => d.id === business.districtId);
+              const income = calculateIncome(business);
               return (
                 <Card key={business.id} className="city-building">
                   <div className="city-building__icon">
@@ -111,11 +120,35 @@ export const City = () => {
                   </div>
                   <div className="city-building__actions">
                     {income > 0 && (
-                      <Button variant="primary" size="sm">
+                      <Button 
+                        variant="primary" 
+                        size="sm"
+                        onClick={async () => {
+                          try {
+                            await businessService.collectIncome(business.id);
+                            const updated = await businessService.getMyBusinesses();
+                            setBusinesses(updated);
+                          } catch (error) {
+                            console.error('Error collecting income:', error);
+                          }
+                        }}
+                      >
                         Собрать
                       </Button>
                     )}
-                    <Button variant="outline" size="sm">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={async () => {
+                        try {
+                          await businessService.upgrade(business.id);
+                          const updated = await businessService.getMyBusinesses();
+                          setBusinesses(updated);
+                        } catch (error) {
+                          console.error('Error upgrading:', error);
+                        }
+                      }}
+                    >
                       Улучшить
                     </Button>
                   </div>

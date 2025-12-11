@@ -1,14 +1,43 @@
+import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Card, Button } from '../components/ui';
-import { mockClans, mockDistricts, mockUser } from '../mock';
+import { clanService } from '../services';
+import { useAuthStore } from '../store/auth.store';
 import './ClanDetail.css';
 
 export const ClanDetail = () => {
   const { id } = useParams<{ id: string }>();
   const clanId = parseInt(id || '0');
-  const clan = mockClans.find((c) => c.id === clanId);
-  const isMember = clan?.members.some((m) => m.userId === mockUser.id);
-  const isLeader = clan?.leaderId === mockUser.id;
+  const [clan, setClan] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const { user: authUser } = useAuthStore();
+
+  useEffect(() => {
+    clanService.getById(clanId)
+      .then(setClan)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [clanId]);
+
+  if (loading) {
+    return <div className="clan-detail">Загрузка...</div>;
+  }
+
+  if (!clan) {
+    return (
+      <div className="clan-detail">
+        <Card>
+          <p>Клан не найден</p>
+          <Link to="/clans">
+            <Button variant="outline">Вернуться к кланам</Button>
+          </Link>
+        </Card>
+      </div>
+    );
+  }
+
+  const isMember = clan?.members?.some((m: any) => m.userId === authUser?.id);
+  const isLeader = clan?.leaderId === authUser?.id;
 
   if (!clan) {
     return (
@@ -40,26 +69,26 @@ export const ClanDetail = () => {
           <div className="clan-detail__stat-icon">💰</div>
           <div className="clan-detail__stat-info">
             <div className="clan-detail__stat-label">Казна</div>
-            <div className="clan-detail__stat-value">{clan.treasury.toLocaleString()} NAR</div>
+            <div className="clan-detail__stat-value">{(clan.treasury || 0).toLocaleString()} NAR</div>
           </div>
         </Card>
         <Card className="clan-detail__stat-card">
           <div className="clan-detail__stat-icon">👥</div>
           <div className="clan-detail__stat-info">
             <div className="clan-detail__stat-label">Участников</div>
-            <div className="clan-detail__stat-value">{clan.members.length}</div>
+            <div className="clan-detail__stat-value">{clan.members?.length || 0}</div>
           </div>
         </Card>
         <Card className="clan-detail__stat-card">
           <div className="clan-detail__stat-icon">🏙️</div>
           <div className="clan-detail__stat-info">
             <div className="clan-detail__stat-label">Районов</div>
-            <div className="clan-detail__stat-value">{clan.districts.length}</div>
+            <div className="clan-detail__stat-value">{clan.districts?.length || 0}</div>
           </div>
         </Card>
       </div>
 
-      {clan.districts.length > 0 && (
+      {clan.districts && clan.districts.length > 0 && (
         <Card className="clan-detail__section">
           <h3 className="clan-detail__section-title">Контролируемые районы</h3>
           <div className="clan-detail__districts">
@@ -82,7 +111,7 @@ export const ClanDetail = () => {
       <Card className="clan-detail__section">
         <h3 className="clan-detail__section-title">Участники</h3>
         <div className="clan-detail__members">
-          {clan.members.map((member) => (
+          {clan.members?.map((member: any) => (
             <div key={member.id} className="clan-detail__member">
               <div className="clan-detail__member-info">
                 <div className="clan-detail__member-name">
@@ -99,7 +128,13 @@ export const ClanDetail = () => {
                 </div>
               </div>
               {isLeader && member.role !== 'LEADER' && (
-                <Button variant="outline" size="sm">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    alert('Управление участниками будет реализовано позже');
+                  }}
+                >
                   Действия
                 </Button>
               )}
@@ -114,7 +149,19 @@ export const ClanDetail = () => {
           <p className="clan-detail__join-description">
             Станьте частью этого клана и получите доступ к клановым функциям
           </p>
-          <Button variant="primary" fullWidth>
+          <Button
+            variant="primary"
+            fullWidth
+            onClick={async () => {
+              try {
+                await clanService.join(clanId);
+                alert('Вы успешно присоединились к клану!');
+                window.location.reload();
+              } catch (error: any) {
+                alert(error.response?.data?.message || 'Ошибка при присоединении к клану');
+              }
+            }}
+          >
             Подать заявку
           </Button>
         </Card>
@@ -124,13 +171,31 @@ export const ClanDetail = () => {
         <Card className="clan-detail__management">
           <h3 className="clan-detail__section-title">Управление кланом</h3>
           <div className="clan-detail__management-actions">
-            <Button variant="outline" fullWidth>
+            <Button
+              variant="outline"
+              fullWidth
+              onClick={() => {
+                alert('Управление казной будет реализовано позже');
+              }}
+            >
               💰 Управление казной
             </Button>
-            <Button variant="outline" fullWidth>
+            <Button
+              variant="outline"
+              fullWidth
+              onClick={() => {
+                alert('Управление участниками будет реализовано позже');
+              }}
+            >
               👥 Управление участниками
             </Button>
-            <Button variant="outline" fullWidth>
+            <Button
+              variant="outline"
+              fullWidth
+              onClick={() => {
+                alert('Настройки клана будут реализованы позже');
+              }}
+            >
               ⚙️ Настройки клана
             </Button>
           </div>

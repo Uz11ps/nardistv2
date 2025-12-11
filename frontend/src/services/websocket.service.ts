@@ -7,21 +7,40 @@ class WebSocketService {
   private token: string | null = null;
 
   connect(token: string) {
+    if (!token) {
+      console.error('Cannot connect WebSocket: no token provided');
+      return null;
+    }
+
+    // Отключаем предыдущее соединение, если есть
+    if (this.socket) {
+      this.disconnect();
+    }
+
     this.token = token;
+    
+    console.log('Connecting WebSocket to', `${WS_URL}/game`);
     
     this.socket = io(`${WS_URL}/game`, {
       auth: {
         token,
       },
-      transports: ['websocket'],
+      transports: ['websocket', 'polling'], // Добавляем polling как fallback
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionAttempts: 5,
     });
 
     this.socket.on('connect', () => {
-      console.log('WebSocket connected');
+      console.log('WebSocket connected successfully');
     });
 
-    this.socket.on('disconnect', () => {
-      console.log('WebSocket disconnected');
+    this.socket.on('disconnect', (reason) => {
+      console.log('WebSocket disconnected:', reason);
+    });
+
+    this.socket.on('connect_error', (error) => {
+      console.error('WebSocket connection error:', error);
     });
 
     return this.socket;

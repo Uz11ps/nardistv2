@@ -199,3 +199,48 @@
   font-size: var(--font-size-sm);
 }
 
+.district-detail__business-types {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-md);
+}
+
+.district-detail__business-type {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  transition: all var(--transition-fast);
+}
+
+.district-detail__business-type:hover:not(.district-detail__business-type--disabled) {
+  background-color: var(--bg-secondary);
+}
+
+.district-detail__business-type--disabled {
+  opacity: 0.5;
+}
+
+.district-detail__business-type-icon {
+  font-size: 32px;
+  flex-shrink: 0;
+}
+
+.district-detail__business-type-info {
+  flex: 1;
+}
+
+.district-detail__business-type-name {
+  margin: 0 0 var(--spacing-xs) 0;
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.district-detail__business-type-cost {
+  font-size: var(--font-size-sm);
+  color: var(--color-primary);
+  font-weight: 500;
+}
+

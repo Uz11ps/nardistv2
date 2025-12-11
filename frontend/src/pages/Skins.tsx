@@ -1,22 +1,33 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, Button, Tabs } from '../components/ui';
-import { mockSkins } from '../mock';
+import { inventoryService } from '../services';
 import './Skins.css';
 
 export const Skins = () => {
-  const boardSkins = mockSkins.filter((s) => s.type === 'BOARD');
-  const diceSkins = mockSkins.filter((s) => s.type === 'DICE');
+  const [inventory, setInventory] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    inventoryService.getMyInventory()
+      .then(setInventory)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  // Группируем по типам скинов
+  const boardSkins = inventory.filter((item) => item.skin?.type === 'BOARD');
+  const diceSkins = inventory.filter((item) => item.skin?.type === 'DICE');
 
   const tabs = [
     {
       id: 'board',
       label: 'Доски',
-      content: <SkinsGrid skins={boardSkins} />,
+      content: <SkinsGrid skins={boardSkins} loading={loading} />,
     },
     {
       id: 'dice',
       label: 'Кубики',
-      content: <SkinsGrid skins={diceSkins} />,
+      content: <SkinsGrid skins={diceSkins} loading={loading} />,
     },
   ];
 
@@ -28,30 +39,45 @@ export const Skins = () => {
   );
 };
 
-const SkinsGrid = ({ skins }: { skins: typeof mockSkins }) => {
+const SkinsGrid = ({ skins, loading }: { skins: any[]; loading: boolean }) => {
   const [selectedSkin, setSelectedSkin] = useState<number | null>(null);
+
+  if (loading) {
+    return <div className="skins-grid">Загрузка...</div>;
+  }
+
+  if (skins.length === 0) {
+    return <div className="skins-grid">Нет доступных скинов</div>;
+  }
 
   return (
     <div className="skins-grid">
-      {skins.map((skin) => (
-        <Card key={skin.id} className="skin-card">
+      {skins.map((item) => (
+        <Card key={item.id} className="skin-card">
           <div className="skin-card__preview">
-            <img src={skin.previewUrl} alt={skin.name} />
+            <img src={item.skin?.previewUrl || 'https://via.placeholder.com/200x150'} alt={item.skin?.name} />
           </div>
           <div className="skin-card__info">
-            <h3 className="skin-card__name">{skin.name}</h3>
-            {skin.isDefault ? (
-              <span className="skin-card__badge">По умолчанию</span>
-            ) : (
-              <div className="skin-card__price">💰 {skin.priceCoin} NAR</div>
-            )}
+            <h3 className="skin-card__name">{item.skin?.name || 'Скин'}</h3>
+            {item.isEquipped && <span className="skin-card__badge">Экипирован</span>}
+            <div className="skin-card__durability">
+              Прочность: {item.durability}/{item.durabilityMax}
+            </div>
           </div>
           <Button
-            variant={selectedSkin === skin.id ? 'secondary' : 'outline'}
+            variant={item.isEquipped ? 'secondary' : 'outline'}
             fullWidth
-            onClick={() => setSelectedSkin(skin.id)}
+            onClick={async () => {
+              try {
+                await inventoryService.toggleEquip(item.id);
+                setSelectedSkin(item.id);
+                window.location.reload();
+              } catch (error: any) {
+                alert(error.response?.data?.message || 'Ошибка при экипировке');
+              }
+            }}
           >
-            {selectedSkin === skin.id ? 'Выбрано' : skin.isDefault ? 'Использовать' : 'Купить'}
+            {item.isEquipped ? 'Снять' : 'Экипировать'}
           </Button>
         </Card>
       ))}

@@ -29,6 +29,14 @@ model User {
   energyMax     Int       @default(100)
   lives         Int       @default(3)
   livesMax      Int       @default(3)
+  power         Int       @default(10) // Сила для ношения скинов
+  powerMax       Int       @default(10)
+  // Ветки развития
+  statsEconomy  Int       @default(0) // Ветка Экономика (снижает комиссию)
+  statsEnergy    Int       @default(0) // Ветка Энергия (улучшает реген)
+  statsLives     Int       @default(0) // Ветка Жизни (улучшает реген)
+  statsPower     Int       @default(0) // Ветка Сила (увеличивает лимит)
+  lastEnergyRegen DateTime? // Последняя регенерация энергии/жизней
   referralCode  String    @unique
   referredBy    Int?
   createdAt     DateTime  @default(now())
@@ -36,12 +44,19 @@ model User {
 
   // Relations
   ratings       Rating[]
-  gameHistory   GameHistory[]
+  whiteGames    GameHistory[] @relation("WhiteGames")
+  blackGames    GameHistory[] @relation("BlackGames")
   tournaments   TournamentParticipant[]
   quests        QuestProgress[]
   cityBuildings CityBuilding[]
   subscription  Subscription?
   academyRole   AcademyRole?
+  businesses    Business[]
+  resources     Resource[]
+  inventoryItems InventoryItem[]
+  clanMembers   ClanMember[]
+  marketListings MarketListing[]
+  ownedClans    Clan[] @relation("ClanLeader")
 
   @@map("users")
 }
@@ -73,10 +88,15 @@ model GameHistory {
   gameState   Json     // Полное состояние игры
   moves       Json     // История ходов
   duration    Int?      // Длительность в секундах
+  // Экономика игры
+  betAmount   Int?      // Ставка в NAR (если игра на монеты)
+  commission   Int?      // Комиссия системы
+  districtId   Int?      // Район, где проходила игра
   createdAt   DateTime @default(now())
 
   whitePlayer User     @relation("WhiteGames", fields: [whitePlayerId], references: [id])
   blackPlayer User     @relation("BlackGames", fields: [blackPlayerId], references: [id])
+  district    District? @relation(fields: [districtId], references: [id])
 
   @@map("game_history")
 }
@@ -166,6 +186,19 @@ model CityBuilding {
   @@map("city_buildings")
 }
 
+// Фонды районов (для хранения комиссии)
+model DistrictFund {
+  id          Int      @id @default(autoincrement())
+  districtId  Int      @unique
+  balance     Int      @default(0) // Баланс в NAR
+  lastUpdated DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  district    District @relation(fields: [districtId], references: [id], onDelete: Cascade)
+
+  @@map("district_funds")
+}
+
 model Subscription {
   id          Int      @id @default(autoincrement())
   userId      Int      @unique
@@ -214,13 +247,150 @@ model AcademyArticle {
 model Skin {
   id          Int      @id @default(autoincrement())
   name        String
-  type        String   // BOARD, DICE
+  type        String   // BOARD, DICE, CHECKERS, CUP, FRAME
   previewUrl  String
+  rarity      String   @default("COMMON") // COMMON, RARE, EPIC, LEGENDARY, MYTHIC
+  weight      Int      @default(1) // Вес предмета
+  durabilityMax Int     @default(100) // Максимальная прочность
   isDefault   Boolean  @default(false)
   priceCoin   Int      @default(0)
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
 
+  inventoryItems InventoryItem[]
+  marketListings MarketListing[]
+
   @@map("skins")
+}
+
+// Районы города (7 районов)
+model District {
+  id            Int      @id @default(autoincrement())
+  name          String
+  description   String
+  type          String   // COURTS, CLUBS, WORKSHOPS, FACTORIES, WORKSHOPS_CUPS, SCHOOL, ARENA
+  icon          String
+  clanId        Int?     // Клан, контролирующий район
+  commissionRate Int     @default(5) // Комиссия с игр (5%)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  clan          Clan?    @relation(fields: [clanId], references: [id])
+  businesses    Business[]
+  gameHistory   GameHistory[]
+  fund          DistrictFund?
+
+  @@map("districts")
+}
+
+// Предприятия
+model Business {
+  id              Int      @id @default(autoincrement())
+  userId          Int
+  districtId      Int
+  type            String   // COURT_TABLE, BOARD_WORKSHOP, DICE_FACTORY, CUPS_WORKSHOP, CLUB, SCHOOL, ARENA
+  level           Int      @default(1)
+  incomePerHour   Int      @default(10) // NAR в час
+  productionPerHour Int?   // Ресурсов/предметов в час
+  storageLimit    Int?     // Лимит склада
+  storageCurrent  Int      @default(0) // Текущее количество на складе
+  maintenanceCost Int      @default(0) // Стоимость обслуживания в NAR/час
+  lastCollected   DateTime?
+  lastProduced    DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  district        District @relation(fields: [districtId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, districtId, type])
+  @@map("businesses")
+}
+
+// Кланы
+model Clan {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String?
+  leaderId    Int
+  treasury    Int      @default(0) // NAR в казне
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  leader      User     @relation("ClanLeader", fields: [leaderId], references: [id])
+  members     ClanMember[]
+  districts   District[]
+
+  @@map("clans")
+}
+
+// Участники клана
+model ClanMember {
+  id          Int      @id @default(autoincrement())
+  clanId      Int
+  userId      Int
+  role        String   @default("MEMBER") // LEADER, OFFICER, MEMBER
+  joinedAt    DateTime @default(now())
+
+  clan        Clan     @relation(fields: [clanId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([clanId, userId])
+  @@map("clan_members")
+}
+
+// Ресурсы игрока
+model Resource {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  type        String   // WOOD, STONE, MARBLE, BONE, PLASTIC, METAL, LEATHER, FABRIC
+  amount      Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type])
+  @@map("resources")
+}
+
+// Предметы в инвентаре игрока
+model InventoryItem {
+  id            Int      @id @default(autoincrement())
+  userId        Int
+  skinId        Int
+  rarity        String   @default("COMMON") // COMMON, RARE, EPIC, LEGENDARY, MYTHIC
+  durability    Int      // Текущая прочность
+  durabilityMax Int      // Максимальная прочность
+  weight        Int      // Вес предмета
+  isEquipped    Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skin          Skin     @relation(fields: [skinId], references: [id], onDelete: Cascade)
+
+  @@map("inventory_items")
+}
+
+// Объявления на рынке
+model MarketListing {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  inventoryItemId Int?  // Если продается предмет из инвентаря
+  skinId      Int?      // Если продается новый скин
+  price       Int       // Цена в NAR
+  type        String    // FIXED, AUCTION
+  auctionEnd  DateTime? // Для аукционов
+  currentBid  Int?      // Текущая ставка (для аукционов)
+  bidderId    Int?      // Текущий ставщик
+  status      String    @default("ACTIVE") // ACTIVE, SOLD, CANCELLED, EXPIRED
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skin        Skin?     @relation(fields: [skinId], references: [id], onDelete: Cascade)
+
+  @@map("market_listings")
 }
 

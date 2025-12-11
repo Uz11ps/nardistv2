@@ -14,7 +14,7 @@ export class JwtService {
   sign(payload: { userId: number; telegramId: number }): string {
     return jwt.sign(payload, this.secret, {
       expiresIn: this.expiresIn,
-    });
+    } as jwt.SignOptions);
   }
 
   verify(token: string): { userId: number; telegramId: number } {

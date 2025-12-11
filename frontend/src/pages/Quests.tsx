@@ -1,21 +1,32 @@
+import { useState, useEffect } from 'react';
 import { Card, Button, Tabs } from '../components/ui';
-import { mockQuests } from '../mock';
+import { questsService } from '../services';
 import './Quests.css';
 
 export const Quests = () => {
-  const dailyQuests = mockQuests.filter((q) => q.type === 'DAILY');
-  const weeklyQuests = mockQuests.filter((q) => q.type === 'WEEKLY');
+  const [quests, setQuests] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    questsService.getActive()
+      .then(setQuests)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  const dailyQuests = quests.filter((q) => q.type === 'DAILY');
+  const weeklyQuests = quests.filter((q) => q.type === 'WEEKLY');
 
   const tabs = [
     {
       id: 'daily',
       label: 'Ежедневные',
-      content: <QuestsList quests={dailyQuests} />,
+      content: <QuestsList quests={dailyQuests} loading={loading} />,
     },
     {
       id: 'weekly',
       label: 'Недельные',
-      content: <QuestsList quests={weeklyQuests} />,
+      content: <QuestsList quests={weeklyQuests} loading={loading} />,
     },
   ];
 
@@ -27,7 +38,15 @@ export const Quests = () => {
   );
 };
 
-const QuestsList = ({ quests }: { quests: typeof mockQuests }) => {
+const QuestsList = ({ quests, loading }: { quests: any[]; loading: boolean }) => {
+  if (loading) {
+    return <div className="quests-list">Загрузка...</div>;
+  }
+
+  if (quests.length === 0) {
+    return <div className="quests-list">Нет доступных квестов</div>;
+  }
+
   return (
     <div className="quests-list">
       {quests.map((quest) => (

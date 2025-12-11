@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useTelegram } from './hooks/useTelegram';
 import { useAuthStore } from './store/auth.store';
@@ -29,41 +29,117 @@ import './styles/global.css';
 
 function App() {
   const { initData, webApp } = useTelegram();
-  const { login, isAuthenticated, token } = useAuthStore();
+  const { login, isAuthenticated, token, testLogin } = useAuthStore();
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const loginAttemptedRef = useRef(false);
 
   useEffect(() => {
-    // Для локальной разработки используем мок данные
-    if (initData && !isAuthenticated) {
-      if (initData.includes('mock_init_data')) {
-        // Мок авторизация для локальной разработки
-        useAuthStore.setState({
-          user: {
-            id: 1,
-            telegramId: '123456789',
-            firstName: 'Test',
-            lastName: 'User',
-            username: 'testuser',
-            nickname: 'TestUser',
-            level: 5,
-            xp: 1250,
-            narCoin: 500,
-          },
-          token: 'mock_token',
-          isAuthenticated: true,
-        });
-      } else {
-        login(initData).catch(console.error);
-      }
+    let timeoutId: NodeJS.Timeout;
+    let isMounted = true;
+    
+    console.log('App useEffect triggered', { isAuthenticated, hasToken: !!token, loginAttempted: loginAttemptedRef.current });
+    
+    // Защита от множественных вызовов
+    if (loginAttemptedRef.current) {
+      console.log('Login already attempted, skipping...');
+      return;
     }
-  }, [initData, isAuthenticated, login]);
-
-  useEffect(() => {
-    if (token && isAuthenticated) {
-      wsService.connect(token);
+    
+    // Для локальной разработки всегда используем тестовый вход
+    if (!isAuthenticated || !token) {
+      loginAttemptedRef.current = true;
+      setIsLoading(true);
+      setAuthError(null);
+      
+      // Таймаут на 10 секунд
+      timeoutId = setTimeout(() => {
+        if (isMounted) {
+          const currentAuth = useAuthStore.getState().isAuthenticated;
+          if (!currentAuth) {
+            setAuthError('Превышено время ожидания. Проверьте, что backend запущен на http://localhost:3000');
+            setIsLoading(false);
+          }
+        }
+      }, 10000);
+      
+      // Проверяем, что мы на localhost
+      const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      
+      if (isLocalhost || !initData || initData.includes('mock_init_data')) {
+        // Тестовый вход для локальной разработки
+        console.log('Using test login for localhost');
+        const { testLogin } = useAuthStore.getState();
+        testLogin()
+          .then(() => {
+            console.log('Test login promise resolved');
+            if (isMounted) {
+              setIsLoading(false);
+              clearTimeout(timeoutId);
+            }
+          })
+          .catch((error) => {
+            console.error('Test login failed:', error);
+            if (isMounted) {
+              setAuthError(`Ошибка авторизации: ${error.message || 'Не удалось подключиться к серверу'}. Проверьте, что backend запущен на http://localhost:3000`);
+              setIsLoading(false);
+              clearTimeout(timeoutId);
+            }
+          });
+      } else {
+        // Реальная авторизация через Telegram
+        login(initData)
+          .then(() => {
+            if (isMounted) {
+              setIsLoading(false);
+              clearTimeout(timeoutId);
+            }
+          })
+          .catch((error) => {
+            console.error('Telegram login failed:', error);
+            // Fallback to test login
+            const { testLogin } = useAuthStore.getState();
+            testLogin()
+              .then(() => {
+                if (isMounted) {
+                  setIsLoading(false);
+                  clearTimeout(timeoutId);
+                }
+              })
+              .catch((err) => {
+                if (isMounted) {
+                  setAuthError(`Ошибка авторизации: ${err.message || 'Не удалось подключиться к серверу'}`);
+                  setIsLoading(false);
+                  clearTimeout(timeoutId);
+                }
+              });
+          });
+      }
+    } else {
+      setIsLoading(false);
     }
 
     return () => {
-      wsService.disconnect();
+      isMounted = false;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [initData, isAuthenticated, login]);
+
+  useEffect(() => {
+    // Подключаем WebSocket только после успешной авторизации
+    if (token && isAuthenticated) {
+      console.log('Connecting WebSocket with token');
+      try {
+        wsService.connect(token);
+      } catch (error) {
+        console.error('Failed to connect WebSocket:', error);
+      }
+    }
+
+    return () => {
+      if (token && isAuthenticated) {
+        wsService.disconnect();
+      }
     };
   }, [token, isAuthenticated]);
 
@@ -75,7 +151,20 @@ function App() {
   }, [webApp]);
 
   if (!isAuthenticated) {
-    return <div className="app">Загрузка...</div>;
+    return (
+      <div className="app" style={{ padding: '20px', textAlign: 'center' }}>
+        {isLoading ? (
+          <div>Загрузка...</div>
+        ) : authError ? (
+          <div>
+            <div style={{ color: 'red', marginBottom: '20px' }}>{authError}</div>
+            <button onClick={() => window.location.reload()}>Повторить</button>
+          </div>
+        ) : (
+          <div>Загрузка...</div>
+        )}
+      </div>
+    );
   }
 
   return (

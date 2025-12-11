@@ -7,6 +7,15 @@ export const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 30000, // 30 секунд таймаут
+});
+
+// Для тестового входа не добавляем токен
+const testLoginApi = axios.create({
+  baseURL: API_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
 });
 
 // Добавление токена к запросам
@@ -22,10 +31,24 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    console.error('API Error:', {
+      url: error.config?.url,
+      method: error.config?.method,
+      status: error.response?.status,
+      message: error.message,
+      timeout: error.code === 'ECONNABORTED',
+    });
+    
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
       window.location.reload();
     }
+    
+    // Не перезагружаем страницу при таймауте, просто показываем ошибку
+    if (error.code === 'ECONNABORTED') {
+      console.error('Request timeout - backend may be slow or not responding');
+    }
+    
     return Promise.reject(error);
   },
 );

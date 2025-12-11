@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { RedisService } from '../../redis/redis.service';
-import { GameState, GameMode, PlayerColor } from '../types/game.types';
+import { GameState, GameMode, GameStatus, PlayerColor } from '../types/game.types';
 import { GameLogicService } from './game-logic.service';
 
 @Injectable()
@@ -20,7 +20,7 @@ export class GameRoomService {
   ): Promise<string> {
     const roomId = `game:${Date.now()}:${Math.random().toString(36).substr(2, 9)}`;
     const gameState = this.gameLogic.initializeGame(mode, whitePlayerId, blackPlayerId);
-    gameState.status = 'IN_PROGRESS';
+    gameState.status = GameStatus.IN_PROGRESS;
 
     await this.redis.set(
       `room:${roomId}`,

@@ -112,6 +112,13 @@
   margin-top: var(--spacing-sm);
 }
 
+.profile-stats__resource-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
 .profile-history__item {
   padding: var(--spacing-md);
 }

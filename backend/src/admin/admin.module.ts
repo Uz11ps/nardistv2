@@ -3,9 +3,10 @@ import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { TournamentsModule } from '../tournaments/tournaments.module';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
-  imports: [PrismaModule, TournamentsModule],
+  imports: [PrismaModule, TournamentsModule, AuthModule],
   controllers: [AdminController],
   providers: [AdminService],
   exports: [AdminService],

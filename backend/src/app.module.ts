@@ -14,6 +14,13 @@ import { CityModule } from './city/city.module';
 import { SubscriptionModule } from './subscription/subscription.module';
 import { AcademyModule } from './academy/academy.module';
 import { AdminModule } from './admin/admin.module';
+import { EconomyModule } from './economy/economy.module';
+import { DistrictsModule } from './districts/districts.module';
+import { BusinessesModule } from './businesses/businesses.module';
+import { ClansModule } from './clans/clans.module';
+import { ResourcesModule } from './resources/resources.module';
+import { InventoryModule } from './inventory/inventory.module';
+import { MarketModule } from './market/market.module';
 
 @Module({
   imports: [
@@ -32,6 +39,13 @@ import { AdminModule } from './admin/admin.module';
     SubscriptionModule,
     AcademyModule,
     AdminModule,
+    EconomyModule,
+    DistrictsModule,
+    BusinessesModule,
+    ClansModule,
+    ResourcesModule,
+    InventoryModule,
+    MarketModule,
   ],
   controllers: [],
   providers: [],

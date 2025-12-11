@@ -1,16 +1,57 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, Button } from '../components/ui';
-import { mockClans, mockUser } from '../mock';
+import { clanService } from '../services';
+import { useAuthStore } from '../store/auth.store';
 import './Clans.css';
 
 export const Clans = () => {
-  const userClan = mockClans.find((c) => c.members.some((m) => m.userId === mockUser.id));
+  const [clans, setClans] = useState<any[]>([]);
+  const [userClan, setUserClan] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const { user } = useAuthStore();
+
+  useEffect(() => {
+    Promise.all([
+      clanService.getAll(),
+      clanService.getMyClan(),
+    ])
+      .then(([allClans, myClan]) => {
+        setClans(allClans);
+        setUserClan(myClan);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return <div className="clans-page">Загрузка...</div>;
+  }
 
   return (
     <div className="clans-page">
       <div className="clans-page__header">
         <h1 className="clans-page__title">👥 Кланы</h1>
-        <Button variant="primary">➕ Создать клан</Button>
+        <Button 
+          variant="primary"
+          onClick={async () => {
+            try {
+              const name = window.prompt('Введите название клана:');
+              if (!name || name.trim() === '') {
+                return;
+              }
+              const description = window.prompt('Введите описание клана (необязательно):') || '';
+              await clanService.create({ name: name.trim(), description: description.trim() });
+              alert('Клан создан!');
+              window.location.reload();
+            } catch (error: any) {
+              alert(error.response?.data?.message || 'Ошибка при создании клана');
+              console.error('Error creating clan:', error);
+            }
+          }}
+        >
+          ➕ Создать клан
+        </Button>
       </div>
 
       {userClan && (
@@ -40,7 +81,7 @@ export const Clans = () => {
       <div className="clans-page__section">
         <h2 className="clans-page__section-title">Все кланы</h2>
         <div className="clans-page__list">
-          {mockClans.map((clan) => (
+          {clans.map((clan) => (
             <Link key={clan.id} to={`/clans/${clan.id}`}>
               <Card className="clans-page__clan-card">
                 <div className="clans-page__clan-card-header">
@@ -56,16 +97,16 @@ export const Clans = () => {
                   <div className="clans-page__clan-card-stat">
                     <span className="clans-page__clan-card-stat-icon">💰</span>
                     <span className="clans-page__clan-card-stat-value">
-                      {clan.treasury.toLocaleString()} NAR
+                      {(clan.treasury || 0).toLocaleString()} NAR
                     </span>
                   </div>
                   <div className="clans-page__clan-card-stat">
                     <span className="clans-page__clan-card-stat-icon">👥</span>
-                    <span className="clans-page__clan-card-stat-value">{clan.members.length}</span>
+                    <span className="clans-page__clan-card-stat-value">{clan.members?.length || 0}</span>
                   </div>
                   <div className="clans-page__clan-card-stat">
                     <span className="clans-page__clan-card-stat-icon">🏙️</span>
-                    <span className="clans-page__clan-card-stat-value">{clan.districts.length}</span>
+                    <span className="clans-page__clan-card-stat-value">{clan.districts?.length || 0}</span>
                   </div>
                 </div>
                 <div className="clans-page__clan-card-arrow">→</div>

@@ -1,5 +1,6 @@
+import { useState, useEffect } from 'react';
 import { Card, Button } from '../components/ui';
-import { mockSubscription } from '../mock';
+import { subscriptionService } from '../services';
 import './Subscription.css';
 
 const plans = [
@@ -28,7 +29,21 @@ const plans = [
 ];
 
 export const Subscription = () => {
-  const hasActiveSubscription = mockSubscription !== null;
+  const [subscription, setSubscription] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    subscriptionService.get()
+      .then(setSubscription)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return <div className="subscription-page">Загрузка...</div>;
+  }
+
+  const hasActiveSubscription = subscription !== null && subscription.isActive;
 
   return (
     <div className="subscription-page">
@@ -36,7 +51,7 @@ export const Subscription = () => {
       {hasActiveSubscription ? (
         <Card className="subscription-active">
           <h2>У вас активная подписка!</h2>
-          <p>Действует до: {mockSubscription?.endDate}</p>
+          <p>Действует до: {new Date(subscription.endDate).toLocaleDateString('ru-RU')}</p>
         </Card>
       ) : (
         <>
@@ -58,7 +73,19 @@ export const Subscription = () => {
                     <li key={index}>✓ {feature}</li>
                   ))}
                 </ul>
-                <Button variant={plan.popular ? 'primary' : 'outline'} fullWidth>
+                <Button
+                  variant={plan.popular ? 'primary' : 'outline'}
+                  fullWidth
+                  onClick={async () => {
+                    try {
+                      await subscriptionService.create(plan.id as 'MONTHLY' | 'QUARTERLY' | 'YEARLY');
+                      alert('Подписка успешно оформлена!');
+                      window.location.reload();
+                    } catch (error: any) {
+                      alert(error.response?.data?.message || 'Ошибка при оформлении подписки');
+                    }
+                  }}
+                >
                   Оформить
                 </Button>
               </Card>

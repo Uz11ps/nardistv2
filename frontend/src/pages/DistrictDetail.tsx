@@ -1,18 +1,48 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Card, Button } from '../components/ui';
 import { BusinessUpgradeModal } from '../components/business';
-import { mockDistricts, mockBusinesses, mockClans, mockUser } from '../mock';
+import { districtService, businessService, clanService, userService } from '../services';
+import { useAuthStore } from '../store/auth.store';
 import './DistrictDetail.css';
 
 export const DistrictDetail = () => {
   const { id } = useParams<{ id: string }>();
   const districtId = parseInt(id || '0');
-  const district = mockDistricts.find((d) => d.id === districtId);
-  const districtBusinesses = mockBusinesses.filter((b) => b.districtId === districtId);
-  const userBusinesses = districtBusinesses.filter((b) => b.userId === mockUser.id);
-  const clan = district?.clanId ? mockClans.find((c) => c.id === district.clanId) : null;
-  const [upgradeBusiness, setUpgradeBusiness] = useState<typeof mockBusinesses[0] | null>(null);
+  const { user } = useAuthStore();
+  const [district, setDistrict] = useState<any>(null);
+  const [businesses, setBusinesses] = useState<any[]>([]);
+  const [clan, setClan] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [upgradeBusiness, setUpgradeBusiness] = useState<any | null>(null);
+  const [userBalance, setUserBalance] = useState(0);
+
+  useEffect(() => {
+    if (districtId) {
+      Promise.all([
+        districtService.getById(districtId),
+        businessService.getDistrictBusinesses(districtId),
+        userService.getProfile(),
+      ])
+        .then(([districtData, businessesData, userData]) => {
+          setDistrict(districtData);
+          setBusinesses(businessesData);
+          setUserBalance(userData.narCoin || 0);
+          
+          if (districtData.clanId) {
+            clanService.getById(districtData.clanId)
+              .then(setClan)
+              .catch(console.error);
+          }
+        })
+        .catch(console.error)
+        .finally(() => setLoading(false));
+    }
+  }, [districtId]);
+
+  if (loading) {
+    return <div className="district-detail">Загрузка...</div>;
+  }
 
   if (!district) {
     return (
@@ -27,6 +57,24 @@ export const DistrictDetail = () => {
     );
   }
 
+  const userBusinesses = businesses.filter((b) => b.userId === user?.id);
+  
+  const businessTypeNames: Record<string, string> = {
+    COURT_TABLE: 'Дворовый стол',
+    BOARD_WORKSHOP: 'Мастерская досок',
+    DICE_FACTORY: 'Фабрика зариков',
+    CUPS_WORKSHOP: 'Цех стаканов',
+    CLUB: 'Клуб Нардиста',
+    SCHOOL: 'Школа Нардиста',
+    ARENA: 'Турнирная Арена',
+  };
+
+  const calculateIncome = (business: any) => {
+    if (!business.lastCollected) return 0;
+    const hours = (Date.now() - new Date(business.lastCollected).getTime()) / (1000 * 60 * 60);
+    return Math.min(Math.floor(hours * business.incomePerHour), business.incomePerHour * 24);
+  };
+
   return (
     <div className="district-detail">
       <div className="district-detail__header">
@@ -34,10 +82,10 @@ export const DistrictDetail = () => {
           ← Назад к городу
         </Link>
         <div className="district-detail__title-section">
-          <div className="district-detail__icon">{district.icon}</div>
+          <div className="district-detail__icon">{district.icon || '🏛️'}</div>
           <div>
             <h1 className="district-detail__title">{district.name}</h1>
-            <p className="district-detail__description">{district.description}</p>
+            <p className="district-detail__description">{district.description || ''}</p>
           </div>
         </div>
       </div>
@@ -49,8 +97,8 @@ export const DistrictDetail = () => {
             <div className="district-detail__clan-name">👑 {clan.name}</div>
             {clan.description && <p className="district-detail__clan-description">{clan.description}</p>}
             <div className="district-detail__clan-stats">
-              <span>💰 Казна: {clan.treasury.toLocaleString()} NAR</span>
-              <span>👥 Участников: {clan.members.length}</span>
+              <span>💰 Казна: {(clan.treasury || 0).toLocaleString()} NAR</span>
+              <span>👥 Участников: {clan.members?.length || 0}</span>
             </div>
           </div>
         </Card>
@@ -61,11 +109,11 @@ export const DistrictDetail = () => {
         <div className="district-detail__info-grid">
           <div className="district-detail__info-item">
             <span className="district-detail__info-label">Комиссия с игр:</span>
-            <span className="district-detail__info-value">{district.commissionRate}%</span>
+            <span className="district-detail__info-value">{district.commissionRate || 5}%</span>
           </div>
           <div className="district-detail__info-item">
             <span className="district-detail__info-label">Всего предприятий:</span>
-            <span className="district-detail__info-value">{districtBusinesses.length}</span>
+            <span className="district-detail__info-value">{businesses.length}</span>
           </div>
           <div className="district-detail__info-item">
             <span className="district-detail__info-label">Ваших предприятий:</span>
@@ -76,39 +124,17 @@ export const DistrictDetail = () => {
 
       <div className="district-detail__businesses">
         <h3 className="district-detail__section-title">Предприятия в районе</h3>
-        {districtBusinesses.length > 0 ? (
+        {businesses.length > 0 ? (
           <div className="district-detail__businesses-list">
-            {districtBusinesses.map((business) => {
-              const isOwner = business.userId === mockUser.id;
-              const income = business.lastCollected
-                ? Math.min(
-                    Math.floor(
-                      ((Date.now() - new Date(business.lastCollected).getTime()) / (1000 * 60 * 60)) *
-                        business.incomePerHour,
-                    ),
-                    business.incomePerHour * 24,
-                  )
-                : 0;
+            {businesses.map((business) => {
+              const isOwner = business.userId === user?.id;
+              const income = isOwner ? calculateIncome(business) : 0;
               return (
                 <Card key={business.id} className="district-detail__business">
                   <div className="district-detail__business-header">
                     <div className="district-detail__business-info">
                       <h4 className="district-detail__business-name">
-                        {business.type === 'COURT_TABLE'
-                          ? 'Дворовый стол'
-                          : business.type === 'BOARD_WORKSHOP'
-                          ? 'Мастерская досок'
-                          : business.type === 'DICE_FACTORY'
-                          ? 'Фабрика зариков'
-                          : business.type === 'CUPS_WORKSHOP'
-                          ? 'Цех стаканов'
-                          : business.type === 'CLUB'
-                          ? 'Клуб Нардиста'
-                          : business.type === 'SCHOOL'
-                          ? 'Школа Нардиста'
-                          : business.type === 'ARENA'
-                          ? 'Турнирная Арена'
-                          : 'Предприятие'}
+                        {businessTypeNames[business.type] || 'Предприятие'}
                         {isOwner && <span className="district-detail__business-owner">Ваше</span>}
                       </h4>
                       <div className="district-detail__business-level">Уровень {business.level}</div>
@@ -125,14 +151,36 @@ export const DistrictDetail = () => {
                   {isOwner && (
                     <div className="district-detail__business-actions">
                       {income > 0 && (
-                        <Button variant="primary" size="sm">
+                        <Button 
+                          variant="primary" 
+                          size="sm"
+                          onClick={async () => {
+                            try {
+                              const result = await businessService.collectIncome(business.id);
+                              alert(`Собрано ${result.income} NAR`);
+                              window.location.reload();
+                            } catch (error: any) {
+                              alert(error.response?.data?.message || 'Ошибка при сборе дохода');
+                              console.error('Error collecting income:', error);
+                            }
+                          }}
+                        >
                           Собрать
                         </Button>
                       )}
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => setUpgradeBusiness(business)}
+                        onClick={async () => {
+                          try {
+                            await businessService.upgrade(business.id);
+                            alert('Предприятие улучшено!');
+                            window.location.reload();
+                          } catch (error: any) {
+                            alert(error.response?.data?.message || 'Ошибка при улучшении');
+                            console.error('Error upgrading business:', error);
+                          }
+                        }}
                       >
                         Улучшить
                       </Button>
@@ -155,9 +203,57 @@ export const DistrictDetail = () => {
           <p className="district-detail__create-hint">
             Начните свой бизнес в этом районе и получайте пассивный доход
           </p>
-          <Button variant="primary" fullWidth>
-            🏢 Создать предприятие
-          </Button>
+          
+          <div className="district-detail__business-types">
+            {[
+              { type: 'COURT_TABLE', name: 'Дворовый стол', cost: 50, icon: '🏠' },
+              { type: 'BOARD_WORKSHOP', name: 'Мастерская досок', cost: 200, icon: '🔨' },
+              { type: 'DICE_FACTORY', name: 'Фабрика зариков', cost: 300, icon: '🎲' },
+              { type: 'CUPS_WORKSHOP', name: 'Цех стаканов', cost: 250, icon: '🥤' },
+              { type: 'CLUB', name: 'Клуб Нардиста', cost: 500, icon: '🎪' },
+              { type: 'SCHOOL', name: 'Школа Нардиста', cost: 400, icon: '🏫' },
+              { type: 'ARENA', name: 'Турнирная Арена', cost: 1000, icon: '🏟️' },
+            ].map((businessType) => {
+              const canAfford = userBalance >= businessType.cost;
+              return (
+                <Card
+                  key={businessType.type}
+                  className={`district-detail__business-type ${
+                    !canAfford ? 'district-detail__business-type--disabled' : ''
+                  }`}
+                >
+                  <div className="district-detail__business-type-icon">
+                    {businessType.icon}
+                  </div>
+                  <div className="district-detail__business-type-info">
+                    <div className="district-detail__business-type-name">
+                      {businessType.name}
+                    </div>
+                    <div className="district-detail__business-type-cost">
+                      💰 {businessType.cost.toLocaleString()} NAR
+                    </div>
+                  </div>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    disabled={!canAfford}
+                    onClick={async () => {
+                      try {
+                        await businessService.create({ districtId, type: businessType.type });
+                        alert('Предприятие создано!');
+                        window.location.reload();
+                      } catch (error: any) {
+                        alert(error.response?.data?.message || 'Ошибка при создании предприятия');
+                        console.error('Error creating business:', error);
+                      }
+                    }}
+                  >
+                    Создать
+                  </Button>
+                </Card>
+              );
+            })}
+          </div>
         </Card>
       )}
 
@@ -166,13 +262,19 @@ export const DistrictDetail = () => {
           isOpen={!!upgradeBusiness}
           onClose={() => setUpgradeBusiness(null)}
           business={upgradeBusiness}
-          onUpgrade={(businessId) => {
-            console.log('Upgrading business:', businessId);
-            setUpgradeBusiness(null);
+          onUpgrade={async (businessId) => {
+            try {
+              await businessService.upgrade(businessId);
+              setUpgradeBusiness(null);
+              window.location.reload();
+            } catch (error: any) {
+              alert(error.response?.data?.message || 'Ошибка при улучшении');
+              console.error('Error upgrading business:', error);
+            }
           }}
         />
       )}
+
     </div>
   );
 };
-

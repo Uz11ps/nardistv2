@@ -1,0 +1,5 @@
+@echo off
+cd /d %~dp0backend
+npm run start:dev
+pause
+

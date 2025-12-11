@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, Button, Tabs, Input } from '../components/ui';
-import { mockInventory, mockSkins } from '../mock';
+import { marketService, inventoryService } from '../services';
 import type { InventoryItem } from '../types';
 import './Market.css';
 
@@ -20,46 +20,32 @@ const rarityLabels: Record<string, string> = {
   MYTHIC: 'Мифический',
 };
 
-// Мок-данные для предметов на рынке (от других игроков)
-const mockMarketItems: (InventoryItem & { sellerName: string; price: number })[] = [
-  {
-    id: 10,
-    skinId: 2,
-    userId: 5,
-    rarity: 'RARE',
-    durability: 280,
-    durabilityMax: 300,
-    weight: 8,
-    isEquipped: false,
-    skin: mockSkins[1],
-    sellerName: 'NardTrader',
-    price: 350,
-  },
-  {
-    id: 11,
-    skinId: 3,
-    userId: 6,
-    rarity: 'EPIC',
-    durability: 450,
-    durabilityMax: 500,
-    weight: 12,
-    isEquipped: false,
-    skin: mockSkins[2],
-    sellerName: 'EliteSeller',
-    price: 800,
-  },
-];
-
 export const Market = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterRarity, setFilterRarity] = useState<string>('ALL');
+  const [listings, setListings] = useState<any[]>([]);
+  const [myInventory, setMyInventory] = useState<InventoryItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filteredItems = mockMarketItems.filter((item) => {
+  useEffect(() => {
+    Promise.all([
+      marketService.getListings(),
+      inventoryService.getMyInventory(),
+    ])
+      .then(([list, inv]) => {
+        setListings(list);
+        setMyInventory(inv);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filteredItems = listings.filter((item) => {
     const matchesSearch =
       searchQuery === '' ||
-      item.skin?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.sellerName.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesRarity = filterRarity === 'ALL' || item.rarity === filterRarity;
+      (item.inventoryItem?.skin?.name || item.skin?.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.user?.firstName || '').toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesRarity = filterRarity === 'ALL' || (item.inventoryItem?.rarity || item.skin?.rarity) === filterRarity;
     return matchesSearch && matchesRarity;
   });
 
@@ -67,12 +53,12 @@ export const Market = () => {
     {
       id: 'buy',
       label: 'Купить',
-      content: <MarketBuy items={filteredItems} />,
+      content: <MarketBuy items={filteredItems} loading={loading} />,
     },
     {
       id: 'sell',
       label: 'Продать',
-      content: <MarketSell />,
+      content: <MarketSell inventory={myInventory} loading={loading} />,
     },
   ];
 
@@ -123,57 +109,77 @@ export const Market = () => {
   );
 };
 
-const MarketBuy = ({ items }: { items: typeof mockMarketItems }) => {
-  const handleBuy = (item: typeof mockMarketItems[0]) => {
-    console.log('Buying item:', item.id);
-    // Здесь будет логика покупки
+const MarketBuy = ({ items, loading }: { items: any[]; loading: boolean }) => {
+  const handleBuy = async (listing: any) => {
+    try {
+      await marketService.buy(listing.id);
+      alert('Предмет успешно куплен!');
+      window.location.reload();
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'Ошибка при покупке');
+    }
   };
+
+  if (loading) {
+    return <div className="market-buy">Загрузка...</div>;
+  }
 
   return (
     <div className="market-buy">
       {items.length > 0 ? (
         <div className="market-buy__grid">
-          {items.map((item) => (
-            <Card key={item.id} className="market-item">
-              <div className="market-item__preview">
-                <img src={item.skin?.previewUrl || 'https://via.placeholder.com/200'} alt={item.skin?.name} />
-                <div
-                  className="market-item__rarity-badge"
-                  style={{ backgroundColor: rarityColors[item.rarity] }}
-                >
-                  {rarityLabels[item.rarity]}
-                </div>
-              </div>
-              <div className="market-item__info">
-                <h3 className="market-item__name">{item.skin?.name || 'Предмет'}</h3>
-                <div className="market-item__seller">Продавец: {item.sellerName}</div>
-                <div className="market-item__durability">
-                  Прочность: {item.durability}/{item.durabilityMax}
-                  <div className="market-item__durability-bar">
-                    <div
-                      className="market-item__durability-fill"
-                      style={{
-                        width: `${(item.durability / item.durabilityMax) * 100}%`,
-                        backgroundColor:
-                          item.durability / item.durabilityMax > 0.5
-                            ? '#4caf50'
-                            : item.durability / item.durabilityMax > 0.2
-                            ? '#ff9800'
-                            : '#f44336',
-                      }}
-                    />
+          {items.map((listing) => {
+            const item = listing.inventoryItem || listing;
+            const skin = item.skin || listing.skin;
+            const rarity = item.rarity || skin?.rarity || 'COMMON';
+            const durability = item.durability || 0;
+            const durabilityMax = item.durabilityMax || 100;
+            const weight = item.weight || 0;
+            
+            return (
+              <Card key={listing.id} className="market-item">
+                <div className="market-item__preview">
+                  <img src={skin?.previewUrl || 'https://via.placeholder.com/200'} alt={skin?.name} />
+                  <div
+                    className="market-item__rarity-badge"
+                    style={{ backgroundColor: rarityColors[rarity] }}
+                  >
+                    {rarityLabels[rarity]}
                   </div>
                 </div>
-                <div className="market-item__weight">Вес: {item.weight}</div>
-              </div>
-              <div className="market-item__price">
-                💰 {item.price.toLocaleString()} NAR
-              </div>
-              <Button variant="primary" fullWidth onClick={() => handleBuy(item)}>
-                Купить
-              </Button>
-            </Card>
-          ))}
+                <div className="market-item__info">
+                  <h3 className="market-item__name">{skin?.name || 'Предмет'}</h3>
+                  <div className="market-item__seller">Продавец: {listing.user?.firstName || 'Игрок'}</div>
+                  {durabilityMax > 0 && (
+                    <div className="market-item__durability">
+                      Прочность: {durability}/{durabilityMax}
+                      <div className="market-item__durability-bar">
+                        <div
+                          className="market-item__durability-fill"
+                          style={{
+                            width: `${(durability / durabilityMax) * 100}%`,
+                            backgroundColor:
+                              durability / durabilityMax > 0.5
+                                ? '#4caf50'
+                                : durability / durabilityMax > 0.2
+                                ? '#ff9800'
+                                : '#f44336',
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {weight > 0 && <div className="market-item__weight">Вес: {weight}</div>}
+                </div>
+                <div className="market-item__price">
+                  💰 {listing.price.toLocaleString()} NAR
+                </div>
+                <Button variant="primary" fullWidth onClick={() => handleBuy(listing)}>
+                  Купить
+                </Button>
+              </Card>
+            );
+          })}
         </div>
       ) : (
         <Card className="market-buy__empty">
@@ -184,13 +190,25 @@ const MarketBuy = ({ items }: { items: typeof mockMarketItems }) => {
   );
 };
 
-const MarketSell = () => {
-  const userItems = mockInventory.filter((item) => !item.isEquipped);
+const MarketSell = ({ inventory, loading }: { inventory: InventoryItem[]; loading: boolean }) => {
+  const userItems = inventory.filter((item) => !item.isEquipped);
 
-  const handleSell = (item: InventoryItem, price: number) => {
-    console.log('Selling item:', item.id, 'for', price);
-    // Здесь будет логика продажи
+  const handleSell = async (item: InventoryItem, price: number) => {
+    if (!price || price <= 0) {
+      alert('Укажите цену');
+      return;
+    }
+    try {
+      // TODO: добавить API для создания листинга
+      alert('Функция продажи будет добавлена позже');
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'Ошибка при выставлении на продажу');
+    }
   };
+
+  if (loading) {
+    return <div className="market-sell">Загрузка...</div>;
+  }
 
   return (
     <div className="market-sell">
