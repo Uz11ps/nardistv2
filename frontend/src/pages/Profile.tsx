@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Card, Button, Tabs, ConfirmModal, NotificationModal, Modal, Input } from '../components/ui';
 import { RepairModal } from '../components/inventory';
-import { userService, gameHistoryService, inventoryService, resourceService } from '../services';
+import { userService, gameHistoryService, inventoryService, resourceService, businessService } from '../services';
 import { useAuthStore } from '../store/auth.store';
 import type { InventoryItem } from '../types';
 import './Profile.css';
@@ -55,6 +55,7 @@ export const Profile = () => {
 
   return (
     <div className="profile-page">
+      <Link to="/" className="profile-page__back">←</Link>
       <div className="profile-page__header">
         <div className="profile-page__avatar">
           <img src={user.avatar || user.photoUrl || 'https://via.placeholder.com/100'} alt="Avatar" />
@@ -260,13 +261,21 @@ const DevelopmentBranch = ({
 const ProfileStats = ({ user }: { user: any }) => {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [subscription, setSubscription] = useState<any>(null);
   const [confirmRestoreEnergy, setConfirmRestoreEnergy] = useState<{ needed: number; cost: number } | null>(null);
   const [confirmRestoreLives, setConfirmRestoreLives] = useState<{ needed: number; cost: number } | null>(null);
   const [notification, setNotification] = useState<{ title: string; message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    userService.getStats()
-      .then(setStats)
+    Promise.all([
+      userService.getStats(),
+      import('../services').then(m => m.subscriptionService.get().catch(() => null)),
+    ])
+      .then(([statsData, subData]) => {
+        setStats(statsData);
+        setSubscription(subData);
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
@@ -352,6 +361,46 @@ const ProfileStats = ({ user }: { user: any }) => {
           <div>💪 {user.power}/{user.powerMax} Сила</div>
         </div>
       </Card>
+
+      {/* Премиум функции */}
+      {subscription && subscription.isActive && new Date(subscription.endDate) > new Date() ? (
+        <Card style={{ marginTop: '1rem', backgroundColor: '#1a1a1a', border: '1px solid #ffd700' }}>
+          <h3 style={{ color: '#ffd700', marginBottom: '1rem' }}>⭐ Премиум функции</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <Button
+              variant="outline"
+              fullWidth
+              onClick={() => navigate('/analytics')}
+              style={{ borderColor: '#ffd700', color: '#ffd700' }}
+            >
+              📊 Аналитика партий
+            </Button>
+            <Button
+              variant="outline"
+              fullWidth
+              onClick={() => navigate('/trainer')}
+              style={{ borderColor: '#ffd700', color: '#ffd700' }}
+            >
+              🎯 Тренажер позиций
+            </Button>
+          </div>
+        </Card>
+      ) : (
+        <Card style={{ marginTop: '1rem', backgroundColor: '#1a1a1a', border: '1px solid #666' }}>
+          <h3 style={{ marginBottom: '1rem' }}>🔒 Премиум функции</h3>
+          <p style={{ fontSize: '0.9rem', color: '#999', marginBottom: '1rem' }}>
+            Получите доступ к расширенной аналитике и тренажеру позиций с подпиской
+          </p>
+          <Button
+            variant="primary"
+            fullWidth
+            onClick={() => navigate('/subscription')}
+          >
+            Оформить подписку
+          </Button>
+        </Card>
+      )}
+
       <Card>
         <h3>Ветки развития</h3>
         <div className="profile-stats__development">
@@ -596,6 +645,28 @@ const ProfileInventory = () => {
     MYTHIC: 'Мифический',
   };
 
+  const getVisualState = (durability: number, durabilityMax: number): 'NEW' | 'USED' | 'WORN' | 'BROKEN' => {
+    const percentage = durability / durabilityMax;
+    if (durability <= 0) return 'BROKEN';
+    if (percentage > 0.7) return 'NEW';
+    if (percentage > 0.3) return 'USED';
+    return 'WORN';
+  };
+
+  const visualStateLabels: Record<string, string> = {
+    NEW: '🟢 Новая',
+    USED: '🟡 Поюзанная',
+    WORN: '🟠 Изношенная',
+    BROKEN: '🔴 Сломана',
+  };
+
+  const visualStateColors: Record<string, string> = {
+    NEW: '#4caf50',
+    USED: '#ffc107',
+    WORN: '#ff9800',
+    BROKEN: '#f44336',
+  };
+
   const resourceIcons: Record<string, string> = {
     WOOD: '🪵',
     STONE: '🪨',
@@ -631,6 +702,20 @@ const ProfileInventory = () => {
                     >
                       {rarityLabels[item.rarity]}
                     </span>
+                    {(() => {
+                      const visualState = getVisualState(item.durability, item.durabilityMax);
+                      return (
+                        <span
+                          style={{
+                            fontSize: '0.85rem',
+                            color: visualStateColors[visualState],
+                            marginLeft: '0.5rem',
+                          }}
+                        >
+                          {visualStateLabels[visualState]}
+                        </span>
+                      );
+                    })()}
                   </div>
                   <span className="profile-inventory__item-equipped">✓ Надето</span>
                 </div>
@@ -695,6 +780,20 @@ const ProfileInventory = () => {
                     >
                       {rarityLabels[item.rarity]}
                     </span>
+                    {(() => {
+                      const visualState = getVisualState(item.durability, item.durabilityMax);
+                      return (
+                        <span
+                          style={{
+                            fontSize: '0.85rem',
+                            color: visualStateColors[visualState],
+                            marginLeft: '0.5rem',
+                          }}
+                        >
+                          {visualStateLabels[visualState]}
+                        </span>
+                      );
+                    })()}
                   </div>
                 </div>
                 <div className="profile-inventory__item-durability">
@@ -774,17 +873,30 @@ const ProfileInventory = () => {
           isOpen={!!repairItem}
           onClose={() => setRepairItem(null)}
           item={repairItem}
-          onRepair={async (itemId, cost) => {
+          onRepair={async (itemId, cost, businessId) => {
             try {
-              await inventoryService.repair(itemId, 'FULL');
-              setNotification({
-                title: 'Успех',
-                message: `Предмет отремонтирован за ${cost} NAR`,
-                type: 'success',
-              });
+              if (businessId) {
+                // Ремонт через предприятие
+                const result = await businessService.repairItemAtBusiness(businessId, itemId, 'FULL');
+                setNotification({
+                  title: 'Успех',
+                  message: `Предмет отремонтирован за ${cost} NAR (${result.ownerShare} владельцу, ${result.burnedAmount} сожжено)`,
+                  type: 'success',
+                });
+              } else {
+                // Прямой ремонт
+                await inventoryService.repair(itemId, 'FULL');
+                setNotification({
+                  title: 'Успех',
+                  message: `Предмет отремонтирован за ${cost} NAR`,
+                  type: 'success',
+                });
+              }
               setRepairItem(null);
               const inv = await inventoryService.getMyInventory();
               setInventory(inv);
+              const userData = await userService.getProfile();
+              setUser(userData);
             } catch (error: any) {
               setNotification({
                 title: 'Ошибка',

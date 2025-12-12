@@ -30,5 +30,44 @@ export const tournamentsService = {
     const response = await api.post(`/tournaments/${tournamentId}/join`);
     return response.data;
   },
+
+  async getCurrentOlympiad(): Promise<Tournament | null> {
+    try {
+      const response = await api.get<Tournament>('/tournaments/olympiad/current');
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        return null;
+      }
+      throw error;
+    }
+  },
+
+  async purchaseTournamentPass(tournamentId: number): Promise<{ success: boolean }> {
+    const response = await api.post(`/tournaments/${tournamentId}/pass/purchase`);
+    return response.data;
+  },
+
+  async getTournamentPass(tournamentId: number): Promise<any> {
+    try {
+      const response = await api.get(`/tournaments/${tournamentId}/pass`);
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        return null;
+      }
+      throw error;
+    }
+  },
+
+  async getUserTournamentPasses(): Promise<any[]> {
+    const response = await api.get('/tournaments/passes/my');
+    return response.data;
+  },
+
+  async claimTournamentPassReward(tournamentId: number, rewardType: string): Promise<{ success: boolean }> {
+    const response = await api.post(`/tournaments/${tournamentId}/pass/rewards/${rewardType}/claim`);
+    return response.data;
+  },
 };
 

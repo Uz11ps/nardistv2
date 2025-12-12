@@ -10,7 +10,8 @@ export class SubscriptionController {
 
   @Get()
   async getSubscription(@CurrentUser() user: any) {
-    return this.subscriptionService.checkSubscription(user.id);
+    const subscription = await this.subscriptionService.getSubscription(user.id);
+    return subscription;
   }
 
   @Post()

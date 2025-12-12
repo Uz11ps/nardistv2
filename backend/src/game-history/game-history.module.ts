@@ -5,12 +5,12 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { EconomyModule } from '../economy/economy.module';
 import { InventoryModule } from '../inventory/inventory.module';
 import { AuthModule } from '../auth/auth.module';
+import { SiegesModule } from '../sieges/sieges.module';
 
 @Module({
-  imports: [PrismaModule, EconomyModule, InventoryModule, AuthModule],
+  imports: [PrismaModule, EconomyModule, InventoryModule, AuthModule, SiegesModule],
   controllers: [GameHistoryController],
   providers: [GameHistoryService],
   exports: [GameHistoryService],
 })
 export class GameHistoryModule {}
-

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { Card, Button, Tabs } from '../components/ui';
 import { inventoryService } from '../services';
 import './Skins.css';
@@ -33,6 +34,7 @@ export const Skins = () => {
 
   return (
     <div className="skins-page">
+      <Link to="/" className="skins-page__back">←</Link>
       <h1 className="skins-page__title">🎨 Скины</h1>
       <Tabs tabs={tabs} />
     </div>

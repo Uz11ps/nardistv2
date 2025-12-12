@@ -30,6 +30,10 @@ export class GameLogicService {
         white: whitePlayerId,
         black: blackPlayerId,
       },
+      diceRollsCount: {
+        white: 0,
+        black: 0,
+      },
     };
   }
 

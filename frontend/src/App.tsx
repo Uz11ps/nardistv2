@@ -15,6 +15,8 @@ import { City } from './pages/City';
 import { DistrictDetail } from './pages/DistrictDetail';
 import { Subscription } from './pages/Subscription';
 import { Academy } from './pages/Academy';
+import { Analytics } from './pages/Analytics';
+import { Trainer } from './pages/Trainer';
 import { Skins } from './pages/Skins';
 import { Market } from './pages/Market';
 import { Clans } from './pages/Clans';
@@ -192,6 +194,8 @@ function App() {
           <Route path="city/district/:id" element={<DistrictDetail />} />
           <Route path="subscription" element={<Subscription />} />
           <Route path="academy" element={<Academy />} />
+          <Route path="analytics" element={<Analytics />} />
+          <Route path="trainer" element={<Trainer />} />
           <Route path="skins" element={<Skins />} />
           <Route path="market" element={<Market />} />
           <Route path="clans" element={<Clans />} />

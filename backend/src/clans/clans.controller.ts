@@ -82,5 +82,43 @@ export class ClansController {
       data.recipientId,
     );
   }
+
+  @Get(':id/district-funds')
+  async getDistrictFunds(@Param('id') id: string) {
+    return this.clansService.getDistrictFunds(parseInt(id));
+  }
+
+  @Post(':id/district-funds/:districtId/distribute')
+  async distributeDistrictFund(
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+    @Param('districtId') districtId: string,
+    @Body() data: { amount: number },
+  ) {
+    return this.clansService.distributeDistrictFund(
+      user.id,
+      parseInt(id),
+      parseInt(districtId),
+      data.amount,
+    );
+  }
+
+  @Post(':id/member/:memberId/kick')
+  async kickMember(
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+    @Param('memberId') memberId: string,
+  ) {
+    return this.clansService.kickMember(user.id, parseInt(id), parseInt(memberId));
+  }
+
+  @Post(':id/update')
+  async updateClan(
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+    @Body() data: { name?: string; description?: string },
+  ) {
+    return this.clansService.updateClan(user.id, parseInt(id), data);
+  }
 }
 

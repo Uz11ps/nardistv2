@@ -48,5 +48,9 @@ export interface GameState {
     white: number | null; // userId
     black: number | null;
   };
+  diceRollsCount?: {
+    white: number; // Количество бросков белого игрока
+    black: number; // Количество бросков черного игрока
+  };
 }
 

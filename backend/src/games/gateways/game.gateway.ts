@@ -180,7 +180,14 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     const dice = this.gameLogic.rollDice();
-    const newState = { ...state, dice };
+    // Обновляем счетчик бросков
+    const diceRollsCount = state.diceRollsCount || { white: 0, black: 0 };
+    if (state.currentPlayer === PlayerColor.WHITE) {
+      diceRollsCount.white = (diceRollsCount.white || 0) + 1;
+    } else {
+      diceRollsCount.black = (diceRollsCount.black || 0) + 1;
+    }
+    const newState = { ...state, dice, diceRollsCount };
 
     await this.gameRoom.saveGameState(roomId, newState);
 
@@ -298,10 +305,17 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
    * Обработка хода бота
    */
   private async processBotTurn(roomId: string, state: any) {
-    // Бросаем кубики за бота
-    const dice = this.gameLogic.rollDice();
-    let newState = { ...state, dice };
-    await this.gameRoom.saveGameState(roomId, newState);
+      // Бросаем кубики за бота
+      const dice = this.gameLogic.rollDice();
+      // Обновляем счетчик бросков
+      const diceRollsCount = state.diceRollsCount || { white: 0, black: 0 };
+      if (state.currentPlayer === PlayerColor.WHITE) {
+        diceRollsCount.white = (diceRollsCount.white || 0) + 1;
+      } else {
+        diceRollsCount.black = (diceRollsCount.black || 0) + 1;
+      }
+      let newState = { ...state, dice, diceRollsCount };
+      await this.gameRoom.saveGameState(roomId, newState);
 
     this.server.to(roomId).emit('dice-rolled', {
       dice,

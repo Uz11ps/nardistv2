@@ -25,5 +25,15 @@ export const academyService = {
     const response = await api.get<AcademyArticle>(`/academy/articles/${id}`);
     return response.data;
   },
+
+  async purchaseArticleWithNAR(articleId: number): Promise<{ success: boolean; articleId: number }> {
+    const response = await api.post(`/academy/articles/${articleId}/purchase-nar`);
+    return response.data;
+  },
+
+  async purchaseArticleWithCrypto(articleId: number, paymentData: any): Promise<{ success: boolean; articleId: number; transactionId?: string }> {
+    const response = await api.post(`/academy/articles/${articleId}/purchase-crypto`, paymentData);
+    return response.data;
+  },
 };
 

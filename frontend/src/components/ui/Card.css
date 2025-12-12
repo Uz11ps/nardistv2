@@ -2,13 +2,13 @@
   background-color: var(--bg-card);
   border-radius: var(--border-radius);
   padding: var(--spacing-md);
-  box-shadow: var(--shadow-sm);
-  transition: all var(--transition-normal);
+  transition: background var(--transition-fast);
+  border: 1px solid var(--border-color);
 }
 
 .card--hover:hover {
-  box-shadow: var(--shadow-md);
-  transform: translateY(-2px);
+  background-color: var(--bg-card-hover);
+  border-color: var(--border-color-light);
 }
 
 .card--clickable {

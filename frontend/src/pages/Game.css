@@ -1,7 +1,28 @@
 .game-page {
   padding: var(--spacing-md);
-  max-width: 600px;
+  min-height: 100vh;
+  position: relative;
+  max-width: 480px;
   margin: 0 auto;
+}
+
+.game-page__back {
+  position: absolute;
+  top: var(--spacing-md);
+  left: var(--spacing-md);
+  font-size: var(--font-size-xl);
+  color: var(--text-primary);
+  text-decoration: none;
+  font-weight: 700;
+  z-index: 10;
+}
+
+.game-page__title {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  margin: 0 0 var(--spacing-md) 0;
+  text-align: center;
+  color: var(--text-primary);
 }
 
 .game-content {
@@ -10,7 +31,9 @@
 
 .game-menu__card {
   text-align: center;
-  padding: var(--spacing-xl);
+  padding: var(--spacing-lg);
+  background: linear-gradient(135deg, rgba(220, 38, 38, 0.1) 0%, rgba(220, 38, 38, 0.05) 100%);
+  border: 1px solid rgba(220, 38, 38, 0.3);
 }
 
 .game-menu__card h2 {
@@ -64,7 +87,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: var(--font-size-2xl);
+  font-size: var(--font-size-xl);
   font-weight: 700;
 }
 

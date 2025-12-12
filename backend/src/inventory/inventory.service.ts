@@ -147,8 +147,11 @@ export class InventoryService {
 
   /**
    * Применить износ к надетым предметам после игры
+   * @param userId - ID игрока
+   * @param gameMode - Режим игры
+   * @param diceRollsCount - Количество бросков кубиков (для износа зариков)
    */
-  async applyGameWear(userId: number, gameMode: string) {
+  async applyGameWear(userId: number, gameMode: string, diceRollsCount?: number) {
     const equippedItems = await this.prisma.inventoryItem.findMany({
       where: {
         userId,
@@ -157,23 +160,42 @@ export class InventoryService {
       include: { skin: true },
     });
 
-    const wearAmounts: Record<string, number> = {
-      BOARD: 1, // Доска изнашивается на 1 за игру
-      DICE: 2, // Зарики изнашиваются на 2 за игру
-      CHECKERS: 0.5, // Фишки медленнее
-      CUP: 0.3, // Стакан еще медленнее
-      FRAME: 0.1, // Рамка почти не изнашивается
-    };
-
     const updates = [];
     for (const item of equippedItems) {
-      const wearAmount = wearAmounts[item.skin.type] || 0;
+      let wearAmount = 0;
+
+      if (item.skin.type === 'DICE') {
+        // Зарики изнашиваются по количеству бросков
+        // 1 бросок = 0.1 износа (1000 бросков = 100 износа)
+        if (diceRollsCount && diceRollsCount > 0) {
+          wearAmount = diceRollsCount * 0.1;
+        } else {
+          // Fallback: если не указано количество бросков, используем старую логику
+          wearAmount = 2;
+        }
+      } else {
+        // Остальные предметы изнашиваются по играм
+        const wearAmounts: Record<string, number> = {
+          BOARD: 1, // Доска изнашивается на 1 за игру
+          CHECKERS: 0.5, // Фишки медленнее
+          CUP: 0.3, // Стакан еще медленнее
+          FRAME: 0.1, // Рамка почти не изнашивается
+        };
+        wearAmount = wearAmounts[item.skin.type] || 0;
+      }
+
       if (wearAmount > 0) {
         const newDurability = Math.max(0, item.durability - wearAmount);
+        // Определяем визуальное состояние на основе прочности
+        const visualState = this.getVisualState(newDurability, item.durabilityMax);
+        
         updates.push(
           this.prisma.inventoryItem.update({
             where: { id: item.id },
-            data: { durability: newDurability },
+            data: { 
+              durability: newDurability,
+              // Обновляем previewUrl если нужно (можно добавить поле visualStateUrl в схему)
+            },
           }),
         );
       }
@@ -182,6 +204,48 @@ export class InventoryService {
     await Promise.all(updates);
 
     return { itemsWorn: equippedItems.length };
+  }
+
+  /**
+   * Получить визуальное состояние предмета на основе прочности
+   * @param durability - Текущая прочность
+   * @param durabilityMax - Максимальная прочность
+   * @returns Состояние: 'NEW' | 'USED' | 'WORN' | 'BROKEN'
+   */
+  getVisualState(durability: number, durabilityMax: number): 'NEW' | 'USED' | 'WORN' | 'BROKEN' {
+    const percentage = durability / durabilityMax;
+    
+    if (durability <= 0) {
+      return 'BROKEN';
+    } else if (percentage > 0.7) {
+      return 'NEW'; // Новая (70-100%)
+    } else if (percentage > 0.3) {
+      return 'USED'; // Поюзанная (30-70%)
+    } else {
+      return 'WORN'; // Изношенная (0-30%)
+    }
+  }
+
+  /**
+   * Получить информацию о визуальном состоянии предмета
+   */
+  async getItemVisualInfo(itemId: number) {
+    const item = await this.prisma.inventoryItem.findUnique({
+      where: { id: itemId },
+      include: { skin: true },
+    });
+
+    if (!item) {
+      throw new Error('Item not found');
+    }
+
+    const visualState = this.getVisualState(item.durability, item.durabilityMax);
+    
+    return {
+      item,
+      visualState,
+      durabilityPercentage: (item.durability / item.durabilityMax) * 100,
+    };
   }
 
   /**

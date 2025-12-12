@@ -72,5 +72,105 @@ export class BusinessesController {
       data.amount,
     );
   }
+
+  @Get(':id/craft-recipes')
+  async getCraftRecipes(@Param('id') id: string) {
+    return this.businessesService.getCraftRecipes(parseInt(id));
+  }
+
+  @Post(':id/craft')
+  async craftSkin(
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+    @Body() data: { skinId: number },
+  ) {
+    return this.businessesService.craftSkin(user.id, parseInt(id), data.skinId);
+  }
+
+  @Get('repair/:itemType')
+  async getRepairBusinesses(
+    @Param('itemType') itemType: string,
+    @Body() data?: { districtId?: number },
+  ) {
+    return this.businessesService.getRepairBusinesses(itemType, data?.districtId);
+  }
+
+  @Post(':id/repair')
+  async repairItemAtBusiness(
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+    @Body() data: { itemId: number; repairType: 'PARTIAL' | 'FULL' },
+  ) {
+    return this.businessesService.repairItemAtBusiness(
+      user.id,
+      parseInt(id),
+      data.itemId,
+      data.repairType,
+    );
+  }
+
+  @Get('jobs')
+  async getAvailableJobs(@Body() data?: { districtId?: number }) {
+    return this.businessesService.getAvailableJobs(data?.districtId);
+  }
+
+  @Post(':id/work')
+  async workAtBusiness(
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+    @Body() data: { hours?: number },
+  ) {
+    return this.businessesService.workAtBusiness(user.id, parseInt(id), data.hours || 1);
+  }
+
+  @Post(':id/job-postings')
+  async createJobPosting(
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+    @Body() data: {
+      title: string;
+      description?: string;
+      salaryPerHour: number;
+      energyPerHour?: number;
+      maxWorkers?: number;
+    },
+  ) {
+    return this.businessesService.createJobPosting(parseInt(id), user.id, data);
+  }
+
+  @Get(':id/job-postings')
+  async getBusinessJobPostings(@Param('id') id: string) {
+    return this.businessesService.getBusinessJobPostings(parseInt(id));
+  }
+
+  @Get('district/:districtId/job-postings')
+  async getDistrictJobPostings(@Param('districtId') districtId: string) {
+    return this.businessesService.getDistrictJobPostings(parseInt(districtId));
+  }
+
+  @Post('job-postings/:jobId/apply')
+  async applyForJob(
+    @CurrentUser() user: any,
+    @Param('jobId') jobId: string,
+  ) {
+    return this.businessesService.applyForJob(parseInt(jobId), user.id);
+  }
+
+  @Post('job-postings/:jobId/work')
+  async workAtJob(
+    @CurrentUser() user: any,
+    @Param('jobId') jobId: string,
+    @Body() data: { hours?: number },
+  ) {
+    return this.businessesService.workAtJob(parseInt(jobId), user.id, data.hours || 1);
+  }
+
+  @Post('job-postings/:jobId/delete')
+  async deleteJobPosting(
+    @CurrentUser() user: any,
+    @Param('jobId') jobId: string,
+  ) {
+    return this.businessesService.deleteJobPosting(parseInt(jobId), user.id);
+  }
 }
 

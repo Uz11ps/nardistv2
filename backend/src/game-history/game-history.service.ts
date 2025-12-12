@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { EconomyService } from '../economy/economy.service';
 import { InventoryService } from '../inventory/inventory.service';
+import { SiegesService } from '../sieges/sieges.service';
 
 @Injectable()
 export class GameHistoryService {
@@ -9,6 +10,7 @@ export class GameHistoryService {
     private readonly prisma: PrismaService,
     private readonly economyService: EconomyService,
     private readonly inventoryService: InventoryService,
+    private readonly siegesService: SiegesService,
   ) {}
 
   async saveGame(data: {
@@ -63,8 +65,36 @@ export class GameHistoryService {
 
     // Применяем износ предметов
     if (winnerId) {
-      await this.inventoryService.applyGameWear(whitePlayerId, data.mode);
-      await this.inventoryService.applyGameWear(blackPlayerId, data.mode);
+      const gameState = data.gameState as any;
+      const diceRollsCount = gameState.diceRollsCount || { white: 0, black: 0 };
+      
+      await this.inventoryService.applyGameWear(whitePlayerId, data.mode, diceRollsCount.white);
+      await this.inventoryService.applyGameWear(blackPlayerId, data.mode, diceRollsCount.black);
+    }
+
+    // Если игра проходила в районе с активной осадой, регистрируем результат
+    if (districtId && winnerId) {
+      try {
+        const activeSiege = await this.prisma.siege.findFirst({
+          where: {
+            districtId,
+            status: 'ACTIVE',
+          },
+        });
+
+        if (activeSiege) {
+          await this.siegesService.recordSiegeGame(
+            activeSiege.id,
+            whitePlayerId,
+            blackPlayerId,
+            winnerId,
+            gameHistory.id,
+          );
+        }
+      } catch (error) {
+        // Игнорируем ошибки при регистрации осады (не критично)
+        console.error('Error recording siege game:', error);
+      }
     }
 
     return gameHistory;

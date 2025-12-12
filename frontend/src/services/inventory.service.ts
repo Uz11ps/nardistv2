@@ -32,5 +32,10 @@ export const inventoryService = {
     const response = await api.post<InventoryItem>(`/inventory/${itemId}/repair`, { repairType });
     return response.data;
   },
+
+  async getItemVisualInfo(itemId: number): Promise<{ item: InventoryItem; visualState: 'NEW' | 'USED' | 'WORN' | 'BROKEN'; durabilityPercentage: number }> {
+    const response = await api.get(`/inventory/${itemId}/visual-info`);
+    return response.data;
+  },
 };
 

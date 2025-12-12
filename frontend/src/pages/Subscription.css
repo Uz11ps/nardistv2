@@ -1,14 +1,28 @@
 .subscription-page {
   padding: var(--spacing-md);
-  max-width: 600px;
+  min-height: 100vh;
+  position: relative;
+  max-width: 480px;
   margin: 0 auto;
 }
 
-.subscription-page__title {
-  font-size: var(--font-size-2xl);
+.subscription-page__back {
+  position: absolute;
+  top: var(--spacing-md);
+  left: var(--spacing-md);
+  font-size: var(--font-size-xl);
+  color: var(--text-primary);
+  text-decoration: none;
   font-weight: 700;
+  z-index: 10;
+}
+
+.subscription-page__title {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
   margin: 0 0 var(--spacing-md) 0;
   text-align: center;
+  color: var(--text-primary);
 }
 
 .subscription-page__description {
@@ -24,9 +38,17 @@
 }
 
 .subscription-plan {
-  padding: var(--spacing-lg);
+  padding: var(--spacing-md);
   text-align: center;
   position: relative;
+  background: linear-gradient(135deg, rgba(220, 38, 38, 0.1) 0%, rgba(220, 38, 38, 0.05) 100%);
+  border: 1px solid rgba(220, 38, 38, 0.3);
+  transition: background var(--transition-fast);
+}
+
+.subscription-plan:hover {
+  background: linear-gradient(135deg, rgba(220, 38, 38, 0.15) 0%, rgba(220, 38, 38, 0.08) 100%);
+  border-color: rgba(220, 38, 38, 0.5);
 }
 
 .subscription-plan--popular {
@@ -57,7 +79,7 @@
 }
 
 .subscription-plan__amount {
-  font-size: var(--font-size-3xl);
+  font-size: var(--font-size-2xl);
   font-weight: 700;
   color: var(--color-primary);
 }

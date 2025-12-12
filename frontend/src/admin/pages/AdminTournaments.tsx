@@ -17,6 +17,7 @@ export const AdminTournaments = () => {
     format: 'BRACKET' as 'BRACKET' | 'ROUND_ROBIN',
     startDate: '',
     maxParticipants: '',
+    hasTournamentPass: false,
   });
 
   useEffect(() => {
@@ -85,6 +86,7 @@ export const AdminTournaments = () => {
       format: 'BRACKET',
       startDate: '',
       maxParticipants: '',
+      hasTournamentPass: false,
     });
   };
 
@@ -97,6 +99,7 @@ export const AdminTournaments = () => {
         format: formData.format,
         startDate: new Date(formData.startDate),
         maxParticipants: formData.maxParticipants ? parseInt(formData.maxParticipants) : undefined,
+        hasTournamentPass: formData.hasTournamentPass,
       });
       alert('Турнир создан!');
       setIsCreateModalOpen(false);
@@ -158,6 +161,33 @@ export const AdminTournaments = () => {
               <p><strong>Формат:</strong> {selectedTournament.format === 'BRACKET' ? 'Брекет' : 'Круговой'}</p>
               <p><strong>Участников:</strong> {selectedTournament.participants?.length || 0}/{selectedTournament.maxParticipants || '∞'}</p>
               <p><strong>Дата начала:</strong> {new Date(selectedTournament.startDate).toLocaleString('ru-RU')}</p>
+              <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#1a1a1a', borderRadius: '4px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={selectedTournament.hasTournamentPass || false}
+                    onChange={async (e) => {
+                      try {
+                        await adminService.updateTournament(selectedTournament.id, {
+                          hasTournamentPass: e.target.checked,
+                        });
+                        setSelectedTournament({
+                          ...selectedTournament,
+                          hasTournamentPass: e.target.checked,
+                        });
+                        const updated = await adminService.getTournaments();
+                        setTournaments(updated);
+                      } catch (error: any) {
+                        alert(error.response?.data?.message || 'Ошибка при обновлении');
+                      }
+                    }}
+                  />
+                  <span><strong>🎫 Tournament Pass доступен</strong></span>
+                </label>
+                <p style={{ fontSize: '0.85rem', color: '#999', marginTop: '0.5rem' }}>
+                  Если включено, игроки смогут купить Tournament Pass для этого турнира и получить дополнительные награды
+                </p>
+              </div>
             </div>
             <div className="tournament-details__actions">
               {selectedTournament.status === 'UPCOMING' && (
@@ -231,6 +261,19 @@ export const AdminTournaments = () => {
             onChange={(e) => setFormData({ ...formData, maxParticipants: e.target.value })}
             placeholder="Оставьте пустым для неограниченного"
           />
+          <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#1a1a1a', borderRadius: '4px' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={formData.hasTournamentPass}
+                onChange={(e) => setFormData({ ...formData, hasTournamentPass: e.target.checked })}
+              />
+              <span><strong>🎫 Tournament Pass доступен</strong></span>
+            </label>
+            <p style={{ fontSize: '0.85rem', color: '#999', marginTop: '0.5rem' }}>
+              Если включено, игроки смогут купить Tournament Pass для этого турнира
+            </p>
+          </div>
           <div className="tournament-form__actions">
             <Button variant="primary" fullWidth onClick={handleSave}>
               Создать турнир

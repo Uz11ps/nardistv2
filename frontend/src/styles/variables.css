@@ -1,46 +1,53 @@
 :root {
-  /* Цвета */
-  --color-primary: #1976d2;
-  --color-primary-dark: #1565c0;
-  --color-primary-light: #42a5f5;
+  /* Цвета - Темная тема с красными акцентами */
+  --color-primary: #dc2626; /* Красный */
+  --color-primary-dark: #b91c1c;
+  --color-primary-light: #ef4444;
   --color-secondary: #ff6b35;
   --color-success: #4caf50;
   --color-warning: #ff9800;
-  --color-error: #f44336;
+  --color-error: #dc2626;
   --color-info: #2196f3;
+  --color-gold: #ffd700; /* Золотой */
+  --color-gold-light: #ffed4e;
   
-  /* Фоны */
-  --bg-primary: #ffffff;
-  --bg-secondary: #f5f5f5;
-  --bg-dark: #1e1e1e;
-  --bg-card: #ffffff;
-  --bg-overlay: rgba(0, 0, 0, 0.5);
+  /* Фоны - Темная тема */
+  --bg-primary: #0a0a0a; /* Почти черный */
+  --bg-secondary: #1a1a1a; /* Темно-серый */
+  --bg-dark: #0f0f0f;
+  --bg-card: #1e1e1e; /* Темные карточки */
+  --bg-card-hover: #252525;
+  --bg-overlay: rgba(0, 0, 0, 0.8);
+  --bg-input: #2a2a2a;
   
-  /* Текст */
-  --text-primary: #212121;
-  --text-secondary: #757575;
+  /* Текст - Белый на темном */
+  --text-primary: #ffffff;
+  --text-secondary: #b0b0b0;
   --text-light: #ffffff;
-  --text-muted: #9e9e9e;
+  --text-muted: #808080;
+  --text-gold: #ffd700;
   
-  /* Границы */
-  --border-color: #e0e0e0;
-  --border-radius: 8px;
+  /* Границы - MINIAPP формат (минимальные) */
+  --border-color: #2a2a2a;
+  --border-color-light: #333333;
+  --border-radius: 6px;
   --border-radius-small: 4px;
-  --border-radius-large: 12px;
+  --border-radius-large: 8px;
   
-  /* Тени */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
-  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
-  --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.15);
+  /* Тени - MINIAPP формат (минимальные) */
+  --shadow-sm: none;
+  --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 4px 8px rgba(0, 0, 0, 0.3);
+  --shadow-xl: 0 8px 16px rgba(0, 0, 0, 0.4);
+  --shadow-glow: none;
   
-  /* Отступы */
+  /* Отступы - MINIAPP формат (компактные) */
   --spacing-xs: 4px;
   --spacing-sm: 8px;
-  --spacing-md: 16px;
-  --spacing-lg: 24px;
-  --spacing-xl: 32px;
-  --spacing-2xl: 48px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 20px;
+  --spacing-2xl: 24px;
   
   /* Шрифты */
   --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',

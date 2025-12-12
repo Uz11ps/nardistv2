@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { Card, Button, Tabs, Input } from '../components/ui';
 import { marketService, inventoryService } from '../services';
 import type { InventoryItem } from '../types';
@@ -64,6 +65,7 @@ export const Market = () => {
 
   return (
     <div className="market-page">
+      <Link to="/" className="market-page__back">←</Link>
       <h1 className="market-page__title">🏪 Рынок скинов</h1>
 
       <div className="market-page__filters">

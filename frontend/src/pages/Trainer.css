@@ -1,0 +1,77 @@
+.trainer-page {
+  padding: var(--spacing-md);
+  min-height: 100vh;
+  position: relative;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.trainer-page__back {
+  position: absolute;
+  top: var(--spacing-md);
+  left: var(--spacing-md);
+  font-size: var(--font-size-xl);
+  color: var(--text-primary);
+  text-decoration: none;
+  font-weight: 700;
+  z-index: 10;
+}
+
+.trainer-page__title {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  margin: 0 0 var(--spacing-md) 0;
+  text-align: center;
+  color: var(--text-primary);
+}
+
+.trainer-locked {
+  text-align: center;
+  padding: 2rem;
+}
+
+.trainer-locked h2 {
+  margin-bottom: 1rem;
+  color: #fff;
+}
+
+.trainer-info {
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.trainer-info h3 {
+  margin-bottom: 1rem;
+  color: #fff;
+}
+
+.trainer-info p {
+  color: #999;
+  line-height: 1.6;
+}
+
+.trainer-features {
+  padding: 1.5rem;
+}
+
+.trainer-features h3 {
+  margin-bottom: 1rem;
+  color: #fff;
+}
+
+.trainer-features ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.trainer-features li {
+  padding: 0.5rem 0;
+  color: #999;
+  border-bottom: 1px solid #333;
+}
+
+.trainer-features li:last-child {
+  border-bottom: none;
+}
+

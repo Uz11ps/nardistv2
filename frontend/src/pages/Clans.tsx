@@ -1,24 +1,31 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Card, Button } from '../components/ui';
-import { clanService } from '../services';
+import { Card, Button, Modal, Input, NotificationModal } from '../components/ui';
+import { clanService, userService } from '../services';
 import { useAuthStore } from '../store/auth.store';
 import './Clans.css';
 
 export const Clans = () => {
   const [clans, setClans] = useState<any[]>([]);
   const [userClan, setUserClan] = useState<any>(null);
+  const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const { user } = useAuthStore();
+  const [createModal, setCreateModal] = useState(false);
+  const [createForm, setCreateForm] = useState({ name: '', description: '' });
+  const [notification, setNotification] = useState<{ title: string; message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const { user: authUser } = useAuthStore();
+  const [showSearch, setShowSearch] = useState(false);
 
   useEffect(() => {
     Promise.all([
       clanService.getAll(),
       clanService.getMyClan(),
+      import('../services').then(m => m.userService.getProfile()),
     ])
-      .then(([allClans, myClan]) => {
+      .then(([allClans, myClan, userProfile]) => {
         setClans(allClans);
         setUserClan(myClan);
+        setUser(userProfile);
       })
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -28,93 +35,187 @@ export const Clans = () => {
     return <div className="clans-page">Загрузка...</div>;
   }
 
-  return (
-    <div className="clans-page">
-      <div className="clans-page__header">
-        <h1 className="clans-page__title">👥 Кланы</h1>
-        <Button 
-          variant="primary"
-          onClick={async () => {
-            try {
-              const name = window.prompt('Введите название клана:');
-              if (!name || name.trim() === '') {
-                return;
-              }
-              const description = window.prompt('Введите описание клана (необязательно):') || '';
-              await clanService.create({ name: name.trim(), description: description.trim() });
-              alert('Клан создан!');
-              window.location.reload();
-            } catch (error: any) {
-              alert(error.response?.data?.message || 'Ошибка при создании клана');
-              console.error('Error creating clan:', error);
-            }
-          }}
-        >
-          ➕ Создать клан
-        </Button>
+  const userLevel = user?.level || 0;
+  const clansAvailable = userLevel >= 20;
+
+  // Если кланы недоступны
+  if (!clansAvailable) {
+    return (
+      <div className="clans-page">
+        <div className="clans-page__unavailable">
+          <div className="clans-page__unavailable-icon">🛡️</div>
+          <h2 className="clans-page__unavailable-title">Кланы недоступны</h2>
+          <p className="clans-page__unavailable-text">
+            Кланы открываются с 20 уровня, прокачайся, играй в турнирах и зарабатывай очки
+          </p>
+          <Link to="/game">
+            <Button variant="primary" size="lg" fullWidth>
+              Играть, чтобы получить XP
+            </Button>
+          </Link>
+        </div>
       </div>
+    );
+  }
 
-      {userClan && (
-        <Card className="clans-page__user-clan">
-          <div className="clans-page__user-clan-header">
-            <h2 className="clans-page__user-clan-title">Ваш клан</h2>
-            <Link to={`/clans/${userClan.id}`}>
-              <Button variant="outline" size="sm">
-                Открыть →
-              </Button>
-            </Link>
-          </div>
-          <div className="clans-page__user-clan-info">
-            <div className="clans-page__clan-name">👑 {userClan.name}</div>
-            {userClan.description && (
-              <p className="clans-page__clan-description">{userClan.description}</p>
-            )}
-            <div className="clans-page__clan-stats">
-              <span>💰 Казна: {userClan.treasury.toLocaleString()} NAR</span>
-              <span>👥 Участников: {userClan.members.length}</span>
-              <span>🏙️ Районов: {userClan.districts.length}</span>
-            </div>
-          </div>
-        </Card>
-      )}
-
-      <div className="clans-page__section">
-        <h2 className="clans-page__section-title">Все кланы</h2>
+  // Если показываем поиск кланов
+  if (showSearch) {
+         return (
+             <div className="clans-page">
+               <Link to="/clans" className="clans-page__back">←</Link>
+               <div className="clans-page__header">
+                 <div>
+                   <h1 className="clans-page__title">Найди свой клан</h1>
+                   <p className="clans-page__subtitle">Выбирай по духу, рейтингу или числу участников и присоединяйся</p>
+                 </div>
+               </div>
+        <div className="clans-page__tabs">
+          <button className="clans-page__tab clans-page__tab--active">Активные</button>
+          <button className="clans-page__tab">Новые</button>
+          <button className="clans-page__tab">Топ</button>
+          <button className="clans-page__tab">Все</button>
+        </div>
         <div className="clans-page__list">
           {clans.map((clan) => (
-            <Link key={clan.id} to={`/clans/${clan.id}`}>
-              <Card className="clans-page__clan-card">
-                <div className="clans-page__clan-card-header">
-                  <div className="clans-page__clan-card-name">👑 {clan.name}</div>
-                  {clan.id === userClan?.id && (
-                    <span className="clans-page__clan-card-badge">Ваш клан</span>
-                  )}
+            <Card key={clan.id} className="clans-page__clan-card">
+              <div className="clans-page__clan-card-icon">🛡️</div>
+              <div className="clans-page__clan-card-info">
+                <div className="clans-page__clan-card-name">{clan.name}</div>
+                <div className="clans-page__clan-card-details">
+                  Уровень {clan.level || 1} - {clan.members?.length || 0} участника
                 </div>
-                {clan.description && (
-                  <p className="clans-page__clan-card-description">{clan.description}</p>
-                )}
-                <div className="clans-page__clan-card-stats">
-                  <div className="clans-page__clan-card-stat">
-                    <span className="clans-page__clan-card-stat-icon">💰</span>
-                    <span className="clans-page__clan-card-stat-value">
-                      {(clan.treasury || 0).toLocaleString()} NAR
-                    </span>
-                  </div>
-                  <div className="clans-page__clan-card-stat">
-                    <span className="clans-page__clan-card-stat-icon">👥</span>
-                    <span className="clans-page__clan-card-stat-value">{clan.members?.length || 0}</span>
-                  </div>
-                  <div className="clans-page__clan-card-stat">
-                    <span className="clans-page__clan-card-stat-icon">🏙️</span>
-                    <span className="clans-page__clan-card-stat-value">{clan.districts?.length || 0}</span>
-                  </div>
+                <div className="clans-page__clan-card-treasury">
+                  Казна: {clan.treasury?.toLocaleString() || 0} NAR
                 </div>
-                <div className="clans-page__clan-card-arrow">→</div>
-              </Card>
-            </Link>
+              </div>
+              <Link to={`/clans/${clan.id}`}>
+                <Button variant="primary" size="sm">Вступить</Button>
+              </Link>
+            </Card>
           ))}
         </div>
       </div>
+    );
+  }
+
+         // Основная страница с кнопками создания/поиска
+         return (
+           <div className="clans-page">
+             <Link to="/" className="clans-page__back">←</Link>
+             <div className="clans-page__header">
+               <div className="clans-page__profile">
+                 <div className="clans-page__profile-avatar">
+                   <img src={user?.avatar || user?.photoUrl || 'https://via.placeholder.com/60'} alt="Avatar" />
+                 </div>
+                 <div>
+                   <div className="clans-page__profile-name">{user?.nickname || user?.firstName}</div>
+                   <div className="clans-page__profile-level">Уровень {userLevel}</div>
+                 </div>
+               </div>
+             </div>
+
+      <div className="clans-page__actions">
+        <Button 
+          variant="primary" 
+          size="lg"
+          fullWidth
+          onClick={() => setCreateModal(true)}
+        >
+          Создать клан
+        </Button>
+        <Button 
+          variant="outline" 
+          size="lg"
+          fullWidth
+          onClick={() => setShowSearch(true)}
+        >
+          Найти клан
+        </Button>
+      </div>
+
+      <Modal
+        isOpen={createModal}
+        onClose={() => {
+          setCreateModal(false);
+          setCreateForm({ name: '', description: '' });
+        }}
+        title="Создай клан"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: 'var(--font-size-sm)' }}>
+            и начни свой путь к господству в городе
+          </p>
+          <Input
+            label="Введите название"
+            value={createForm.name}
+            onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
+            required
+            placeholder="Название клана"
+          />
+          <Input
+            label="Описание (необязательно)"
+            value={createForm.description}
+            onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })}
+            type="textarea"
+            placeholder="Кратко опиши свой клан..."
+          />
+          <Button
+            variant="primary"
+            fullWidth
+            size="lg"
+            onClick={async () => {
+              try {
+                if (!createForm.name.trim()) {
+                  setNotification({
+                    title: 'Ошибка',
+                    message: 'Название клана обязательно',
+                    type: 'error',
+                  });
+                  return;
+                }
+                await clanService.create({
+                  name: createForm.name.trim(),
+                  description: createForm.description.trim() || undefined,
+                });
+                setNotification({
+                  title: 'Успех',
+                  message: 'Клан успешно создан!',
+                  type: 'success',
+                });
+                setCreateModal(false);
+                setCreateForm({ name: '', description: '' });
+                const [allClans, myClan] = await Promise.all([
+                  clanService.getAll(),
+                  clanService.getMyClan(),
+                ]);
+                setClans(allClans);
+                setUserClan(myClan);
+              } catch (error: any) {
+                setNotification({
+                  title: 'Ошибка',
+                  message: error.response?.data?.message || 'Ошибка при создании клана',
+                  type: 'error',
+                });
+              }
+            }}
+          >
+            Создать клан
+          </Button>
+          <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: 'var(--font-size-xs)', textAlign: 'center' }}>
+            После создания клана ты сможешь приглашать участников и улучшать район
+          </p>
+        </div>
+      </Modal>
+
+      {notification && (
+        <NotificationModal
+          isOpen={!!notification}
+          onClose={() => setNotification(null)}
+          title={notification.title}
+          message={notification.message}
+          type={notification.type}
+        />
+      )}
     </div>
   );
 };

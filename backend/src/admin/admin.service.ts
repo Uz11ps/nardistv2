@@ -62,6 +62,13 @@ export class AdminService {
     return this.tournamentsService.createTournament(data);
   }
 
+  async updateTournament(tournamentId: number, data: any) {
+    return this.prisma.tournament.update({
+      where: { id: tournamentId },
+      data,
+    });
+  }
+
   async startTournament(tournamentId: number) {
     return this.prisma.tournament.update({
       where: { id: tournamentId },

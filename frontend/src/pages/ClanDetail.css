@@ -1,71 +1,169 @@
 .clan-detail {
   padding: var(--spacing-md);
-  max-width: 600px;
+  min-height: 100vh;
+  position: relative;
+  max-width: 480px;
   margin: 0 auto;
 }
 
 .clan-detail__back {
-  display: inline-block;
-  margin-bottom: var(--spacing-md);
-  color: var(--color-primary);
+  position: absolute;
+  top: var(--spacing-md);
+  left: var(--spacing-md);
+  font-size: var(--font-size-xl);
+  color: var(--text-primary);
   text-decoration: none;
-  font-weight: 500;
-  transition: color var(--transition-fast);
+  font-weight: 700;
+  z-index: 10;
 }
 
-.clan-detail__back:hover {
-  color: var(--color-primary-light);
+.clan-detail__header {
+  margin-bottom: var(--spacing-md);
 }
 
-.clan-detail__title-section {
-  margin-bottom: var(--spacing-lg);
+.clan-detail__clan-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: var(--spacing-md);
+  flex: 1;
+}
+
+.clan-detail__clan-icon-large {
+  font-size: 80px;
+  margin-bottom: var(--spacing-md);
+  line-height: 1;
+}
+
+.clan-detail__clan-details {
+  flex: 1;
 }
 
 .clan-detail__title {
   margin: 0 0 var(--spacing-xs) 0;
-  font-size: var(--font-size-2xl);
-  font-weight: 700;
+  font-size: var(--font-size-xl);
+  font-weight: 600;
   color: var(--text-primary);
 }
 
-.clan-detail__description {
-  margin: 0;
-  color: var(--text-secondary);
-  font-size: var(--font-size-md);
-}
-
-.clan-detail__stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--spacing-md);
-  margin-bottom: var(--spacing-lg);
-}
-
-.clan-detail__stat-card {
-  padding: var(--spacing-md);
-  text-align: center;
-}
-
-.clan-detail__stat-icon {
-  font-size: 32px;
-  margin-bottom: var(--spacing-xs);
-}
-
-.clan-detail__stat-info {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-xs);
-}
-
-.clan-detail__stat-label {
+.clan-detail__clan-meta {
   font-size: var(--font-size-sm);
   color: var(--text-secondary);
 }
 
-.clan-detail__stat-value {
-  font-size: var(--font-size-lg);
-  font-weight: 700;
+.clan-detail__navigation {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  margin-bottom: var(--spacing-lg);
+}
+
+.clan-detail__nav-item {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  padding: var(--spacing-md);
+  text-align: left;
+  font-size: var(--font-size-md);
   color: var(--text-primary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.clan-detail__nav-item:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-color-light);
+}
+
+.clan-detail__nav-item--active {
+  background: var(--bg-card-hover);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.clan-detail__content {
+  margin-bottom: var(--spacing-lg);
+}
+
+.clan-detail__section-subtitle {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  margin: 0 0 var(--spacing-md) 0;
+}
+
+.clan-detail__treasury-balance {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: var(--spacing-lg);
+  margin-bottom: var(--spacing-lg);
+}
+
+.clan-detail__treasury-icon {
+  font-size: 64px;
+  margin-bottom: var(--spacing-md);
+}
+
+.clan-detail__treasury-amount {
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  color: var(--color-gold);
+  margin-bottom: var(--spacing-sm);
+}
+
+.clan-detail__treasury-income {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.clan-detail__treasury-operations {
+  margin-top: var(--spacing-lg);
+}
+
+.clan-detail__operations-title {
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  margin: 0 0 var(--spacing-md) 0;
+  color: var(--text-primary);
+}
+
+.clan-detail__operations-list {
+  margin-bottom: var(--spacing-md);
+}
+
+.clan-detail__upgrades {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.clan-detail__upgrade-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-md);
+  background: var(--bg-secondary);
+  border-radius: var(--border-radius);
+}
+
+.clan-detail__upgrade-name {
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--spacing-xs);
+}
+
+.clan-detail__upgrade-level {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.clan-detail__upgrade-note {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  margin-top: var(--spacing-lg);
+  text-align: center;
 }
 
 .clan-detail__section {
@@ -98,8 +196,7 @@
 }
 
 .clan-detail__district-card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
+  background: var(--bg-card-hover);
 }
 
 .clan-detail__district-icon {
@@ -123,6 +220,18 @@
   color: var(--text-secondary);
 }
 
+.clan-detail__district-owner {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  margin: var(--spacing-xs) 0;
+}
+
+.clan-detail__district-income {
+  font-size: var(--font-size-sm);
+  color: var(--color-gold);
+  font-weight: 600;
+}
+
 .clan-detail__district-arrow {
   font-size: 24px;
   color: var(--text-secondary);
@@ -139,8 +248,9 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: var(--spacing-sm) 0;
+  padding: var(--spacing-md);
   border-bottom: 1px solid var(--border-color);
+  gap: var(--spacing-md);
 }
 
 .clan-detail__member:last-child {
@@ -148,6 +258,27 @@
 }
 
 .clan-detail__member-info {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  flex: 1;
+}
+
+.clan-detail__member-avatar {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.clan-detail__member-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.clan-detail__member-details {
   flex: 1;
 }
 
@@ -161,6 +292,26 @@
 .clan-detail__member-role {
   font-size: var(--font-size-sm);
   color: var(--text-secondary);
+  margin-bottom: var(--spacing-xs);
+}
+
+.clan-detail__member-contribution {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.clan-detail__member-online {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-success);
+  flex-shrink: 0;
+}
+
+.clan-detail__member-actions {
+  display: flex;
+  gap: var(--spacing-xs);
+  flex-shrink: 0;
 }
 
 .clan-detail__join {

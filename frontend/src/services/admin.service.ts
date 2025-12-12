@@ -93,6 +93,11 @@ export const adminService = {
     return response.data;
   },
 
+  async updateTournament(tournamentId: number, data: any): Promise<any> {
+    const response = await api.put(`/admin/tournaments/${tournamentId}`, data);
+    return response.data;
+  },
+
   async getSettings(): Promise<any> {
     const response = await api.get('/admin/settings');
     return response.data;

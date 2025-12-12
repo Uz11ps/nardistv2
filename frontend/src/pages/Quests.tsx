@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { Card, Button, Tabs } from '../components/ui';
 import { questsService } from '../services';
 import './Quests.css';
@@ -32,6 +33,7 @@ export const Quests = () => {
 
   return (
     <div className="quests-page">
+      <Link to="/" className="quests-page__back">←</Link>
       <h1 className="quests-page__title">📋 Квесты</h1>
       <Tabs tabs={tabs} />
     </div>

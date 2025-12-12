@@ -1,5 +1,7 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import { Controller, Get, Post, Param, Query, Body, UseGuards } from '@nestjs/common';
 import { AcademyService } from './academy.service';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
 @Controller('academy')
 export class AcademyController {
@@ -11,8 +13,28 @@ export class AcademyController {
   }
 
   @Get('articles/:id')
-  async getArticle(@Param('id') id: string) {
-    return this.academyService.getArticle(parseInt(id, 10));
+  @UseGuards(JwtAuthGuard)
+  async getArticle(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.academyService.getArticle(parseInt(id, 10), user?.id);
+  }
+
+  @Post('articles/:id/purchase-nar')
+  @UseGuards(JwtAuthGuard)
+  async purchaseArticleWithNAR(
+    @Param('id') id: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.academyService.purchaseArticleWithNAR(user.id, parseInt(id, 10));
+  }
+
+  @Post('articles/:id/purchase-crypto')
+  @UseGuards(JwtAuthGuard)
+  async purchaseArticleWithCrypto(
+    @Param('id') id: string,
+    @CurrentUser() user: any,
+    @Body() paymentData: any,
+  ) {
+    return this.academyService.purchaseArticleWithCrypto(user.id, parseInt(id, 10), paymentData);
   }
 }
 

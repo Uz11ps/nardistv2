@@ -44,5 +44,13 @@ export class InventoryController {
   ) {
     return this.inventoryService.repairItem(user.id, parseInt(id), data.repairType);
   }
+
+  @Get(':id/visual-info')
+  async getItemVisualInfo(
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+  ) {
+    return this.inventoryService.getItemVisualInfo(parseInt(id));
+  }
 }
 

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Card, Button, Tabs, NotificationModal } from '../components/ui';
+import { Link, useNavigate } from 'react-router-dom';
+import { Card, Button, Tabs, NotificationModal, ConfirmModal } from '../components/ui';
 import { GameBoard } from '../components/game/GameBoard';
 import { wsService } from '../services/websocket.service';
 import { useAuthStore } from '../store/auth.store';
@@ -27,6 +27,7 @@ export const Game = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [gameType, setGameType] = useState<'bot' | 'quick' | 'search' | null>(null);
   const [notification, setNotification] = useState<{ title: string; message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [confirmSurrender, setConfirmSurrender] = useState(false);
   const [usedDice, setUsedDice] = useState<number[]>([]);
   const [timeLeft, setTimeLeft] = useState(60);
   const { user, token } = useAuthStore();
@@ -288,10 +289,7 @@ export const Game = () => {
 
   const handleSurrender = () => {
     if (!roomId) return;
-    if (window.confirm('Вы уверены, что хотите сдаться?')) {
-      setIsPlaying(false);
-      navigate('/');
-    }
+    setConfirmSurrender(true);
   };
 
   const tabs = [
@@ -309,6 +307,8 @@ export const Game = () => {
 
   return (
     <div className="game-page">
+      <Link to="/" className="game-page__back">←</Link>
+      <h1 className="game-page__title">🎲 Игра</h1>
       <Tabs tabs={tabs} onChange={(id) => setGameMode(id as 'SHORT' | 'LONG')} />
     </div>
   );
@@ -420,4 +420,32 @@ export const Game = () => {
       </div>
     );
   }
+
+  return (
+    <>
+      {notification && (
+        <NotificationModal
+          isOpen={!!notification}
+          onClose={() => setNotification(null)}
+          title={notification.title}
+          message={notification.message}
+          type={notification.type}
+        />
+      )}
+      {confirmSurrender && (
+        <ConfirmModal
+          isOpen={confirmSurrender}
+          onClose={() => setConfirmSurrender(false)}
+          onConfirm={() => {
+            setIsPlaying(false);
+            navigate('/');
+          }}
+          title="Сдаться?"
+          message="Вы уверены, что хотите сдаться?"
+          confirmText="Сдаться"
+          cancelText="Отмена"
+        />
+      )}
+    </>
+  );
 };

@@ -33,105 +33,57 @@ export const Home = () => {
   const shortRating = stats?.ratings?.find((r: any) => r.mode === 'SHORT');
   const longRating = stats?.ratings?.find((r: any) => r.mode === 'LONG');
 
+  const xpPercent = user.xp ? Math.min((user.xp % 1000) / 10, 100) : 0;
+  const currentXp = user.xp ? (user.xp % 1000) : 0;
+  const xpForNextLevel = 100;
+
+  const menuItems = [
+    { path: '/game', icon: '🎲', label: 'Играть', iconColor: 'red' },
+    { path: '/profile', icon: '👤', label: 'Профиль', iconColor: 'grey' },
+    { path: '/city', icon: '🏙️', label: 'Город', iconColor: 'gold' },
+    { path: '/tournaments', icon: '🏆', label: 'Турниры', iconColor: 'gold' },
+    { path: '/clans', icon: '⚔️', label: 'Кланы', iconColor: 'gold' },
+    { path: '/trainer', icon: '🎓', label: 'Обучение', iconColor: 'white' },
+  ];
+
   return (
     <div className="home">
-      <div className="home__header">
-        <div className="home__greeting">
-          <h1>Привет, {user.nickname || user.firstName}!</h1>
-          <p className="home__level">Уровень {user.level || 1}</p>
+      {/* Профиль вверху */}
+      <div className="home__profile">
+        <div className="home__avatar-large">
+          <img src={user.avatar || user.photoUrl || 'https://via.placeholder.com/120'} alt="Avatar" />
         </div>
-        <div className="home__avatar">
-          <img src={user.avatar || user.photoUrl || 'https://via.placeholder.com/80'} alt="Avatar" />
-        </div>
-      </div>
-
-      <div className="home__stats">
-        <Card className="home__stat-card">
-          <div className="home__stat-icon">💰</div>
-          <div className="home__stat-info">
-            <div className="home__stat-value">{(user.narCoin || 0).toLocaleString()}</div>
-            <div className="home__stat-label">NAR-coin</div>
+        <h1 className="home__name">{user.nickname || user.firstName}</h1>
+        <p className="home__level">Уровень {user.level || 1}</p>
+        
+        {/* Валюта и Энергия справа вверху */}
+        <div className="home__top-stats">
+          <div className="home__top-stat">
+            <span className="home__top-stat-icon">🔥</span>
+            <span className="home__top-stat-value">{(user.narCoin || 0).toLocaleString()}</span>
           </div>
-        </Card>
-        <Card className="home__stat-card">
-          <div className="home__stat-icon">⚡</div>
-          <div className="home__stat-info">
-            <div className="home__stat-value">{user.energy || 0}/{user.energyMax || 100}</div>
-            <div className="home__stat-label">Энергия</div>
-            <div className="home__stat-bar">
-              <div
-                className="home__stat-bar-fill"
+          <div className="home__top-stat">
+            <span className="home__top-stat-value">{user.energy || 0}/{user.energyMax || 100}</span>
+            <div className="home__top-stat-bar">
+              <div 
+                className="home__top-stat-bar-fill" 
                 style={{ width: `${((user.energy || 0) / (user.energyMax || 100)) * 100}%` }}
               />
             </div>
           </div>
-        </Card>
-        <Card className="home__stat-card">
-          <div className="home__stat-icon">❤️</div>
-          <div className="home__stat-info">
-            <div className="home__stat-value">{user.lives || 0}/{user.livesMax || 3}</div>
-            <div className="home__stat-label">Жизни</div>
-            <div className="home__stat-bar">
-              <div
-                className="home__stat-bar-fill home__stat-bar-fill--lives"
-                style={{ width: `${((user.lives || 0) / (user.livesMax || 3)) * 100}%` }}
-              />
-            </div>
-          </div>
-        </Card>
-        <Card className="home__stat-card">
-          <div className="home__stat-icon">💪</div>
-          <div className="home__stat-info">
-            <div className="home__stat-value">{user.power || 0}/{user.powerMax || 10}</div>
-            <div className="home__stat-label">Сила</div>
-            <div className="home__stat-bar">
-              <div
-                className="home__stat-bar-fill home__stat-bar-fill--power"
-                style={{ width: `${((user.power || 0) / (user.powerMax || 10)) * 100}%` }}
-              />
-            </div>
-          </div>
-        </Card>
-      </div>
-
-      <div className="home__ratings">
-        <h2 className="home__section-title">Рейтинги</h2>
-        <div className="home__ratings-grid">
-          <Card className="home__rating-card">
-            <div className="home__rating-mode">Короткие нарды</div>
-            <div className="home__rating-value">{shortRating?.rating || 1500}</div>
-            <div className="home__rating-record">
-              {shortRating?.wins || 0}W / {shortRating?.losses || 0}L
-            </div>
-          </Card>
-          <Card className="home__rating-card">
-            <div className="home__rating-mode">Длинные нарды</div>
-            <div className="home__rating-value">{longRating?.rating || 1500}</div>
-            <div className="home__rating-record">
-              {longRating?.wins || 0}W / {longRating?.losses || 0}L
-            </div>
-          </Card>
         </div>
       </div>
 
-      <div className="home__actions">
-        <Link to="/game">
-          <Button variant="primary" size="lg" fullWidth>
-            🎲 Начать игру
-          </Button>
-        </Link>
-        <div className="home__quick-actions">
-          <Link to="/tournaments">
-            <Button variant="outline" fullWidth>
-              🏆 Турниры
-            </Button>
+      {/* Вертикальное меню */}
+      <div className="home__menu">
+        {menuItems.map((item) => (
+          <Link key={item.path} to={item.path} className="home__menu-item">
+            <span className={`home__menu-icon home__menu-icon--${item.iconColor}`}>
+              {item.icon}
+            </span>
+            <span className="home__menu-label">{item.label}</span>
           </Link>
-          <Link to="/leaderboard">
-            <Button variant="outline" fullWidth>
-              📊 Рейтинг
-            </Button>
-          </Link>
-        </div>
+        ))}
       </div>
     </div>
   );

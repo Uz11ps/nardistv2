@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { Card, Tabs } from '../components/ui';
 import { ratingsService } from '../services';
 import './Leaderboard.css';
@@ -21,6 +22,7 @@ export const Leaderboard = () => {
 
   return (
     <div className="leaderboard-page">
+      <Link to="/" className="leaderboard-page__back">←</Link>
       <h1 className="leaderboard-page__title">🏆 Таблица лидеров</h1>
       <Tabs tabs={tabs} onChange={(id) => setMode(id as 'SHORT' | 'LONG')} />
     </div>

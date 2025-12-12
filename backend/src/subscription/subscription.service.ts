@@ -57,5 +57,11 @@ export class SubscriptionService {
 
     return true;
   }
+
+  async getSubscription(userId: number) {
+    return this.prisma.subscription.findUnique({
+      where: { userId },
+    });
+  }
 }
 

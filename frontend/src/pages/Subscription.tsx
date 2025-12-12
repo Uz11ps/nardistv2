@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { Card, Button } from '../components/ui';
 import { subscriptionService } from '../services';
 import './Subscription.css';
@@ -47,6 +48,7 @@ export const Subscription = () => {
 
   return (
     <div className="subscription-page">
+      <Link to="/" className="subscription-page__back">←</Link>
       <h1 className="subscription-page__title">⭐ Подписка</h1>
       {hasActiveSubscription ? (
         <Card className="subscription-active">

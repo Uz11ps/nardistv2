@@ -1,9 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { EconomyService } from '../economy/economy.service';
 
 @Injectable()
 export class ClansService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly economyService: EconomyService,
+  ) {}
 
   /**
    * Создать клан
@@ -290,6 +294,151 @@ export class ClansService {
     });
 
     return { success: true, newTreasury: clan.treasury - amount };
+  }
+
+  /**
+   * Получить фонды районов, контролируемых кланом
+   */
+  async getDistrictFunds(clanId: number) {
+    const clan = await this.prisma.clan.findUnique({
+      where: { id: clanId },
+      include: {
+        districts: {
+          include: {
+            fund: true,
+          },
+        },
+      },
+    });
+
+    if (!clan) {
+      throw new Error('Clan not found');
+    }
+
+    return clan.districts.map((district) => ({
+      district,
+      fund: district.fund || { balance: 0 },
+    }));
+  }
+
+  /**
+   * Распределить фонд района в клановую казну
+   */
+  async distributeDistrictFund(
+    leaderId: number,
+    clanId: number,
+    districtId: number,
+    amount: number,
+  ) {
+    // Проверяем права
+    const leader = await this.prisma.clanMember.findUnique({
+      where: {
+        clanId_userId: {
+          clanId,
+          userId: leaderId,
+        },
+      },
+    });
+
+    if (!leader || !['LEADER', 'OFFICER'].includes(leader.role)) {
+      throw new Error('Insufficient permissions');
+    }
+
+    // Проверяем, что район контролируется кланом
+    const district = await this.prisma.district.findUnique({
+      where: { id: districtId },
+    });
+
+    if (!district || district.clanId !== clanId) {
+      throw new Error('District is not controlled by this clan');
+    }
+
+    // Используем метод из EconomyService
+    return this.economyService.distributeDistrictFundToClan(districtId, amount);
+  }
+
+  /**
+   * Обновить информацию о клане
+   */
+  async updateClan(leaderId: number, clanId: number, data: { name?: string; description?: string }) {
+    // Проверяем права
+    const leader = await this.prisma.clanMember.findUnique({
+      where: {
+        clanId_userId: {
+          clanId,
+          userId: leaderId,
+        },
+      },
+    });
+
+    if (!leader || leader.role !== 'LEADER') {
+      throw new Error('Only leader can update clan');
+    }
+
+    // Если меняется имя, проверяем уникальность
+    if (data.name) {
+      const existingClan = await this.prisma.clan.findUnique({
+        where: { name: data.name },
+      });
+
+      if (existingClan && existingClan.id !== clanId) {
+        throw new Error('Clan name already exists');
+      }
+    }
+
+    return this.prisma.clan.update({
+      where: { id: clanId },
+      data: {
+        ...(data.name && { name: data.name }),
+        ...(data.description !== undefined && { description: data.description }),
+      },
+    });
+  }
+
+  /**
+   * Исключить участника из клана
+   */
+  async kickMember(leaderId: number, clanId: number, memberId: number) {
+    // Проверяем права
+    const leader = await this.prisma.clanMember.findUnique({
+      where: {
+        clanId_userId: {
+          clanId,
+          userId: leaderId,
+        },
+      },
+    });
+
+    if (!leader || !['LEADER', 'OFFICER'].includes(leader.role)) {
+      throw new Error('Insufficient permissions');
+    }
+
+    // Нельзя исключить лидера
+    const member = await this.prisma.clanMember.findUnique({
+      where: {
+        clanId_userId: {
+          clanId,
+          userId: memberId,
+        },
+      },
+    });
+
+    if (!member) {
+      throw new Error('Member not found');
+    }
+
+    if (member.role === 'LEADER') {
+      throw new Error('Cannot kick leader');
+    }
+
+    return this.prisma.clanMember.delete({
+      where: {
+        clanId_userId: {
+          clanId,
+          userId: memberId,
+        },
+      },
+    });
   }
 }
 

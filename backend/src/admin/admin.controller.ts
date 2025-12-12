@@ -69,6 +69,11 @@ export class AdminController {
     return this.adminService.finishTournament(parseInt(id, 10));
   }
 
+  @Put('tournaments/:id')
+  async updateTournament(@Param('id') id: string, @Body() data: any) {
+    return this.adminService.updateTournament(parseInt(id, 10), data);
+  }
+
   // Управление статьями
   @Get('articles')
   async getArticles() {

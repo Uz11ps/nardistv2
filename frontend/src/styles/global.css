@@ -10,10 +10,11 @@ body {
   font-family: var(--font-family);
   font-size: var(--font-size-md);
   color: var(--text-primary);
-  background-color: var(--bg-secondary);
+  background-color: var(--bg-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   line-height: 1.5;
+  min-height: 100vh;
 }
 
 #root {
@@ -56,6 +57,6 @@ body {
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--text-secondary);
+  background: var(--border-color-light);
 }
 

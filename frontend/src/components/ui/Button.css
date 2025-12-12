@@ -22,32 +22,33 @@
 }
 
 .btn--sm {
+  padding: 4px var(--spacing-xs);
+  font-size: var(--font-size-xs);
+}
+
+.btn--md {
   padding: var(--spacing-xs) var(--spacing-sm);
   font-size: var(--font-size-sm);
 }
 
-.btn--md {
+.btn--lg {
   padding: var(--spacing-sm) var(--spacing-md);
   font-size: var(--font-size-md);
-}
-
-.btn--lg {
-  padding: var(--spacing-md) var(--spacing-lg);
-  font-size: var(--font-size-lg);
 }
 
 .btn--full-width {
   width: 100%;
 }
 
-/* Primary */
+/* Primary - Красная кнопка */
 .btn--primary {
-  background-color: var(--color-primary);
+  background: var(--color-primary);
   color: var(--text-light);
+  font-weight: 600;
 }
 
 .btn--primary:hover:not(:disabled) {
-  background-color: var(--color-primary-dark);
+  background: var(--color-primary-light);
 }
 
 .btn--primary:active:not(:disabled) {
@@ -64,16 +65,16 @@
   opacity: 0.9;
 }
 
-/* Outline */
+/* Outline - Темная кнопка с границей */
 .btn--outline {
-  background-color: transparent;
-  color: var(--color-primary);
-  border: 2px solid var(--color-primary);
+  background-color: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
 }
 
 .btn--outline:hover:not(:disabled) {
-  background-color: var(--color-primary);
-  color: var(--text-light);
+  background-color: var(--bg-card-hover);
+  border-color: var(--border-color-light);
 }
 
 /* Ghost */
@@ -83,7 +84,7 @@
 }
 
 .btn--ghost:hover:not(:disabled) {
-  background-color: var(--bg-secondary);
+  background-color: var(--bg-card);
 }
 
 /* Danger */

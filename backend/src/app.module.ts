@@ -21,6 +21,7 @@ import { ClansModule } from './clans/clans.module';
 import { ResourcesModule } from './resources/resources.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { MarketModule } from './market/market.module';
+import { SiegesModule } from './sieges/sieges.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { MarketModule } from './market/market.module';
     ResourcesModule,
     InventoryModule,
     MarketModule,
+    SiegesModule,
   ],
   controllers: [],
   providers: [],
