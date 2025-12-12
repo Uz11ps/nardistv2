@@ -31,101 +31,112 @@ import './styles/global.css';
 
 function App() {
   const { initData, webApp } = useTelegram();
-  const { login, isAuthenticated, token, testLogin } = useAuthStore();
+  const { login, isAuthenticated, token, testLogin, mockLogin } = useAuthStore();
   const [authError, setAuthError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const loginAttemptedRef = useRef(false);
 
   useEffect(() => {
-    let timeoutId: NodeJS.Timeout;
+    let quickTimeout: NodeJS.Timeout;
     let isMounted = true;
     
     console.log('App useEffect triggered', { isAuthenticated, hasToken: !!token, loginAttempted: loginAttemptedRef.current });
     
-    // Защита от множественных вызовов
-    if (loginAttemptedRef.current) {
-      console.log('Login already attempted, skipping...');
+    // Если уже авторизован, просто выходим
+    if (isAuthenticated && token) {
+      setIsLoading(false);
       return;
     }
     
-    // Для локальной разработки всегда используем тестовый вход
-    if (!isAuthenticated || !token) {
-      loginAttemptedRef.current = true;
-      setIsLoading(true);
-      setAuthError(null);
+    // Проверяем наличие мок-токена
+    const storedToken = localStorage.getItem('token');
+    if (storedToken === 'mock_token_for_local_dev' && !isAuthenticated) {
+      console.log('Found mock token, using mock data');
+      mockLogin();
+      setIsLoading(false);
+      return;
+    }
+    
+    // Защита от множественных вызовов
+    if (loginAttemptedRef.current) {
+      console.log('Login already attempted');
+      // Если уже пытались, но не авторизованы - используем мок-данные
+      if (!isAuthenticated) {
+        console.log('Using mock data as fallback');
+        mockLogin();
+        setIsLoading(false);
+      }
+      return;
+    }
+    
+    loginAttemptedRef.current = true;
+    setIsLoading(true);
+    setAuthError(null);
+    
+    // Проверяем, что мы на localhost
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const useMockOnly = import.meta.env.VITE_USE_MOCK_ONLY === 'true';
+    
+    if (isLocalhost || !initData || initData.includes('mock_init_data')) {
+      // Если включен режим только мок-данных, используем их сразу
+      if (useMockOnly) {
+        console.log('🎭 Using mock data only (VITE_USE_MOCK_ONLY=true)');
+        mockLogin();
+        setIsLoading(false);
+        return;
+      }
       
-      // Таймаут на 10 секунд
-      timeoutId = setTimeout(() => {
-        if (isMounted) {
-          const currentAuth = useAuthStore.getState().isAuthenticated;
-          if (!currentAuth) {
-            setAuthError('Превышено время ожидания. Проверьте, что backend запущен на http://localhost:3000');
+      // Для локальной разработки сначала используем мок-данные для мгновенного старта
+      // Затем в фоне пытаемся подключиться к бекенду
+      console.log('🎭 Using mock data for instant start...');
+      mockLogin();
+      setIsLoading(false);
+      
+      // В фоне пытаемся подключиться к бекенду (неблокирующе)
+      const { testLogin } = useAuthStore.getState();
+      testLogin()
+        .then(() => {
+          console.log('✅ Backend connection successful - switching to real data');
+          // Обновляем данные с бекенда, но не показываем загрузку
+          setIsLoading(false);
+        })
+        .catch((error: any) => {
+          console.log('ℹ️ Backend not available, continuing with mock data:', error.message || 'Connection failed');
+          // Продолжаем работать с мок-данными
+        });
+    } else {
+      // Реальная авторизация через Telegram
+      login(initData)
+        .then(() => {
+          if (isMounted) {
             setIsLoading(false);
           }
-        }
-      }, 10000);
-      
-      // Проверяем, что мы на localhost
-      const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-      
-      if (isLocalhost || !initData || initData.includes('mock_init_data')) {
-        // Тестовый вход для локальной разработки
-        console.log('Using test login for localhost');
-        const { testLogin } = useAuthStore.getState();
-        testLogin()
-          .then(() => {
-            console.log('Test login promise resolved');
-            if (isMounted) {
-              setIsLoading(false);
-              clearTimeout(timeoutId);
-            }
-          })
-          .catch((error) => {
-            console.error('Test login failed:', error);
-            if (isMounted) {
-              setAuthError(`Ошибка авторизации: ${error.message || 'Не удалось подключиться к серверу'}. Проверьте, что backend запущен на http://localhost:3000`);
-              setIsLoading(false);
-              clearTimeout(timeoutId);
-            }
-          });
-      } else {
-        // Реальная авторизация через Telegram
-        login(initData)
-          .then(() => {
-            if (isMounted) {
-              setIsLoading(false);
-              clearTimeout(timeoutId);
-            }
-          })
-          .catch((error) => {
-            console.error('Telegram login failed:', error);
-            // Fallback to test login
-            const { testLogin } = useAuthStore.getState();
-            testLogin()
-              .then(() => {
-                if (isMounted) {
-                  setIsLoading(false);
-                  clearTimeout(timeoutId);
-                }
-              })
-              .catch((err) => {
-                if (isMounted) {
-                  setAuthError(`Ошибка авторизации: ${err.message || 'Не удалось подключиться к серверу'}`);
-                  setIsLoading(false);
-                  clearTimeout(timeoutId);
-                }
-              });
-          });
-      }
-    } else {
-      setIsLoading(false);
+        })
+        .catch((error) => {
+          console.error('Telegram login failed:', error);
+          // Fallback to test login, затем к мок-данным
+          const { testLogin } = useAuthStore.getState();
+          testLogin()
+            .then(() => {
+              if (isMounted) {
+                setIsLoading(false);
+              }
+            })
+            .catch((err) => {
+              console.warn('⚠️ Backend not available, using mock data');
+              if (isMounted) {
+                mockLogin();
+                setIsLoading(false);
+              }
+            });
+        });
     }
 
     return () => {
       isMounted = false;
-      if (timeoutId) clearTimeout(timeoutId);
+      if (quickTimeout) clearTimeout(quickTimeout);
     };
-  }, [initData, isAuthenticated, login]);
+  }, [initData, isAuthenticated, login, mockLogin, token]);
 
   useEffect(() => {
     // Подключаем WebSocket только после успешной авторизации
@@ -152,19 +163,14 @@ function App() {
     }
   }, [webApp]);
 
-  if (!isAuthenticated) {
+  // Показываем загрузку только если действительно загружаемся и не авторизованы
+  if (!isAuthenticated && isLoading) {
     return (
       <div className="app" style={{ padding: '20px', textAlign: 'center' }}>
-        {isLoading ? (
-          <div>Загрузка...</div>
-        ) : authError ? (
-          <div>
-            <div style={{ color: 'red', marginBottom: '20px' }}>{authError}</div>
-            <button onClick={() => window.location.reload()}>Повторить</button>
-          </div>
-        ) : (
-          <div>Загрузка...</div>
-        )}
+        <div>Подключение к серверу...</div>
+        <div style={{ marginTop: '10px', fontSize: '12px', color: '#666' }}>
+          Если бекенд недоступен, будет использован режим разработки
+        </div>
       </div>
     );
   }

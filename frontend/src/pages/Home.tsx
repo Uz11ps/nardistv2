@@ -13,15 +13,34 @@ export const Home = () => {
 
   useEffect(() => {
     if (authUser) {
+      // Используем данные из authStore как fallback
+      setUser(authUser);
+      
       Promise.all([
-        userService.getProfile(),
-        userService.getStats(),
+        userService.getProfile().catch(() => authUser),
+        userService.getStats().catch(() => ({
+          totalGames: 0,
+          wins: 0,
+          losses: 0,
+          draws: 0,
+          ratings: [],
+        })),
       ])
         .then(([profile, userStats]) => {
           setUser(profile);
           setStats(userStats);
         })
-        .catch(console.error)
+        .catch((error) => {
+          console.warn('Failed to load data, using cached:', error);
+          // Используем данные из authStore
+          setStats({
+            totalGames: 0,
+            wins: 0,
+            losses: 0,
+            draws: 0,
+            ratings: [],
+          });
+        })
         .finally(() => setLoading(false));
     }
   }, [authUser]);

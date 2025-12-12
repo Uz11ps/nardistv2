@@ -27,14 +27,19 @@ export const City = () => {
 
   useEffect(() => {
     Promise.all([
-      districtService.getAll(),
-      businessService.getMyBusinesses(),
+      districtService.getAll().catch(() => []),
+      businessService.getMyBusinesses().catch(() => []),
     ])
       .then(([dists, bus]) => {
         setDistricts(dists);
         setBusinesses(bus);
       })
-      .catch(console.error)
+      .catch((error) => {
+        console.warn('Failed to load city data:', error);
+        // Устанавливаем пустые массивы при ошибке
+        setDistricts([]);
+        setBusinesses([]);
+      })
       .finally(() => setLoading(false));
   }, []);
 

@@ -31,21 +31,28 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    console.error('API Error:', {
-      url: error.config?.url,
-      method: error.config?.method,
-      status: error.response?.status,
-      message: error.message,
-      timeout: error.code === 'ECONNABORTED',
-    });
+    const token = localStorage.getItem('token');
+    const isMockMode = token === 'mock_token_for_local_dev';
     
-    if (error.response?.status === 401) {
+    // В мок-режиме не логируем ошибки подключения как критичные
+    if (!isMockMode) {
+      console.error('API Error:', {
+        url: error.config?.url,
+        method: error.config?.method,
+        status: error.response?.status,
+        message: error.message,
+        timeout: error.code === 'ECONNABORTED',
+      });
+    }
+    
+    // В мок-режиме не перезагружаем страницу при 401
+    if (error.response?.status === 401 && !isMockMode) {
       localStorage.removeItem('token');
       window.location.reload();
     }
     
     // Не перезагружаем страницу при таймауте, просто показываем ошибку
-    if (error.code === 'ECONNABORTED') {
+    if (error.code === 'ECONNABORTED' && !isMockMode) {
       console.error('Request timeout - backend may be slow or not responding');
     }
     

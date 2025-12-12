@@ -13,14 +13,18 @@ export const Clans = () => {
 
   useEffect(() => {
     Promise.all([
-      clanService.getAll(),
-      clanService.getMyClan(),
+      clanService.getAll().catch(() => []),
+      clanService.getMyClan().catch(() => null),
     ])
       .then(([allClans, myClan]) => {
         setClans(allClans);
         setUserClan(myClan);
       })
-      .catch(console.error)
+      .catch((error) => {
+        console.warn('Failed to load clans data:', error);
+        setClans([]);
+        setUserClan(null);
+      })
       .finally(() => setLoading(false));
   }, []);
 

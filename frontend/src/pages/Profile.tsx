@@ -8,15 +8,27 @@ import type { InventoryItem } from '../types';
 import './Profile.css';
 
 export const Profile = () => {
+  const { user: authUser } = useAuthStore();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Используем данные из authStore как fallback
+    if (authUser) {
+      setUser(authUser);
+    }
+    
     userService.getProfile()
       .then(setUser)
-      .catch(console.error)
+      .catch((error) => {
+        console.warn('Failed to load profile, using cached:', error);
+        // Используем данные из authStore при ошибке
+        if (authUser) {
+          setUser(authUser);
+        }
+      })
       .finally(() => setLoading(false));
-  }, []);
+  }, [authUser]);
 
   if (loading || !user) {
     return <div className="profile-page">Загрузка...</div>;
