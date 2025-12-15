@@ -33,7 +33,8 @@ services:
 
   backend:
     # Используем готовый образ если указан, иначе собираем локально
-    image: ${BACKEND_IMAGE:-nardist-backend:latest}
+    # ВАЖНО: Для применения исправлений пересоберите образ локально
+    # image: ${BACKEND_IMAGE:-nardist-backend:latest}
     build:
       context: ./backend
       dockerfile: Dockerfile
