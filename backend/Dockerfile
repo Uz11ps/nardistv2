@@ -15,16 +15,24 @@ COPY prisma ./prisma/
 
 # Используем npm ci для быстрой установки (требует package-lock.json)
 # Устанавливаем ВСЕ зависимости (включая devDependencies) для сборки
-ENV npm_config_loglevel=error
-RUN npm ci --legacy-peer-deps --prefer-offline --no-audit --progress=false --silent || \
-    npm install --legacy-peer-deps --prefer-offline --no-audit --progress=false --silent
+ENV npm_config_loglevel=warn
+RUN npm ci --legacy-peer-deps --prefer-offline --no-audit --progress=false || \
+    npm install --legacy-peer-deps --prefer-offline --no-audit --progress=false
 
-# Проверяем что Prisma установлен и генерируем клиент
-# Используем явную установку если npx prisma не работает
-RUN npx prisma --version || npm install prisma@5.7.1 --legacy-peer-deps --save-dev
+# Убеждаемся что Prisma установлен (он в devDependencies)
+RUN npm list prisma || npm install prisma@5.7.1 --legacy-peer-deps --save-dev
 
-# Генерируем Prisma клиент
-RUN npx prisma generate || (npm install prisma@5.7.1 --legacy-peer-deps --save-dev && npx prisma generate)
+# Проверяем наличие schema.prisma
+RUN test -f prisma/schema.prisma || (echo "ERROR: prisma/schema.prisma not found!" && ls -la prisma/ && exit 1)
+
+# Показываем версию Prisma для отладки
+RUN npx prisma --version || echo "Prisma not found in PATH"
+
+# Генерируем Prisma клиент (DATABASE_URL не нужен для generate)
+RUN npx prisma generate --schema=./prisma/schema.prisma || \
+    (echo "Prisma generate failed, trying to reinstall..." && \
+     npm install prisma@5.7.1 @prisma/client@5.7.1 --legacy-peer-deps --save-dev && \
+     npx prisma generate --schema=./prisma/schema.prisma)
 
 # Копируем исходный код
 COPY . .
