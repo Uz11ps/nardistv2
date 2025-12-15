@@ -2,18 +2,34 @@
 
 ## Шаг 1: Подготовка сервера
 
+### Установка Docker и Docker Compose
+
 ```bash
-# На сервере выполните:
-curl -fsSL https://raw.githubusercontent.com/Uz11ps/Nardist/main/scripts/init-server.sh | sudo bash
+# Клонируйте репозиторий (если еще не клонирован)
+cd /opt
+sudo git clone https://github.com/Uz11ps/Nardist.git
+cd Nardist
+sudo chown -R $USER:$USER .
+
+# Установите Docker
+chmod +x scripts/install-docker.sh
+sudo ./scripts/install-docker.sh
+
+# Добавьте пользователя в группу docker (если нужно)
+sudo usermod -aG docker $USER
+newgrp docker  # Или перелогиньтесь
+
+# Установите Docker Compose
+chmod +x scripts/install-docker-compose.sh
+sudo ./scripts/install-docker-compose.sh
 ```
 
-Или вручную:
+Или используйте скрипт полной инициализации:
 
 ```bash
-sudo apt update && sudo apt upgrade -y
-curl -fsSL https://get.docker.com -o get-docker.sh && sudo sh get-docker.sh
-sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-sudo chmod +x /usr/local/bin/docker-compose
+cd /opt/Nardist
+chmod +x scripts/init-server.sh
+sudo ./scripts/init-server.sh
 ```
 
 ## Шаг 2: Клонирование и настройка

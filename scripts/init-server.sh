@@ -24,6 +24,10 @@ if ! command -v docker &> /dev/null; then
     curl -fsSL https://get.docker.com -o get-docker.sh
     sh get-docker.sh
     rm get-docker.sh
+    
+    # Добавляем пользователя в группу docker
+    usermod -aG docker $SUDO_USER
+    echo "✅ Docker installed. You may need to log out and log back in for group changes to take effect."
 else
     echo "✅ Docker already installed"
 fi

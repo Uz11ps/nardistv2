@@ -71,9 +71,35 @@ nardist/
 
 См. `.env.example` для списка необходимых переменных окружения.
 
+## Обновление с Git
+
+Для обновления проекта с последними изменениями из репозитория:
+
+```bash
+cd /opt/Nardist
+chmod +x scripts/update-from-git.sh
+./scripts/update-from-git.sh
+```
+
+Или вручную:
+
+```bash
+# Сохранить локальные изменения и обновить
+git stash
+git pull origin main
+git stash pop
+
+# Или откатить локальные изменения и обновить
+git reset --hard HEAD
+git pull origin main
+```
+
 ## Документация
 
 - [DEPLOYMENT.md](./DEPLOYMENT.md) - Руководство по развертыванию
+- [QUICK_START.md](./QUICK_START.md) - Быстрый старт
+- [SETUP_DOMAIN.md](./SETUP_DOMAIN.md) - Настройка домена
+- [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) - Устранение неполадок
 - [backend/README.md](./backend/README.md) - Документация бэкенда
 - [frontend/README.md](./frontend/README.md) - Документация фронтенда
 

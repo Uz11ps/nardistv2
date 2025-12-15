@@ -1,5 +1,70 @@
 # Устранение неполадок
 
+## Проблема: Docker не установлен
+
+Если при установке Docker Compose возникает ошибка "Command 'docker' not found":
+
+### Решение: Установить Docker
+
+```bash
+# Используйте скрипт установки
+cd /opt/Nardist
+chmod +x scripts/install-docker.sh
+sudo ./scripts/install-docker.sh
+
+# Или установите вручную
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
+rm get-docker.sh
+
+# Добавьте пользователя в группу docker
+sudo usermod -aG docker $USER
+newgrp docker  # Или перелогиньтесь
+```
+
+## Проблема: Ошибка 504 при скачивании Docker Compose
+
+Если при скачивании docker-compose получаете HTML с ошибкой 504:
+
+```bash
+# Удалите поврежденный файл
+sudo rm -f /usr/local/bin/docker-compose
+
+# Установите Docker Compose используя скрипт
+cd /opt/Nardist
+chmod +x scripts/install-docker-compose.sh
+sudo ./scripts/install-docker-compose.sh
+```
+
+## Проблема: Конфликт при `git pull`
+
+Если при обновлении возникает ошибка "Your local changes would be overwritten":
+
+### Решение 1: Сохранить локальные изменения (рекомендуется)
+
+```bash
+cd /opt/Nardist
+git stash
+git pull origin main
+git stash pop
+```
+
+### Решение 2: Откатить локальные изменения
+
+```bash
+cd /opt/Nardist
+git reset --hard HEAD
+git pull origin main
+```
+
+### Решение 3: Использовать скрипт обновления
+
+```bash
+cd /opt/Nardist
+chmod +x scripts/update-from-git.sh
+./scripts/update-from-git.sh
+```
+
 ## Проблема: `docker-compose: command not found`
 
 ### Решение 1: Установка Docker Compose
