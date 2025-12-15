@@ -7,8 +7,9 @@ COPY package*.json ./
 COPY prisma ./prisma/
 
 # Используем npm ci для быстрой установки (требует package-lock.json)
-RUN npm ci --legacy-peer-deps --prefer-offline --no-audit --progress=false || \
-    npm install --legacy-peer-deps --prefer-offline --no-audit --progress=false
+ENV npm_config_loglevel=error
+RUN npm ci --legacy-peer-deps --prefer-offline --no-audit --progress=false --silent || \
+    npm install --legacy-peer-deps --prefer-offline --no-audit --progress=false --silent
 
 # Генерируем Prisma клиент (нужны все зависимости)
 RUN npx prisma generate
@@ -28,8 +29,9 @@ COPY package*.json ./
 COPY prisma ./prisma/
 
 # Устанавливаем только production зависимости с оптимизацией
-RUN npm ci --only=production --legacy-peer-deps --prefer-offline --no-audit --progress=false || \
-    npm install --only=production --legacy-peer-deps --prefer-offline --no-audit --progress=false
+ENV npm_config_loglevel=error
+RUN npm ci --only=production --legacy-peer-deps --prefer-offline --no-audit --progress=false --silent || \
+    npm install --only=production --legacy-peer-deps --prefer-offline --no-audit --progress=false --silent
 
 # Копируем собранное приложение и сгенерированный Prisma клиент
 COPY --from=builder /app/dist ./dist
