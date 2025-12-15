@@ -4,8 +4,9 @@ WORKDIR /app
 
 COPY package*.json ./
 # Используем npm ci для быстрой установки (требует package-lock.json)
-RUN npm ci --prefer-offline --no-audit --progress=false || \
-    npm install --legacy-peer-deps --prefer-offline --no-audit --progress=false
+ENV npm_config_loglevel=error
+RUN npm ci --prefer-offline --no-audit --progress=false --silent || \
+    npm install --legacy-peer-deps --prefer-offline --no-audit --progress=false --silent
 
 COPY . .
 RUN npm run build
