@@ -2,6 +2,16 @@
 
 set -e
 
+# Определяем команду docker compose
+if command -v docker &> /dev/null && docker compose version &> /dev/null; then
+    DOCKER_COMPOSE="docker compose"
+elif command -v docker-compose &> /dev/null; then
+    DOCKER_COMPOSE="docker-compose"
+else
+    echo "❌ Error: docker compose or docker-compose not found!"
+    exit 1
+fi
+
 if [ -z "$1" ]; then
     echo "Usage: ./scripts/restore-db.sh <backup-file.sql>"
     exit 1
@@ -24,7 +34,7 @@ fi
 
 echo "🔄 Restoring database from ${BACKUP_FILE}..."
 
-docker-compose -f docker-compose.prod.yml exec -T postgres psql \
+$DOCKER_COMPOSE -f docker-compose.prod.yml exec -T postgres psql \
     -U ${POSTGRES_USER:-nardist} \
     -d ${POSTGRES_DB:-nardist_db} < ${BACKUP_FILE}
 

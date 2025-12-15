@@ -20,13 +20,53 @@ sudo chmod +x /usr/local/bin/docker-compose
 
 ```bash
 cd /opt
-sudo git clone https://github.com/Uz11ps/Nardist.git
-cd Nardist
-sudo chown -R $USER:$USER .
 
-# Создайте .env файл
-cp .env.example .env
-nano .env  # Заполните все переменные
+# Если репозиторий уже существует, обновите его
+if [ -d "Nardist" ]; then
+    cd Nardist
+    git pull origin main || git pull origin master
+else
+    sudo git clone https://github.com/Uz11ps/Nardist.git
+    cd Nardist
+    sudo chown -R $USER:$USER .
+fi
+
+# Создайте .env файл (если его нет)
+if [ ! -f .env ]; then
+    if [ -f .env.example ]; then
+        cp .env.example .env
+    else
+        # Создайте .env файл вручную
+        cat > .env << 'EOF'
+# Database
+POSTGRES_USER=nardist
+POSTGRES_PASSWORD=your_secure_password_here_change_this
+POSTGRES_DB=nardist_db
+
+# Backend
+JWT_SECRET=your_jwt_secret_key_here_min_32_chars_change_this
+TELEGRAM_BOT_TOKEN=your_telegram_bot_token_here
+NODE_ENV=production
+PORT=3000
+
+# Frontend
+VITE_API_URL=https://nardist.online
+VITE_WS_URL=https://nardist.online
+FRONTEND_URL=https://nardist.online
+
+# Domain
+DOMAIN_NAME=nardist.online
+SSL_EMAIL=your-email@example.com
+EOF
+    fi
+    nano .env  # Заполните все переменные
+fi
+
+# Установите Docker Compose (если нужно)
+if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
+    chmod +x scripts/install-docker-compose.sh
+    ./scripts/install-docker-compose.sh
+fi
 ```
 
 ## Шаг 3: Первоначальный запуск (без SSL)
