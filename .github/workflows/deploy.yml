@@ -131,6 +131,13 @@ jobs:
             # Применяем миграции
             $DOCKER_COMPOSE -f docker-compose.prod.yml exec -T backend npx prisma migrate deploy || echo "⚠️  Migrations failed or not needed"
             
+            # Проверяем статус контейнеров
+            echo "📊 Container status:"
+            $DOCKER_COMPOSE -f docker-compose.prod.yml ps
+            
             # Очистка
             docker system prune -f
+            
+            echo "✅ Deployment completed successfully!"
+            exit 0
 
