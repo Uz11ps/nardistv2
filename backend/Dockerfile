@@ -15,7 +15,9 @@ COPY prisma ./prisma/
 
 # Используем npm ci для быстрой установки (требует package-lock.json)
 # Устанавливаем ВСЕ зависимости (включая devDependencies) для сборки
+# Используем кэш npm для ускорения
 ENV npm_config_loglevel=warn
+ENV npm_config_cache=/root/.npm
 RUN npm ci --legacy-peer-deps --prefer-offline --no-audit --progress=false || \
     npm install --legacy-peer-deps --prefer-offline --no-audit --progress=false
 
