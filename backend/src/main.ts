@@ -14,18 +14,29 @@ async function bootstrap() {
     }),
   );
 
-  // CORS настройки - разрешаем localhost на любом порту для разработки
+  // CORS настройки
   const allowedOrigins = process.env.FRONTEND_URL 
-    ? [process.env.FRONTEND_URL]
-    : ['http://localhost:5173', 'http://localhost:5174', 'http://127.0.0.1:5173', 'http://127.0.0.1:5174'];
+    ? process.env.FRONTEND_URL.split(',').map(url => url.trim())
+    : process.env.NODE_ENV === 'production'
+      ? []
+      : ['http://localhost:5173', 'http://localhost:5174', 'http://127.0.0.1:5173', 'http://127.0.0.1:5174'];
   
   app.enableCors({
     origin: (origin, callback) => {
-      // Разрешаем запросы без origin (например, из Postman) и с localhost
-      if (!origin || allowedOrigins.includes(origin) || origin.includes('localhost') || origin.includes('127.0.0.1')) {
-        callback(null, true);
+      // В production разрешаем только указанные домены
+      if (process.env.NODE_ENV === 'production') {
+        if (!origin || allowedOrigins.includes(origin)) {
+          callback(null, true);
+        } else {
+          callback(new Error('Not allowed by CORS'));
+        }
       } else {
-        callback(new Error('Not allowed by CORS'));
+        // В development разрешаем localhost и указанные домены
+        if (!origin || allowedOrigins.includes(origin) || origin.includes('localhost') || origin.includes('127.0.0.1')) {
+          callback(null, true);
+        } else {
+          callback(new Error('Not allowed by CORS'));
+        }
       }
     },
     credentials: true,
