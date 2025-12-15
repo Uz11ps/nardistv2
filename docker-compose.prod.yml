@@ -35,6 +35,9 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      # Используем кэш для ускорения сборки
+      cache_from:
+        - ${BACKEND_IMAGE:-nardist-backend:latest}
     image: ${BACKEND_IMAGE:-nardist-backend:latest}
     container_name: nardist_backend_prod
     environment:
@@ -58,6 +61,9 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      # Используем кэш для ускорения сборки
+      cache_from:
+        - ${FRONTEND_IMAGE:-nardist-frontend:latest}
     image: ${FRONTEND_IMAGE:-nardist-frontend:latest}
     container_name: nardist_frontend_prod
     environment:

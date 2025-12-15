@@ -99,6 +99,8 @@ git pull origin main
 - [DEPLOYMENT.md](./DEPLOYMENT.md) - Руководство по развертыванию
 - [QUICK_START.md](./QUICK_START.md) - Быстрый старт
 - [SETUP_DOMAIN.md](./SETUP_DOMAIN.md) - Настройка домена
+- [SETUP_ENV.md](./SETUP_ENV.md) - Настройка переменных окружения
+- [GITHUB_ACTIONS_SETUP.md](./GITHUB_ACTIONS_SETUP.md) - Настройка CI/CD с GitHub Actions
 - [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) - Устранение неполадок
 - [backend/README.md](./backend/README.md) - Документация бэкенда
 - [frontend/README.md](./frontend/README.md) - Документация фронтенда

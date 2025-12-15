@@ -39,7 +39,10 @@ echo "📦 Pulling base images (postgres, redis, nginx, certbot)..."
 $DOCKER_COMPOSE -f docker-compose.prod.yml pull postgres redis nginx certbot || echo "⚠️  Some base images pull failed, will use cached versions"
 
 echo "🔨 Building application images (backend, frontend)..."
-$DOCKER_COMPOSE -f docker-compose.prod.yml build backend frontend
+# Используем BuildKit для параллельной сборки и кэширования
+export DOCKER_BUILDKIT=1
+export COMPOSE_DOCKER_CLI_BUILD=1
+$DOCKER_COMPOSE -f docker-compose.prod.yml build --parallel backend frontend
 
 echo "🚀 Starting containers..."
 $DOCKER_COMPOSE -f docker-compose.prod.yml up -d

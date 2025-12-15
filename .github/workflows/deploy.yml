@@ -53,10 +53,41 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
+          script_timeout: 600s
           script: |
             cd /opt/Nardist
-            docker-compose -f docker-compose.prod.yml pull
-            docker-compose -f docker-compose.prod.yml up -d --build
-            docker-compose -f docker-compose.prod.yml exec -T backend npx prisma migrate deploy
+            
+            # Определяем команду docker compose
+            if command -v docker &> /dev/null && docker compose version &> /dev/null; then
+              DOCKER_COMPOSE="docker compose"
+            elif command -v docker-compose &> /dev/null; then
+              DOCKER_COMPOSE="docker-compose"
+            else
+              echo "❌ Error: docker compose not found!"
+              exit 1
+            fi
+            
+            # Обновляем код
+            git pull origin main || git pull origin master
+            
+            # Загружаем переменные окружения
+            if [ -f .env ]; then
+              set -a
+              source .env
+              set +a
+            fi
+            
+            # Собираем и запускаем контейнеры
+            $DOCKER_COMPOSE -f docker-compose.prod.yml pull postgres redis nginx certbot || true
+            $DOCKER_COMPOSE -f docker-compose.prod.yml build backend frontend
+            $DOCKER_COMPOSE -f docker-compose.prod.yml up -d
+            
+            # Ждем готовности сервисов
+            sleep 10
+            
+            # Применяем миграции
+            $DOCKER_COMPOSE -f docker-compose.prod.yml exec -T backend npx prisma migrate deploy || echo "⚠️  Migrations failed or not needed"
+            
+            # Очистка
             docker system prune -f
 
