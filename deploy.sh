@@ -18,10 +18,14 @@ echo "📝 Using: $DOCKER_COMPOSE"
 
 # Load environment variables
 if [ -f .env ]; then
-    export $(cat .env | grep -v '^#' | xargs)
+    # Загружаем переменные из .env файла
+    set -a
+    source .env
+    set +a
+    echo "✅ Environment variables loaded from .env"
 else
     echo "❌ Error: .env file not found!"
-    echo "Please copy .env.example to .env and configure it"
+    echo "Please create .env file with required variables"
     exit 1
 fi
 
@@ -31,11 +35,14 @@ if [ -z "$DOMAIN_NAME" ]; then
     exit 1
 fi
 
-echo "📦 Pulling latest images..."
-$DOCKER_COMPOSE -f docker-compose.prod.yml pull
+echo "📦 Pulling base images (postgres, redis, nginx, certbot)..."
+$DOCKER_COMPOSE -f docker-compose.prod.yml pull postgres redis nginx certbot || echo "⚠️  Some base images pull failed, will use cached versions"
 
-echo "🔨 Building and starting containers..."
-$DOCKER_COMPOSE -f docker-compose.prod.yml up -d --build
+echo "🔨 Building application images (backend, frontend)..."
+$DOCKER_COMPOSE -f docker-compose.prod.yml build backend frontend
+
+echo "🚀 Starting containers..."
+$DOCKER_COMPOSE -f docker-compose.prod.yml up -d
 
 echo "⏳ Waiting for services to be ready..."
 sleep 10

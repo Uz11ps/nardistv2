@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:15-alpine
@@ -34,6 +32,9 @@ services:
       - nardist_network
 
   backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     image: ${BACKEND_IMAGE:-nardist-backend:latest}
     container_name: nardist_backend_prod
     environment:
@@ -54,6 +55,9 @@ services:
       - nardist_network
 
   frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
     image: ${FRONTEND_IMAGE:-nardist-frontend:latest}
     container_name: nardist_frontend_prod
     environment:
