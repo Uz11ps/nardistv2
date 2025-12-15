@@ -3,7 +3,8 @@ FROM node:18-alpine AS builder
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci
+# Используем npm ci если есть package-lock.json, иначе npm install
+RUN if [ -f package-lock.json ]; then npm ci; else npm install --legacy-peer-deps; fi
 
 COPY . .
 RUN npm run build

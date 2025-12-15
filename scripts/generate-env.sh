@@ -14,6 +14,7 @@ if [ -f .env ]; then
     read -p "Do you want to overwrite it? (yes/no): " confirm
     if [ "$confirm" != "yes" ]; then
         echo "❌ Cancelled"
+        echo "💡 Tip: You can manually edit .env file with: nano .env"
         exit 1
     fi
 fi

@@ -5,7 +5,8 @@ WORKDIR /app
 COPY package*.json ./
 COPY prisma ./prisma/
 
-RUN npm ci
+# Используем npm install, так как package-lock.json может отсутствовать
+RUN npm install --legacy-peer-deps
 
 COPY . .
 
@@ -19,7 +20,7 @@ WORKDIR /app
 COPY package*.json ./
 COPY prisma ./prisma/
 
-RUN npm ci --only=production
+RUN npm install --only=production --legacy-peer-deps
 RUN npx prisma generate
 
 COPY --from=builder /app/dist ./dist
