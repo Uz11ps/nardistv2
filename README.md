@@ -37,6 +37,10 @@ docker-compose exec backend npx prisma migrate dev
 
 См. [DEPLOYMENT.md](./DEPLOYMENT.md) для подробных инструкций по развертыванию на сервере.
 
+**Домен**: `nardist.online`
+
+См. [SETUP_DOMAIN.md](./SETUP_DOMAIN.md) для быстрой настройки домена.
+
 ## Структура проекта
 
 ```

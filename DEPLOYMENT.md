@@ -61,11 +61,12 @@ NODE_ENV=production
 PORT=3000
 
 # Frontend
-VITE_API_URL=https://api.yourdomain.com
-FRONTEND_URL=https://yourdomain.com
+VITE_API_URL=https://nardist.online
+VITE_WS_URL=https://nardist.online
+FRONTEND_URL=https://nardist.online
 
 # Domain
-DOMAIN_NAME=yourdomain.com
+DOMAIN_NAME=nardist.online
 SSL_EMAIL=your-email@example.com
 ```
 
@@ -104,8 +105,8 @@ docker-compose -f docker-compose.prod.yml run --rm certbot certonly \
     --email your-email@example.com \
     --agree-tos \
     --no-eff-email \
-    -d yourdomain.com \
-    -d www.yourdomain.com
+    -d nardist.online \
+    -d www.nardist.online
 ```
 
 ### 3. Настройка Nginx с SSL
@@ -115,7 +116,7 @@ docker-compose -f docker-compose.prod.yml run --rm certbot certonly \
 cp nginx/conf.d/default.conf nginx/conf.d/default.conf.old
 # Обновите nginx/conf.d/default.conf с вашим доменом
 # Или используйте скрипт:
-./scripts/setup-ssl.sh yourdomain.com your-email@example.com
+./scripts/setup-ssl.sh nardist.online your-email@example.com
 
 # Перезапуск Nginx
 docker-compose -f docker-compose.prod.yml restart nginx

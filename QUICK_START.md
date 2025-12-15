@@ -45,22 +45,22 @@ sleep 15
 ## Шаг 4: Получение SSL сертификата
 
 ```bash
-# Замените yourdomain.com и email на свои данные
+# Замените email на свой email
 docker-compose -f docker-compose.prod.yml run --rm certbot certonly \
     --webroot \
     --webroot-path=/var/www/certbot \
     --email your-email@example.com \
     --agree-tos \
     --no-eff-email \
-    -d yourdomain.com \
-    -d www.yourdomain.com
+    -d nardist.online \
+    -d www.nardist.online
 ```
 
 ## Шаг 5: Настройка Nginx с SSL
 
 ```bash
 # Обновите конфигурацию Nginx с вашим доменом
-./scripts/setup-nginx-domain.sh yourdomain.com
+./scripts/setup-nginx-domain.sh nardist.online
 
 # Или вручную отредактируйте nginx/conf.d/default.conf
 # Замените ${DOMAIN_NAME} на ваш домен
@@ -77,7 +77,7 @@ docker-compose -f docker-compose.prod.yml exec -T backend npx prisma migrate dep
 
 ## Готово! 🎉
 
-Ваше приложение должно быть доступно по адресу: `https://yourdomain.com`
+Ваше приложение должно быть доступно по адресу: `https://nardist.online`
 
 ## Настройка CI/CD
 
