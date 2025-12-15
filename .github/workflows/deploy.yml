@@ -111,6 +111,11 @@ jobs:
             docker stop nardist_nginx_prod 2>/dev/null || true
             docker rm nardist_nginx_prod 2>/dev/null || true
             
+            # Открываем порты в firewall (если используется ufw)
+            ufw allow 80/tcp 2>/dev/null || true
+            ufw allow 443/tcp 2>/dev/null || true
+            ufw --force enable 2>/dev/null || true
+            
             # Запускаем контейнеры (только build если образы не скачаны)
             if [ "$BACKEND_PULLED" = true ] && [ "$FRONTEND_PULLED" = true ]; then
               echo "🚀 Using pre-built images, skipping build"
