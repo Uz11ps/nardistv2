@@ -92,12 +92,19 @@ services:
     restart: unless-stopped
     networks:
       - nardist_network
+    # Останавливаем системный nginx перед запуском контейнера
+    command: >
+      sh -c "
+        apk add --no-cache curl || true &&
+        nginx -g 'daemon off;'
+      "
 
   certbot:
     image: certbot/certbot
     container_name: nardist_certbot
     volumes:
       - certbot_data:/etc/letsencrypt
+      - certbot_www:/var/www/certbot:rw
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
     command: certonly --webroot --webroot-path=/var/www/certbot --email ${SSL_EMAIL} --agree-tos --no-eff-email -d ${DOMAIN_NAME} -d www.${DOMAIN_NAME}
     networks:
