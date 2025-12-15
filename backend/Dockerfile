@@ -2,6 +2,9 @@ FROM node:18-alpine AS builder
 
 WORKDIR /app
 
+# Устанавливаем OpenSSL для Prisma
+RUN apk add --no-cache openssl1.1-compat
+
 # Устанавливаем зависимости для кэширования
 COPY package*.json ./
 COPY prisma ./prisma/
@@ -23,6 +26,9 @@ RUN npm run build
 FROM node:18-alpine AS production
 
 WORKDIR /app
+
+# Устанавливаем OpenSSL для Prisma
+RUN apk add --no-cache openssl1.1-compat
 
 # Копируем только package.json для production зависимостей
 COPY package*.json ./
