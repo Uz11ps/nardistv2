@@ -9,7 +9,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  IMAGE_NAME: Uz11ps/Nardist
 
 jobs:
   build-and-deploy:
@@ -34,7 +34,7 @@ jobs:
         with:
           context: ./backend
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:latest
+          tags: ${{ env.REGISTRY }}/uz11ps/nardist-backend:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -43,7 +43,7 @@ jobs:
         with:
           context: ./frontend
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:latest
+          tags: ${{ env.REGISTRY }}/uz11ps/nardist-frontend:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -54,9 +54,9 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
-            cd /opt/nardist
-            docker-compose pull
-            docker-compose up -d --build
-            docker-compose exec -T backend npx prisma migrate deploy
+            cd /opt/Nardist
+            docker-compose -f docker-compose.prod.yml pull
+            docker-compose -f docker-compose.prod.yml up -d --build
+            docker-compose -f docker-compose.prod.yml exec -T backend npx prisma migrate deploy
             docker system prune -f
 

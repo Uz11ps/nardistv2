@@ -15,8 +15,8 @@ Telegram Mini App для игры в нарды с экономической с
 
 1. Клонируйте репозиторий:
 ```bash
-git clone https://github.com/yourusername/nardist.git
-cd nardist
+git clone https://github.com/Uz11ps/Nardist.git
+cd Nardist
 ```
 
 2. Запустите сервисы через Docker Compose:

@@ -32,8 +32,8 @@ newgrp docker
 
 ```bash
 cd /opt
-sudo git clone https://github.com/yourusername/nardist.git
-cd nardist
+sudo git clone https://github.com/Uz11ps/Nardist.git
+cd Nardist
 sudo chown -R $USER:$USER .
 ```
 
@@ -194,7 +194,7 @@ SSL сертификаты Let's Encrypt действительны 90 дней.
 crontab -e
 
 # Добавление задачи обновления (каждый месяц)
-0 0 1 * * cd /opt/nardist && docker-compose -f docker-compose.prod.yml run --rm certbot renew && docker-compose -f docker-compose.prod.yml exec nginx nginx -s reload
+0 0 1 * * cd /opt/Nardist && docker-compose -f docker-compose.prod.yml run --rm certbot renew && docker-compose -f docker-compose.prod.yml exec nginx nginx -s reload
 ```
 
 ## Мониторинг и логи

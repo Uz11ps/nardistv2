@@ -51,7 +51,7 @@ chown -R $SUDO_USER:$SUDO_USER /opt/nardist
 
 echo "✅ Server initialization completed!"
 echo "📝 Next steps:"
-echo "   1. Clone your repository to /opt/nardist"
+echo "   1. Clone your repository: git clone https://github.com/Uz11ps/Nardist.git /opt/Nardist"
 echo "   2. Copy .env.example to .env and configure it"
 echo "   3. Run ./deploy.sh"
 

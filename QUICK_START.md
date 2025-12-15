@@ -4,7 +4,7 @@
 
 ```bash
 # На сервере выполните:
-curl -fsSL https://raw.githubusercontent.com/yourusername/nardist/main/scripts/init-server.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/Uz11ps/Nardist/main/scripts/init-server.sh | sudo bash
 ```
 
 Или вручную:
@@ -20,8 +20,8 @@ sudo chmod +x /usr/local/bin/docker-compose
 
 ```bash
 cd /opt
-sudo git clone https://github.com/yourusername/nardist.git
-cd nardist
+sudo git clone https://github.com/Uz11ps/Nardist.git
+cd Nardist
 sudo chown -R $USER:$USER .
 
 # Создайте .env файл
