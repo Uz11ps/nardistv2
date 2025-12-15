@@ -11,6 +11,10 @@ interface LogEntry {
 
 @Injectable()
 export class LoggerService extends ConsoleLogger {
+  constructor() {
+    super();
+  }
+
   private formatMessage(level: string, message: string, context?: string, meta?: any, trace?: string): string {
     const timestamp = new Date().toISOString();
     const contextStr = context ? `[${context}]` : '';

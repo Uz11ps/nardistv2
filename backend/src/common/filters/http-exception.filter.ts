@@ -10,7 +10,8 @@ import { LoggerService } from '../logger/logger.service';
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
-  private readonly logger = new LoggerService(HttpExceptionFilter.name);
+  private readonly logger = new LoggerService();
+  private readonly context = HttpExceptionFilter.name;
 
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
@@ -44,7 +45,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
       this.logger.error(
         `Unhandled exception: ${exception.message}`,
         exception.stack,
-        `${request.method} ${request.url}`,
+        this.context,
         {
           method: request.method,
           url: request.url,

@@ -9,10 +9,12 @@ import { setupSwagger } from './common/swagger/swagger.setup';
 import helmet from 'helmet';
 
 async function bootstrap() {
-  const logger = new LoggerService('Bootstrap');
   const app = await NestFactory.create(AppModule, {
-    logger: logger,
+    bufferLogs: true,
   });
+  
+  const logger = app.get(LoggerService);
+  app.useLogger(logger);
 
   // Helmet для безопасности (XSS, CSRF и т.д.)
   app.use(
