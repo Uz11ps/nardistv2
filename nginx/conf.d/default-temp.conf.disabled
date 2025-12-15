@@ -1,4 +1,6 @@
 # HTTP server - временная конфигурация без SSL (до получения сертификата)
+# ОТКЛЮЧЕНО: Используйте default.conf для production
+# Чтобы использовать этот файл, переименуйте его в default-temp.conf
 server {
     listen 80;
     server_name nardist.online www.nardist.online;

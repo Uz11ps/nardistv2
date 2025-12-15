@@ -1,76 +1,85 @@
-# Исправление проблемы с портом 80
+# Решение проблемы с занятым портом 80
 
 ## Проблема
-
-Ошибка: `failed to bind host port 0.0.0.0:80/tcp: address already in use`
-
-Это означает, что порт 80 уже занят на сервере (скорее всего системным nginx или другим сервисом).
+```
+Error: failed to bind host port 0.0.0.0:80/tcp: address already in use
+```
 
 ## Решение
 
-### Вариант 1: Остановить системный nginx (Рекомендуется)
+### 1. Проверьте, что использует порт 80
 
 ```bash
-# Проверьте, что занимает порт 80
+# Проверка процессов на порту 80
 sudo lsof -i :80
 # или
 sudo netstat -tulpn | grep :80
-
-# Остановите системный nginx (если он запущен)
-sudo systemctl stop nginx
-sudo systemctl disable nginx
-
-# Или если используется другой веб-сервер
-sudo systemctl stop apache2  # для Apache
+# или
+sudo ss -tulpn | grep :80
 ```
 
-### Вариант 2: Удалить существующий контейнер nginx
+### 2. Варианты решения
+
+#### Вариант A: Остановить системный nginx/apache (если установлен)
+
+```bash
+# Если это системный nginx
+sudo systemctl stop nginx
+sudo systemctl disable nginx  # отключить автозапуск
+
+# Если это apache
+sudo systemctl stop apache2
+sudo systemctl disable apache2
+
+# Если это другой веб-сервер
+sudo systemctl list-units --type=service | grep -E 'nginx|apache|httpd'
+```
+
+#### Вариант B: Остановить другие Docker контейнеры на порту 80
+
+```bash
+# Проверить все контейнеры
+docker ps -a
+
+# Остановить контейнер, использующий порт 80
+docker stop <container_id>
+docker rm <container_id>
+
+# Или остановить все контейнеры
+docker stop $(docker ps -q)
+```
+
+#### Вариант C: Остановить старый контейнер nardist_nginx_prod
+
+```bash
+# Проверить существующие контейнеры
+docker ps -a | grep nginx
+
+# Остановить и удалить старый контейнер
+docker stop nardist_nginx_prod
+docker rm nardist_nginx_prod
+
+# Или через docker-compose
+cd /opt/Nardist
+docker compose -f docker-compose.prod.yml down
+```
+
+### 3. После освобождения порта - запустить заново
 
 ```bash
 cd /opt/Nardist
-
-# Проверьте запущенные контейнеры
-docker ps -a | grep nginx
-
-# Остановите и удалите старый контейнер nginx
-docker stop nardist_nginx_prod 2>/dev/null || true
-docker rm nardist_nginx_prod 2>/dev/null || true
-
-# Перезапустите все контейнеры
 docker compose -f docker-compose.prod.yml up -d
+docker compose -f docker-compose.prod.yml logs -f
 ```
 
-### Вариант 3: Использовать другой порт (временно)
+### 4. Если нужно временно использовать другой порт (НЕ рекомендуется для production)
 
-Если нужно временно использовать другой порт, измените `docker-compose.prod.yml`:
-
+Можно изменить в `docker-compose.prod.yml`:
 ```yaml
 nginx:
   ports:
-    - "8080:80"  # Вместо "80:80"
+    - "8080:80"  # временно использовать 8080 вместо 80
     - "443:443"
 ```
 
-Но это не рекомендуется для production, так как нужно будет обращаться через `http://nardist.online:8080`.
-
-## После исправления
-
-После освобождения порта 80:
-
-```bash
-cd /opt/Nardist
-docker compose -f docker-compose.prod.yml up -d
-docker compose -f docker-compose.prod.yml ps
-docker compose -f docker-compose.prod.yml logs nginx
-```
-
-## Проверка
-
-Убедитесь, что nginx запущен:
-
-```bash
-docker compose -f docker-compose.prod.yml ps nginx
-```
-
-Должен быть статус `Up`.
-
+Но это потребует изменения DNS/прокси настройки.

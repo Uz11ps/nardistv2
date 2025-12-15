@@ -1,4 +1,6 @@
 # Temporary HTTP server before SSL setup
+# ОТКЛЮЧЕНО: Используйте default.conf для production
+# Чтобы использовать этот файл, переименуйте его в default-http.conf
 server {
     listen 80;
     server_name _;
