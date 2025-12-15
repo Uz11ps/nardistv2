@@ -77,10 +77,19 @@ jobs:
               set +a
             fi
             
-            # Собираем и запускаем контейнеры
+            # Используем готовые образы из GitHub Container Registry
+            export BACKEND_IMAGE=ghcr.io/uz11ps/nardist-backend:latest
+            export FRONTEND_IMAGE=ghcr.io/uz11ps/nardist-frontend:latest
+            
+            # Скачиваем базовые образы
             $DOCKER_COMPOSE -f docker-compose.prod.yml pull postgres redis nginx certbot || true
-            $DOCKER_COMPOSE -f docker-compose.prod.yml build backend frontend
-            $DOCKER_COMPOSE -f docker-compose.prod.yml up -d
+            
+            # Пытаемся скачать готовые образы приложений
+            docker pull ${BACKEND_IMAGE} || echo "⚠️  Backend image not found, will build"
+            docker pull ${FRONTEND_IMAGE} || echo "⚠️  Frontend image not found, will build"
+            
+            # Запускаем контейнеры (docker-compose автоматически использует скачанные образы или соберет их)
+            $DOCKER_COMPOSE -f docker-compose.prod.yml up -d --build
             
             # Ждем готовности сервисов
             sleep 10

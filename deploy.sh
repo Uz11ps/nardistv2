@@ -38,11 +38,29 @@ fi
 echo "📦 Pulling base images (postgres, redis, nginx, certbot)..."
 $DOCKER_COMPOSE -f docker-compose.prod.yml pull postgres redis nginx certbot || echo "⚠️  Some base images pull failed, will use cached versions"
 
-echo "🔨 Building application images (backend, frontend)..."
-# Используем BuildKit для параллельной сборки и кэширования
-export DOCKER_BUILDKIT=1
-export COMPOSE_DOCKER_CLI_BUILD=1
-$DOCKER_COMPOSE -f docker-compose.prod.yml build --parallel backend frontend
+# Проверяем, есть ли готовые образы в GitHub Container Registry
+if [ -n "$BACKEND_IMAGE" ] && [ "$BACKEND_IMAGE" != "nardist-backend:latest" ] && [ -n "$FRONTEND_IMAGE" ] && [ "$FRONTEND_IMAGE" != "nardist-frontend:latest" ]; then
+    echo "📥 Attempting to pull pre-built images from GitHub Container Registry..."
+    docker pull ${BACKEND_IMAGE} 2>/dev/null && echo "✅ Backend image pulled successfully" || echo "⚠️  Backend image not found in registry, will build locally"
+    docker pull ${FRONTEND_IMAGE} 2>/dev/null && echo "✅ Frontend image pulled successfully" || echo "⚠️  Frontend image not found in registry, will build locally"
+    
+    # Проверяем, скачались ли образы
+    if docker images ${BACKEND_IMAGE} --format "{{.Repository}}:{{.Tag}}" 2>/dev/null | grep -q "${BACKEND_IMAGE}" && \
+       docker images ${FRONTEND_IMAGE} --format "{{.Repository}}:{{.Tag}}" 2>/dev/null | grep -q "${FRONTEND_IMAGE}"; then
+        echo "✅ Using pre-built images from registry (much faster!)"
+    else
+        echo "🔨 Building application images locally (this may take 5-10 minutes)..."
+        export DOCKER_BUILDKIT=1
+        export COMPOSE_DOCKER_CLI_BUILD=1
+        $DOCKER_COMPOSE -f docker-compose.prod.yml build --parallel backend frontend
+    fi
+else
+    echo "🔨 Building application images locally (this may take 5-10 minutes)..."
+    echo "💡 Tip: Set BACKEND_IMAGE=ghcr.io/uz11ps/nardist-backend:latest and FRONTEND_IMAGE=ghcr.io/uz11ps/nardist-frontend:latest in .env to use pre-built images"
+    export DOCKER_BUILDKIT=1
+    export COMPOSE_DOCKER_CLI_BUILD=1
+    $DOCKER_COMPOSE -f docker-compose.prod.yml build --parallel backend frontend
+fi
 
 echo "🚀 Starting containers..."
 $DOCKER_COMPOSE -f docker-compose.prod.yml up -d
