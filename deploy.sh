@@ -41,18 +41,41 @@ $DOCKER_COMPOSE -f docker-compose.prod.yml pull postgres redis nginx certbot || 
 # Проверяем, есть ли готовые образы в GitHub Container Registry
 if [ -n "$BACKEND_IMAGE" ] && [ "$BACKEND_IMAGE" != "nardist-backend:latest" ] && [ -n "$FRONTEND_IMAGE" ] && [ "$FRONTEND_IMAGE" != "nardist-frontend:latest" ]; then
     echo "📥 Attempting to pull pre-built images from GitHub Container Registry..."
-    docker pull ${BACKEND_IMAGE} 2>/dev/null && echo "✅ Backend image pulled successfully" || echo "⚠️  Backend image not found in registry, will build locally"
-    docker pull ${FRONTEND_IMAGE} 2>/dev/null && echo "✅ Frontend image pulled successfully" || echo "⚠️  Frontend image not found in registry, will build locally"
     
-    # Проверяем, скачались ли образы
-    if docker images ${BACKEND_IMAGE} --format "{{.Repository}}:{{.Tag}}" 2>/dev/null | grep -q "${BACKEND_IMAGE}" && \
-       docker images ${FRONTEND_IMAGE} --format "{{.Repository}}:{{.Tag}}" 2>/dev/null | grep -q "${FRONTEND_IMAGE}"; then
+    BACKEND_PULLED=false
+    FRONTEND_PULLED=false
+    
+    if docker pull ${BACKEND_IMAGE} 2>/dev/null; then
+        echo "✅ Backend image pulled successfully"
+        BACKEND_PULLED=true
+    else
+        echo "⚠️  Backend image not found in registry, will build locally"
+    fi
+    
+    if docker pull ${FRONTEND_IMAGE} 2>/dev/null; then
+        echo "✅ Frontend image pulled successfully"
+        FRONTEND_PULLED=true
+    else
+        echo "⚠️  Frontend image not found in registry, will build locally"
+    fi
+    
+    # Если оба образа скачаны, используем их, иначе собираем недостающие
+    if [ "$BACKEND_PULLED" = true ] && [ "$FRONTEND_PULLED" = true ]; then
         echo "✅ Using pre-built images from registry (much faster!)"
     else
-        echo "🔨 Building application images locally (this may take 5-10 minutes)..."
+        echo "🔨 Building missing images locally (this may take 5-10 minutes)..."
         export DOCKER_BUILDKIT=1
         export COMPOSE_DOCKER_CLI_BUILD=1
-        $DOCKER_COMPOSE -f docker-compose.prod.yml build --parallel backend frontend
+        
+        if [ "$BACKEND_PULLED" = false ]; then
+            echo "🔨 Building backend..."
+            $DOCKER_COMPOSE -f docker-compose.prod.yml build backend
+        fi
+        
+        if [ "$FRONTEND_PULLED" = false ]; then
+            echo "🔨 Building frontend..."
+            $DOCKER_COMPOSE -f docker-compose.prod.yml build frontend
+        fi
     fi
 else
     echo "🔨 Building application images locally (this may take 5-10 minutes)..."

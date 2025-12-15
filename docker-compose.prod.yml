@@ -40,8 +40,6 @@ services:
       # Используем кэш для ускорения сборки
       cache_from:
         - ${BACKEND_IMAGE:-nardist-backend:latest}
-      # Собираем только если образ не найден
-      pull_policy: if_not_present
     container_name: nardist_backend_prod
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-nardist}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-nardist_db}
@@ -69,8 +67,6 @@ services:
       # Используем кэш для ускорения сборки
       cache_from:
         - ${FRONTEND_IMAGE:-nardist-frontend:latest}
-      # Собираем только если образ не найден
-      pull_policy: if_not_present
     container_name: nardist_frontend_prod
     environment:
       VITE_API_URL: ${VITE_API_URL:-https://nardist.online}
