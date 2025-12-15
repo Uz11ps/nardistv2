@@ -14,12 +14,17 @@ COPY package*.json ./
 COPY prisma ./prisma/
 
 # Используем npm ci для быстрой установки (требует package-lock.json)
+# Устанавливаем ВСЕ зависимости (включая devDependencies) для сборки
 ENV npm_config_loglevel=error
 RUN npm ci --legacy-peer-deps --prefer-offline --no-audit --progress=false --silent || \
     npm install --legacy-peer-deps --prefer-offline --no-audit --progress=false --silent
 
-# Генерируем Prisma клиент (нужны все зависимости)
-RUN npx prisma generate
+# Проверяем что Prisma установлен и генерируем клиент
+# Используем явную установку если npx prisma не работает
+RUN npx prisma --version || npm install prisma@5.7.1 --legacy-peer-deps --save-dev
+
+# Генерируем Prisma клиент
+RUN npx prisma generate || (npm install prisma@5.7.1 --legacy-peer-deps --save-dev && npx prisma generate)
 
 # Копируем исходный код
 COPY . .
