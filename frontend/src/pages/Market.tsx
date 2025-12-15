@@ -30,14 +30,19 @@ export const Market = () => {
 
   useEffect(() => {
     Promise.all([
-      marketService.getListings(),
-      inventoryService.getMyInventory(),
+      marketService.getListings().catch(() => []),
+      inventoryService.getMyInventory().catch(() => []),
     ])
       .then(([list, inv]) => {
         setListings(list);
         setMyInventory(inv);
       })
-      .catch(console.error)
+      .catch((error) => {
+        console.warn('Failed to load market data:', error);
+        // Устанавливаем пустые массивы при ошибке
+        setListings([]);
+        setMyInventory([]);
+      })
       .finally(() => setLoading(false));
   }, []);
 

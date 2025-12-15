@@ -2,9 +2,11 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Card, Button, Tabs, NotificationModal, ConfirmModal } from '../components/ui';
 import { GameBoard } from '../components/game/GameBoard';
+import { BotGame } from '../game/components/BotGame';
 import { wsService } from '../services/websocket.service';
 import { useAuthStore } from '../store/auth.store';
 import { userService } from '../services';
+import type { PlayerColor } from '../game/logic/gameLogic';
 import './Game.css';
 
 interface GameState {
@@ -20,7 +22,7 @@ interface GameState {
 }
 
 export const Game = () => {
-  const [gameMode, setGameMode] = useState<'SHORT' | 'LONG'>('SHORT');
+  const [gameMode, setGameMode] = useState<'SHORT' | 'LONG'>('LONG'); // По умолчанию длинные нарды
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [roomId, setRoomId] = useState<string | null>(null);
   const [isSearching, setIsSearching] = useState(false);
@@ -131,41 +133,32 @@ export const Game = () => {
     };
   }, [isPlaying, gameState, user]);
 
-  const handleStartBotGame = async () => {
-    if (!wsService.getSocket()) {
-      setNotification({
-        title: 'Ошибка',
-        message: 'WebSocket не подключен',
-        type: 'error',
-      });
-      return;
-    }
+  const handleStartBotGame = () => {
+    // Запускаем локальную игру с ботом (без WebSocket)
+    setIsPlaying(true);
+    setGameType('bot');
+  };
 
-    try {
-      const socket = wsService.getSocket()!;
-      socket.emit('start-bot-game', { mode: gameMode }, (response: any) => {
-        if (response.error) {
-          setNotification({
-            title: 'Ошибка',
-            message: response.error,
-            type: 'error',
-          });
-          return;
-        }
+  const handleBotGameEnd = (winner: PlayerColor) => {
+    setNotification({
+      title: 'Игра окончена',
+      message: winner === 'WHITE' 
+        ? 'Вы победили! 🎉'
+        : 'Бот победил! 🤖',
+      type: winner === 'WHITE' ? 'success' : 'error',
+    });
+    
+    setTimeout(() => {
+      setIsPlaying(false);
+      setGameType(null);
+      navigate('/');
+    }, 3000);
+  };
 
-        setRoomId(response.roomId);
-        setGameState(response.state);
-        setIsPlaying(true);
-        setGameType('bot');
-        wsService.joinRoom(response.roomId);
-      });
-    } catch (error) {
-      console.error('Error starting bot game:', error);
-      setNotification({
-        title: 'Ошибка',
-        message: 'Не удалось начать игру с ботом',
-        type: 'error',
-      });
+  const handleExitBotGame = () => {
+    if (window.confirm('Вы уверены, что хотите выйти из игры?')) {
+      setIsPlaying(false);
+      setGameType(null);
     }
   };
 
@@ -314,6 +307,11 @@ export const Game = () => {
   );
 
   function GameContent({ mode }: { mode: 'SHORT' | 'LONG' }) {
+    // Локальная игра с ботом
+    if (isPlaying && gameType === 'bot') {
+      return <BotGame mode={mode} onGameEnd={handleBotGameEnd} onExit={handleExitBotGame} />;
+    }
+
     if (isSearching) {
       return (
         <div className="game-content">

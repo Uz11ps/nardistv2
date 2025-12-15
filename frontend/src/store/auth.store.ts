@@ -10,6 +10,7 @@ interface AuthState {
   logout: () => void;
   setUser: (user: User) => void;
   testLogin: () => Promise<void>;
+  mockLogin: () => void;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -49,17 +50,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           headers: {
             'Content-Type': 'application/json',
           },
-          timeout: 30000, // 30 секунд таймаут (увеличил для медленных соединений)
+          timeout: 2000, // Короткий таймаут 2 секунды для быстрого fallback
         });
         console.log('Axios request successful, status:', response.status);
       } catch (error: any) {
-        console.error('Axios error details:');
-        console.error('- Error message:', error.message);
-        console.error('- Error code:', error.code);
-        console.error('- Error response status:', error.response?.status);
-        console.error('- Error response data:', error.response?.data);
-        console.error('- Error request URL:', error.config?.url);
-        console.error('- Full error:', error);
+        // Не логируем ошибки подробно в консоль, просто пробрасываем
+        if (error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK' || !error.response) {
+          console.warn('Backend connection failed:', error.message);
+        } else {
+          console.error('Axios error:', error.message);
+        }
         throw error;
       }
       
@@ -108,6 +108,46 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   
   setUser: (user: User) => {
     set({ user });
+  },
+
+  mockLogin: () => {
+    // Мок-данные для работы без бекенда
+    const mockUser: User = {
+      id: 1,
+      telegramId: '123456789',
+      firstName: 'Тестовый',
+      lastName: 'Пользователь',
+      username: 'testuser',
+      nickname: 'TestUser',
+      country: 'RU',
+      avatar: 'https://via.placeholder.com/100',
+      photoUrl: 'https://via.placeholder.com/100',
+      level: 15,
+      xp: 3250,
+      narCoin: 1250,
+      energy: 85,
+      energyMax: 100,
+      lives: 3,
+      livesMax: 3,
+      power: 45,
+      powerMax: 50,
+      referralCode: 'TEST2024',
+      isPremium: false,
+      stats: {
+        economy: 3,
+        energy: 2,
+        lives: 1,
+        power: 2,
+      },
+    };
+
+    localStorage.setItem('token', 'mock_token_for_local_dev');
+    set({
+      user: mockUser,
+      token: 'mock_token_for_local_dev',
+      isAuthenticated: true,
+    });
+    console.log('✅ Mock login successful - using local data (backend not available)');
   },
 }));
 
