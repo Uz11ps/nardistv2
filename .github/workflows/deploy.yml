@@ -58,7 +58,7 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
-          command_timeout: 600s
+          command_timeout: 900s
           script: |
             cd /opt/Nardist
             
@@ -72,8 +72,10 @@ jobs:
               exit 1
             fi
             
-            # Обновляем код
+            # Обновляем код (сохраняем локальные изменения в docker-compose.prod.yml)
+            git stash || true
             git pull origin main || git pull origin master
+            git stash pop || true
             
             # Загружаем переменные окружения
             if [ -f .env ]; then
@@ -128,16 +130,15 @@ jobs:
             # Ждем готовности сервисов
             sleep 10
             
-            # Применяем миграции
-            $DOCKER_COMPOSE -f docker-compose.prod.yml exec -T backend npx prisma migrate deploy || echo "⚠️  Migrations failed or not needed"
+            # Применяем миграции (с таймаутом)
+            timeout 60 $DOCKER_COMPOSE -f docker-compose.prod.yml exec -T backend npx prisma migrate deploy || echo "⚠️  Migrations failed or not needed"
             
             # Проверяем статус контейнеров
             echo "📊 Container status:"
-            $DOCKER_COMPOSE -f docker-compose.prod.yml ps
+            $DOCKER_COMPOSE -f docker-compose.prod.yml ps || true
             
-            # Очистка
-            docker system prune -f
+            # Очистка (не блокируем если долго)
+            timeout 30 docker system prune -f || true
             
             echo "✅ Deployment completed successfully!"
-            exit 0
 
