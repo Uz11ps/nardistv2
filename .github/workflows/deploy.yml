@@ -107,6 +107,10 @@ jobs:
               echo "⚠️  Frontend image not found, will build"
             fi
             
+            # Останавливаем и удаляем старый nginx контейнер если он существует (может занимать порт 80)
+            docker stop nardist_nginx_prod 2>/dev/null || true
+            docker rm nardist_nginx_prod 2>/dev/null || true
+            
             # Запускаем контейнеры (только build если образы не скачаны)
             if [ "$BACKEND_PULLED" = true ] && [ "$FRONTEND_PULLED" = true ]; then
               echo "🚀 Using pre-built images, skipping build"
