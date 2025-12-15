@@ -24,20 +24,17 @@ ENV npm_config_cache=/root/.npm
 RUN npm ci --legacy-peer-deps --prefer-offline --no-audit --progress=false || \
     npm install --legacy-peer-deps --prefer-offline --no-audit --progress=false
 
-# Убеждаемся что Prisma установлен (он в devDependencies)
-RUN npm list prisma || npm install prisma@5.7.1 --legacy-peer-deps --save-dev
-
 # Проверяем наличие schema.prisma
 RUN test -f prisma/schema.prisma || (echo "ERROR: prisma/schema.prisma not found!" && ls -la prisma/ && exit 1)
 
+# Проверяем что Prisma установлен
+RUN npm list prisma || (echo "Prisma not found, installing..." && npm install prisma@5.7.1 --legacy-peer-deps --save-dev)
+
 # Показываем версию Prisma для отладки
-RUN npx prisma --version || echo "Prisma not found in PATH"
+RUN npx prisma --version
 
 # Генерируем Prisma клиент (DATABASE_URL не нужен для generate)
-RUN npx prisma generate --schema=./prisma/schema.prisma || \
-    (echo "Prisma generate failed, trying to reinstall..." && \
-     npm install prisma@5.7.1 @prisma/client@5.7.1 --legacy-peer-deps --save-dev && \
-     npx prisma generate --schema=./prisma/schema.prisma)
+RUN npx prisma generate --schema=./prisma/schema.prisma
 
 # Копируем исходный код
 COPY . .
