@@ -1,11 +1,14 @@
 import React, { ButtonHTMLAttributes, ReactNode } from 'react';
+import { Icon, IconName } from './Icon';
 import './Button.css';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'rounded' | 'pill' | 'flat' | 'elevated';
   size?: 'sm' | 'md' | 'lg';
   fullWidth?: boolean;
   loading?: boolean;
+  icon?: IconName;
+  iconPosition?: 'left' | 'right';
   children: ReactNode;
 }
 
@@ -15,6 +18,8 @@ export const Button = ({
   fullWidth = false,
   loading = false,
   disabled,
+  icon,
+  iconPosition = 'left',
   children,
   className = '',
   ...props
@@ -62,6 +67,10 @@ export const Button = ({
     }
   }, [onClick, disabled, loading]);
 
+  const iconElement = icon && !loading ? (
+    <Icon name={icon} size={size === 'sm' ? 16 : size === 'lg' ? 24 : 20} />
+  ) : null;
+
   return (
     <button 
       className={classes} 
@@ -71,7 +80,11 @@ export const Button = ({
       style={{ ...restProps.style, pointerEvents: disabled || loading ? 'none' : 'auto' }}
     >
       {loading && <span className="btn__spinner" />}
-      <span className={loading ? 'btn__content--hidden' : ''}>{children}</span>
+      <span className={loading ? 'btn__content--hidden' : 'btn__content'}>
+        {iconPosition === 'left' && iconElement}
+        {children}
+        {iconPosition === 'right' && iconElement}
+      </span>
     </button>
   );
 };

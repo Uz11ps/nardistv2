@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Card, Button, Tabs, Input, Skeleton } from '../components/ui';
+import { Card, Button, Tabs, Input, Skeleton, Icon } from '../components/ui';
 import { marketService, inventoryService } from '../services';
 import type { InventoryItem } from '../types';
 import { placeholders } from '../utils/placeholders';
@@ -72,7 +72,10 @@ export const Market = () => {
   return (
     <div className="market-page">
       <Link to="/" className="market-page__back">←</Link>
-      <h1 className="market-page__title">🏪 Рынок скинов</h1>
+      <h1 className="market-page__title">
+        <Icon name="market" size={28} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
+        Рынок скинов
+      </h1>
 
       <div className="market-page__filters">
         <Input
@@ -195,7 +198,8 @@ const MarketBuy = ({ items, loading }: { items: any[]; loading: boolean }) => {
                   {weight > 0 && <div className="market-item__weight">Вес: {weight}</div>}
                 </div>
                 <div className="market-item__price">
-                  💰 {listing.price.toLocaleString()} NAR
+                  <Icon name="coin" size={16} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+                  {listing.price.toLocaleString()} NAR
                 </div>
                 <Button 
                   variant="primary" 

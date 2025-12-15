@@ -1,0 +1,24 @@
+.icon {
+  display: inline-block;
+  vertical-align: middle;
+  flex-shrink: 0;
+  transition: transform var(--transition-fast);
+}
+
+.icon--dice {
+  /* Специальные стили для кубика если нужно */
+}
+
+.icon--user {
+  /* Специальные стили для пользователя если нужно */
+}
+
+/* Анимация при hover на иконках внутри кнопок */
+.btn:hover .icon {
+  transform: scale(1.1);
+}
+
+.btn:active .icon {
+  transform: scale(0.95);
+}
+

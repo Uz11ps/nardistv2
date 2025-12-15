@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Card, Tabs, Skeleton } from '../components/ui';
+import { Card, Tabs, Skeleton, Icon } from '../components/ui';
 import { ratingsService } from '../services';
 import { placeholders } from '../utils/placeholders';
 import './Leaderboard.css';
@@ -24,7 +24,10 @@ export const Leaderboard = () => {
   return (
     <div className="leaderboard-page">
       <Link to="/" className="leaderboard-page__back">←</Link>
-      <h1 className="leaderboard-page__title">🏆 Таблица лидеров</h1>
+      <h1 className="leaderboard-page__title">
+        <Icon name="trophy" size={28} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
+        Таблица лидеров
+      </h1>
       <Tabs tabs={tabs} onChange={(id) => setMode(id as 'SHORT' | 'LONG')} />
     </div>
   );

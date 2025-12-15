@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Card, Button, Tabs, ConfirmModal, NotificationModal, Modal, Input, Skeleton } from '../components/ui';
+import { Card, Button, Tabs, ConfirmModal, NotificationModal, Modal, Input, Skeleton, Icon } from '../components/ui';
 import { RepairModal } from '../components/inventory';
 import { userService, gameHistoryService, inventoryService, resourceService, businessService } from '../services';
 import { useAuthStore } from '../store/auth.store';
@@ -148,16 +148,16 @@ const ProfileInfo = ({ user, onUpdate }: { user: any; onUpdate: () => void }) =>
       </Card>
       <div className="profile-info__links">
         <Link to="/city">
-          <Button variant="ghost" fullWidth>🏙️ Город</Button>
+          <Button variant="ghost" fullWidth icon="city">Город</Button>
         </Link>
         <Link to="/quests">
-          <Button variant="ghost" fullWidth>📋 Квесты</Button>
+          <Button variant="ghost" fullWidth icon="book">Квесты</Button>
         </Link>
         <Link to="/subscription">
-          <Button variant="ghost" fullWidth>⭐ Подписка</Button>
+          <Button variant="ghost" fullWidth icon="star">Подписка</Button>
         </Link>
         <Link to="/skins">
-          <Button variant="ghost" fullWidth>🎨 Скины</Button>
+          <Button variant="ghost" fullWidth icon="skins">Скины</Button>
         </Link>
       </div>
 
@@ -343,9 +343,15 @@ const ProfileStats = ({ user }: { user: any }) => {
       <Card>
         <h3>Ресурсы</h3>
         <div className="profile-stats__resources">
-          <div>💰 {user.narCoin} NAR-coin</div>
+          <div>
+            <Icon name="coin" size={18} style={{ marginRight: '6px', verticalAlign: 'middle' }} />
+            {user.narCoin} NAR-coin
+          </div>
           <div className="profile-stats__resource-item">
-            <span>⚡ {user.energy}/{user.energyMax} Энергия</span>
+            <span>
+              <Icon name="energy" size={18} style={{ marginRight: '6px', verticalAlign: 'middle' }} />
+              {user.energy}/{user.energyMax} Энергия
+            </span>
             {user.energy < user.energyMax && (
               <Button
                 variant="outline"
@@ -383,29 +389,37 @@ const ProfileStats = ({ user }: { user: any }) => {
       {/* Премиум функции */}
       {subscription && subscription.isActive && new Date(subscription.endDate) > new Date() ? (
         <Card style={{ marginTop: '1rem', backgroundColor: '#1a1a1a', border: '1px solid #ffd700' }}>
-          <h3 style={{ color: '#ffd700', marginBottom: '1rem' }}>⭐ Премиум функции</h3>
+          <h3 style={{ color: '#ffd700', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Icon name="star" size={20} color="#ffd700" />
+            Премиум функции
+          </h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
             <Button
               variant="outline"
               fullWidth
               onClick={() => navigate('/analytics')}
               style={{ borderColor: '#ffd700', color: '#ffd700' }}
+              icon="analytics"
             >
-              📊 Аналитика партий
+              Аналитика партий
             </Button>
             <Button
               variant="outline"
               fullWidth
               onClick={() => navigate('/trainer')}
               style={{ borderColor: '#ffd700', color: '#ffd700' }}
+              icon="trainer"
             >
-              🎯 Тренажер позиций
+              Тренажер позиций
             </Button>
           </div>
         </Card>
       ) : (
         <Card style={{ marginTop: '1rem', backgroundColor: '#1a1a1a', border: '1px solid #666' }}>
-          <h3 style={{ marginBottom: '1rem' }}>🔒 Премиум функции</h3>
+          <h3 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Icon name="shield" size={20} />
+            Премиум функции
+          </h3>
           <p style={{ fontSize: '0.9rem', color: '#999', marginBottom: '1rem' }}>
             Получите доступ к расширенной аналитике и тренажеру позиций с подпиской
           </p>
@@ -423,7 +437,12 @@ const ProfileStats = ({ user }: { user: any }) => {
         <h3>Ветки развития</h3>
         <div className="profile-stats__development">
           <DevelopmentBranch
-            label="💰 Экономика"
+            label={
+              <>
+                <Icon name="coin" size={16} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+                Экономика
+              </>
+            }
             currentLevel={user.statsEconomy || 0}
             maxLevel={10}
             onUpgrade={async () => {
@@ -771,7 +790,8 @@ const ProfileInventory = () => {
                       size="sm"
                       onClick={() => setRepairItem(item)}
                     >
-                      🔧 Ремонт
+                      <Icon name="repair" size={16} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+                      Ремонт
                     </Button>
                   )}
                 </div>
@@ -849,7 +869,8 @@ const ProfileInventory = () => {
                       size="sm"
                       onClick={() => setRepairItem(item)}
                     >
-                      🔧 Ремонт
+                      <Icon name="repair" size={16} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+                      Ремонт
                     </Button>
                   )}
                 </div>
@@ -981,13 +1002,22 @@ const ProfileHistory = () => {
                 <span>⏱️ {Math.floor(game.duration / 60)}:{(game.duration % 60).toString().padStart(2, '0')}</span>
               )}
               {game.betAmount && game.betAmount > 0 && (
-                <span>💰 Ставка: {game.betAmount} NAR</span>
+                <span>
+                  <Icon name="coin" size={14} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+                  Ставка: {game.betAmount} NAR
+                </span>
               )}
               {game.commission && game.commission > 0 && (
-                <span>📊 Комиссия: {game.commission} NAR</span>
+                <span>
+                  <Icon name="analytics" size={14} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+                  Комиссия: {game.commission} NAR
+                </span>
               )}
               {game.districtId && (
-                <span>🏙️ Район: {game.districtId}</span>
+                <span>
+                  <Icon name="city" size={14} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+                  Район: {game.districtId}
+                </span>
               )}
               <span>{new Date(game.createdAt).toLocaleDateString('ru-RU')}</span>
             </div>

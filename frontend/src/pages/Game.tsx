@@ -353,8 +353,8 @@ export const Game = () => {
               ) : (
                 <div className="game-dice">
                   {isMyTurn ? (
-                    <Button onClick={handleRollDice} variant="primary" fullWidth>
-                      🎲 Бросить кубики
+                    <Button onClick={handleRollDice} variant="primary" fullWidth icon="dice">
+                      Бросить кубики
                     </Button>
                   ) : (
                     <div>Ожидание хода соперника...</div>
@@ -385,11 +385,11 @@ export const Game = () => {
           <Card className="game-menu__card">
             <h2>Выберите режим игры</h2>
             <div className="game-menu__options">
-              <Button variant="primary" size="lg" fullWidth onClick={handleStartBotGame}>
-                🎮 Играть с ботом
+              <Button variant="primary" size="lg" fullWidth onClick={handleStartBotGame} icon="dice">
+                Играть с ботом
               </Button>
-              <Button variant="outline" size="lg" fullWidth onClick={handleStartQuickGame}>
-                👥 Быстрая игра
+              <Button variant="outline" size="lg" fullWidth onClick={handleStartQuickGame} icon="users">
+                Быстрая игра
               </Button>
             </div>
           </Card>
@@ -415,7 +415,10 @@ export const Game = () => {
     <>
       <div className="game-page">
         <Link to="/" className="game-page__back">←</Link>
-        <h1 className="game-page__title">🎲 Игра</h1>
+        <h1 className="game-page__title">
+          <Icon name="dice" size={28} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
+          Игра
+        </h1>
         <Tabs tabs={tabs} onChange={(id) => setGameMode(id as 'SHORT' | 'LONG')} />
       </div>
 
