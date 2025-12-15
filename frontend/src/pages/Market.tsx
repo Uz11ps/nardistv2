@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Card, Button, Tabs, Input } from '../components/ui';
+import { Card, Button, Tabs, Input, Skeleton } from '../components/ui';
 import { marketService, inventoryService } from '../services';
 import type { InventoryItem } from '../types';
 import { placeholders } from '../utils/placeholders';
@@ -136,7 +136,15 @@ const MarketBuy = ({ items, loading }: { items: any[]; loading: boolean }) => {
   };
 
   if (loading) {
-    return <div className="market-buy">Загрузка...</div>;
+    return (
+      <div className="market-buy">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} height={200} style={{ borderRadius: '6px' }} />
+          ))}
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -231,7 +239,16 @@ const MarketSell = ({ inventory, loading }: { inventory: InventoryItem[]; loadin
   };
 
   if (loading) {
-    return <div className="market-sell">Загрузка...</div>;
+    return (
+      <div className="market-sell">
+        <Skeleton width="100%" height={24} style={{ marginBottom: '16px', borderRadius: '6px' }} />
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} height={200} style={{ borderRadius: '6px' }} />
+          ))}
+        </div>
+      </div>
+    );
   }
 
   return (

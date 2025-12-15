@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Card, Button, Tabs, ConfirmModal, NotificationModal, Modal, Input } from '../components/ui';
+import { Card, Button, Tabs, ConfirmModal, NotificationModal, Modal, Input, Skeleton } from '../components/ui';
 import { RepairModal } from '../components/inventory';
 import { userService, gameHistoryService, inventoryService, resourceService, businessService } from '../services';
 import { useAuthStore } from '../store/auth.store';
@@ -32,7 +32,12 @@ export const Profile = () => {
   }, [authUser]);
 
   if (loading || !user) {
-    return <div className="profile-page">Загрузка...</div>;
+    return (
+      <div className="profile-page">
+        <Skeleton width="100%" height={200} style={{ marginBottom: '16px', borderRadius: '8px' }} />
+        <Skeleton width="100%" height={400} style={{ borderRadius: '8px' }} />
+      </div>
+    );
   }
 
   const refreshProfile = () => {

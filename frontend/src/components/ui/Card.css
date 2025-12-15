@@ -2,20 +2,46 @@
   background-color: var(--bg-card);
   border-radius: var(--border-radius);
   padding: var(--spacing-md);
-  transition: background var(--transition-fast);
+  transition: all var(--transition-fast);
   border: 1px solid var(--border-color);
+  position: relative;
+  overflow: hidden;
+  transform: translateZ(0); /* Hardware acceleration */
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--color-primary), transparent);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
 }
 
 .card--hover:hover {
   background-color: var(--bg-card-hover);
   border-color: var(--border-color-light);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.card--hover:hover::before {
+  opacity: 1;
 }
 
 .card--clickable {
   cursor: pointer;
 }
 
+.card--clickable:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
 .card--clickable:active {
-  transform: scale(0.98);
+  transform: translateY(0) scale(0.98);
 }
 

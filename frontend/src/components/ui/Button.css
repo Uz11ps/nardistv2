@@ -14,6 +14,9 @@
   transition: all var(--transition-fast);
   white-space: nowrap;
   user-select: none;
+  position: relative;
+  overflow: hidden;
+  transform: translateZ(0); /* Hardware acceleration */
 }
 
 .btn:disabled {
@@ -42,27 +45,53 @@
 
 /* Primary - Красная кнопка */
 .btn--primary {
-  background: var(--color-primary);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-light) 100%);
   color: var(--text-light);
   font-weight: 600;
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.3);
+}
+
+.btn--primary::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
 }
 
 .btn--primary:hover:not(:disabled) {
-  background: var(--color-primary-light);
+  background: linear-gradient(135deg, var(--color-primary-light) 0%, var(--color-primary) 100%);
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4);
+  transform: translateY(-2px);
+}
+
+.btn--primary:hover:not(:disabled)::before {
+  left: 100%;
 }
 
 .btn--primary:active:not(:disabled) {
-  transform: scale(0.98);
+  transform: translateY(0) scale(0.98);
+  box-shadow: 0 2px 4px rgba(220, 38, 38, 0.3);
 }
 
 /* Secondary */
 .btn--secondary {
   background-color: var(--color-secondary);
   color: var(--text-light);
+  box-shadow: 0 2px 8px rgba(255, 107, 53, 0.3);
 }
 
 .btn--secondary:hover:not(:disabled) {
   opacity: 0.9;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 107, 53, 0.4);
+}
+
+.btn--secondary:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
 }
 
 /* Outline - Темная кнопка с границей */
@@ -74,7 +103,13 @@
 
 .btn--outline:hover:not(:disabled) {
   background-color: var(--bg-card-hover);
-  border-color: var(--border-color-light);
+  border-color: var(--color-primary);
+  transform: translateY(-2px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.btn--outline:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
 }
 
 /* Ghost */
@@ -85,16 +120,28 @@
 
 .btn--ghost:hover:not(:disabled) {
   background-color: var(--bg-card);
+  transform: translateY(-1px);
+}
+
+.btn--ghost:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
 }
 
 /* Danger */
 .btn--danger {
   background-color: var(--color-error);
   color: var(--text-light);
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.3);
 }
 
 .btn--danger:hover:not(:disabled) {
   opacity: 0.9;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4);
+}
+
+.btn--danger:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
 }
 
 /* Loading */
@@ -111,6 +158,9 @@
   border-top-color: currentColor;
   border-radius: 50%;
   animation: spin 0.6s linear infinite;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
 }
 
 .btn__content--hidden {

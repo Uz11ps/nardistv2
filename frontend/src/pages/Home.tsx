@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Card, Button } from '../components/ui';
+import { Card, Button, Skeleton } from '../components/ui';
 import { useAuthStore } from '../store/auth.store';
 import { userService } from '../services';
 import { placeholders } from '../utils/placeholders';
@@ -47,7 +47,24 @@ export const Home = () => {
   }, [authUser]);
 
   if (loading || !user) {
-    return <div className="home">Загрузка...</div>;
+    return (
+      <div className="home">
+        <div className="home__profile">
+          <Skeleton variant="circular" width={80} height={80} className="home__avatar-large" />
+          <Skeleton width={120} height={24} style={{ marginBottom: '8px' }} />
+          <Skeleton width={80} height={16} />
+          <div className="home__top-stats">
+            <Skeleton width={60} height={20} />
+            <Skeleton width={60} height={20} />
+          </div>
+        </div>
+        <div className="home__menu">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <Skeleton key={i} height={56} style={{ borderRadius: '6px', marginBottom: '12px' }} />
+          ))}
+        </div>
+      </div>
+    );
   }
 
   const shortRating = stats?.ratings?.find((r: any) => r.mode === 'SHORT');

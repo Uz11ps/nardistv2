@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Card, Tabs } from '../components/ui';
+import { Card, Tabs, Skeleton } from '../components/ui';
 import { ratingsService } from '../services';
 import { placeholders } from '../utils/placeholders';
 import './Leaderboard.css';
@@ -42,7 +42,13 @@ const LeaderboardTable = ({ mode }: { mode: 'SHORT' | 'LONG' }) => {
   }, [mode]);
 
   if (loading) {
-    return <div className="leaderboard-table">Загрузка...</div>;
+    return (
+      <div className="leaderboard-table">
+        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
+          <Skeleton key={i} height={60} style={{ marginBottom: '8px', borderRadius: '6px' }} />
+        ))}
+      </div>
+    );
   }
 
   if (ratings.length === 0) {

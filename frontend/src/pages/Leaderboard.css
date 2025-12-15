@@ -4,6 +4,7 @@
   position: relative;
   max-width: 480px;
   margin: 0 auto;
+  animation: fadeIn 0.4s ease-out;
 }
 
 .leaderboard-page__back {
@@ -15,6 +16,16 @@
   text-decoration: none;
   font-weight: 700;
   z-index: 10;
+  transition: all var(--transition-fast);
+  display: inline-block;
+  padding: var(--spacing-xs);
+  border-radius: var(--border-radius-small);
+}
+
+.leaderboard-page__back:hover {
+  background: var(--bg-card);
+  transform: translateX(-4px);
+  color: var(--color-primary);
 }
 
 .leaderboard-page__title {
