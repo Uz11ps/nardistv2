@@ -1,3 +1,4 @@
+import React, { useCallback } from 'react';
 import { Modal, Button } from './';
 import './NotificationModal.css';
 
@@ -16,14 +17,21 @@ export const NotificationModal = ({
   message,
   type = 'info',
 }: NotificationModalProps) => {
+  const handleClose = useCallback((e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+    }
+    onClose();
+  }, [onClose]);
+
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={title} size="sm">
+    <Modal isOpen={isOpen} onClose={handleClose} title={title} size="sm">
       <div className="notification-modal">
         <p className={`notification-modal__message notification-modal__message--${type}`}>
           {message}
         </p>
         <div className="notification-modal__actions">
-          <Button variant="primary" fullWidth onClick={onClose}>
+          <Button variant="primary" fullWidth onClick={handleClose}>
             ОК
           </Button>
         </div>

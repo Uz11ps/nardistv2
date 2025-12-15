@@ -2,6 +2,7 @@ import { Controller, Get, Post, Body, Param, UseGuards } from '@nestjs/common';
 import { SiegesService } from './sieges.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { UserDto } from '../auth/dto/user.dto';
 
 @Controller('sieges')
 @UseGuards(JwtAuthGuard)
@@ -25,7 +26,7 @@ export class SiegesController {
 
   @Post('create')
   async createSiege(
-    @CurrentUser() user: any,
+    @CurrentUser() user: UserDto,
     @Body() data: { districtId: number },
   ) {
     return this.siegesService.createSiege(user.id, data.districtId);
@@ -33,7 +34,7 @@ export class SiegesController {
 
   @Post(':id/record-game')
   async recordSiegeGame(
-    @CurrentUser() user: any,
+    @CurrentUser() user: UserDto,
     @Param('id') id: string,
     @Body() data: {
       whitePlayerId: number;

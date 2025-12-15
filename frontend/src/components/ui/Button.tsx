@@ -1,4 +1,4 @@
-import { ButtonHTMLAttributes, ReactNode } from 'react';
+import React, { ButtonHTMLAttributes, ReactNode } from 'react';
 import './Button.css';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -32,23 +32,35 @@ export const Button = ({
 
   // Извлекаем onClick из props, чтобы не дублировать
   const { onClick, ...restProps } = props;
+  const isProcessingRef = React.useRef(false);
 
-  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
-    if (disabled || loading) {
+  const handleClick = React.useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
+    // Блокируем повторные клики
+    if (disabled || loading || isProcessingRef.current) {
       e.preventDefault();
       e.stopPropagation();
       return;
     }
+
+    // Предотвращаем всплытие события
+    e.stopPropagation();
     
     // Вызываем оригинальный обработчик, если есть
     if (onClick) {
       try {
+        isProcessingRef.current = true;
         onClick(e);
+        
+        // Сбрасываем флаг через небольшую задержку
+        setTimeout(() => {
+          isProcessingRef.current = false;
+        }, 300);
       } catch (error) {
         console.error('Button onClick error:', error);
+        isProcessingRef.current = false;
       }
     }
-  };
+  }, [onClick, disabled, loading]);
 
   return (
     <button 

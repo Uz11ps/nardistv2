@@ -117,13 +117,20 @@ export const Market = () => {
 };
 
 const MarketBuy = ({ items, loading }: { items: any[]; loading: boolean }) => {
+  const [buyingId, setBuyingId] = useState<number | null>(null);
+
   const handleBuy = async (listing: any) => {
+    if (buyingId === listing.id) return; // Уже покупаем
+    
+    setBuyingId(listing.id);
     try {
       await marketService.buy(listing.id);
       alert('Предмет успешно куплен!');
       window.location.reload();
     } catch (error: any) {
       alert(error.response?.data?.message || 'Ошибка при покупке');
+    } finally {
+      setBuyingId(null);
     }
   };
 
@@ -181,7 +188,16 @@ const MarketBuy = ({ items, loading }: { items: any[]; loading: boolean }) => {
                 <div className="market-item__price">
                   💰 {listing.price.toLocaleString()} NAR
                 </div>
-                <Button variant="primary" fullWidth onClick={() => handleBuy(listing)}>
+                <Button 
+                  variant="primary" 
+                  fullWidth 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleBuy(listing);
+                  }}
+                  loading={buyingId === listing.id}
+                  disabled={buyingId !== null && buyingId !== listing.id}
+                >
                   Купить
                 </Button>
               </Card>

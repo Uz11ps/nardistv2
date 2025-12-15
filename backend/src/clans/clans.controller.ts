@@ -9,6 +9,7 @@ import {
 import { ClansService } from './clans.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { UserDto } from '../auth/dto/user.dto';
 
 @Controller('clans')
 @UseGuards(JwtAuthGuard)
@@ -21,7 +22,7 @@ export class ClansController {
   }
 
   @Get('my')
-  async getMyClan(@CurrentUser() user: any) {
+  async getMyClan(@CurrentUser() user: UserDto) {
     return this.clansService.getUserClan(user.id);
   }
 
@@ -32,7 +33,7 @@ export class ClansController {
 
   @Post('create')
   async createClan(
-    @CurrentUser() user: any,
+    @CurrentUser() user: UserDto,
     @Body() data: { name: string; description?: string },
   ) {
     return this.clansService.createClan(user.id, data);
@@ -40,7 +41,7 @@ export class ClansController {
 
   @Post(':id/join')
   async joinClan(
-    @CurrentUser() user: any,
+    @CurrentUser() user: UserDto,
     @Param('id') id: string,
   ) {
     return this.clansService.joinClan(user.id, parseInt(id));
@@ -48,7 +49,7 @@ export class ClansController {
 
   @Post(':id/leave')
   async leaveClan(
-    @CurrentUser() user: any,
+    @CurrentUser() user: UserDto,
     @Param('id') id: string,
   ) {
     return this.clansService.leaveClan(user.id, parseInt(id));
@@ -56,7 +57,7 @@ export class ClansController {
 
   @Post(':id/member/:memberId/role')
   async changeMemberRole(
-    @CurrentUser() user: any,
+    @CurrentUser() user: UserDto,
     @Param('id') id: string,
     @Param('memberId') memberId: string,
     @Body() data: { role: string },
@@ -71,7 +72,7 @@ export class ClansController {
 
   @Post(':id/distribute')
   async distributeTreasury(
-    @CurrentUser() user: any,
+    @CurrentUser() user: UserDto,
     @Param('id') id: string,
     @Body() data: { amount: number; recipientId: number },
   ) {
@@ -90,7 +91,7 @@ export class ClansController {
 
   @Post(':id/district-funds/:districtId/distribute')
   async distributeDistrictFund(
-    @CurrentUser() user: any,
+    @CurrentUser() user: UserDto,
     @Param('id') id: string,
     @Param('districtId') districtId: string,
     @Body() data: { amount: number },
@@ -105,7 +106,7 @@ export class ClansController {
 
   @Post(':id/member/:memberId/kick')
   async kickMember(
-    @CurrentUser() user: any,
+    @CurrentUser() user: UserDto,
     @Param('id') id: string,
     @Param('memberId') memberId: string,
   ) {
@@ -114,7 +115,7 @@ export class ClansController {
 
   @Post(':id/update')
   async updateClan(
-    @CurrentUser() user: any,
+    @CurrentUser() user: UserDto,
     @Param('id') id: string,
     @Body() data: { name?: string; description?: string },
   ) {

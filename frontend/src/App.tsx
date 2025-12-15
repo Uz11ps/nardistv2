@@ -75,11 +75,13 @@ function App() {
     setIsLoading(true);
     setAuthError(null);
     
-    // Проверяем, что мы на localhost
+    // Проверяем, что мы на localhost (только для development)
     const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const isProduction = window.location.hostname === 'nardist.online' || window.location.hostname === 'www.nardist.online';
     const useMockOnly = import.meta.env.VITE_USE_MOCK_ONLY === 'true';
     
-    if (isLocalhost || !initData || initData.includes('mock_init_data')) {
+    // В production не используем мок-данные, только на localhost
+    if ((isLocalhost && !isProduction) || !initData || initData.includes('mock_init_data')) {
       // Если включен режим только мок-данных, используем их сразу
       if (useMockOnly) {
         console.log('🎭 Using mock data only (VITE_USE_MOCK_ONLY=true)');

@@ -1,6 +1,23 @@
 import { io, Socket } from 'socket.io-client';
 
-const WS_URL = import.meta.env.VITE_WS_URL || 'http://localhost:3000';
+// В production используем текущий домен, в development - localhost
+const getWsUrl = () => {
+  if (import.meta.env.VITE_WS_URL) {
+    return import.meta.env.VITE_WS_URL;
+  }
+  
+  // Если на production домене, используем его (wss для HTTPS)
+  if (window.location.hostname === 'nardist.online' || window.location.hostname === 'www.nardist.online') {
+    // Используем wss:// для HTTPS или ws:// для HTTP
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${protocol}//${window.location.hostname}`;
+  }
+  
+  // Иначе localhost для development
+  return 'http://localhost:3000';
+};
+
+const WS_URL = getWsUrl();
 
 class WebSocketService {
   private socket: Socket | null = null;
@@ -19,9 +36,12 @@ class WebSocketService {
 
     this.token = token;
     
-    console.log('Connecting WebSocket to', `${WS_URL}/game`);
+    // Формируем правильный URL для WebSocket
+    // WS_URL уже содержит правильный протокол (wss:// или ws://)
+    const gameUrl = `${WS_URL}/game`;
+    console.log('Connecting WebSocket to', gameUrl);
     
-    this.socket = io(`${WS_URL}/game`, {
+    this.socket = io(gameUrl, {
       auth: {
         token,
       },

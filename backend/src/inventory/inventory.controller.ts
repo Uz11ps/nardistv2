@@ -9,6 +9,7 @@ import {
 import { InventoryService } from './inventory.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { UserDto } from '../auth/dto/user.dto';
 
 @Controller('inventory')
 @UseGuards(JwtAuthGuard)
@@ -22,7 +23,7 @@ export class InventoryController {
 
   @Post('add')
   async addItem(
-    @CurrentUser() user: any,
+    @CurrentUser() user: UserDto,
     @Body() data: { skinId: number; rarity?: string },
   ) {
     return this.inventoryService.addItem(user.id, data.skinId, data.rarity);
@@ -30,7 +31,7 @@ export class InventoryController {
 
   @Post(':id/toggle-equip')
   async toggleEquip(
-    @CurrentUser() user: any,
+    @CurrentUser() user: UserDto,
     @Param('id') id: string,
   ) {
     return this.inventoryService.toggleEquip(user.id, parseInt(id));
@@ -38,7 +39,7 @@ export class InventoryController {
 
   @Post(':id/repair')
   async repairItem(
-    @CurrentUser() user: any,
+    @CurrentUser() user: UserDto,
     @Param('id') id: string,
     @Body() data: { repairType: 'PARTIAL' | 'FULL' },
   ) {
@@ -47,7 +48,7 @@ export class InventoryController {
 
   @Get(':id/visual-info')
   async getItemVisualInfo(
-    @CurrentUser() user: any,
+    @CurrentUser() user: UserDto,
     @Param('id') id: string,
   ) {
     return this.inventoryService.getItemVisualInfo(parseInt(id));

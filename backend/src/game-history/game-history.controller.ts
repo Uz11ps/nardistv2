@@ -2,6 +2,7 @@ import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import { GameHistoryService } from './game-history.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { UserDto } from '../auth/dto/user.dto';
 
 @Controller('game-history')
 @UseGuards(JwtAuthGuard)
@@ -10,7 +11,7 @@ export class GameHistoryController {
 
   @Get()
   async getHistory(
-    @CurrentUser() user: any,
+    @CurrentUser() user: UserDto,
     @Query('limit') limit: string = '50',
   ) {
     return this.gameHistoryService.getUserHistory(user.id, parseInt(limit, 10));

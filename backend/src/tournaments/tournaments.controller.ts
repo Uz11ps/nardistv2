@@ -2,6 +2,7 @@ import { Controller, Get, Post, Body, Param, UseGuards } from '@nestjs/common';
 import { TournamentsService } from './tournaments.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { UserDto } from '../auth/dto/user.dto';
 
 @Controller('tournaments')
 export class TournamentsController {
@@ -16,7 +17,7 @@ export class TournamentsController {
   @UseGuards(JwtAuthGuard)
   async joinTournament(
     @Param('id') id: string,
-    @CurrentUser() user: any,
+    @CurrentUser() user: UserDto,
   ) {
     return this.tournamentsService.joinTournament(parseInt(id, 10), user.id);
   }
@@ -41,7 +42,7 @@ export class TournamentsController {
   @UseGuards(JwtAuthGuard)
   async purchaseTournamentPass(
     @Param('id') id: string,
-    @CurrentUser() user: any,
+    @CurrentUser() user: UserDto,
   ) {
     return this.tournamentsService.purchaseTournamentPass(user.id, parseInt(id, 10));
   }
@@ -50,7 +51,7 @@ export class TournamentsController {
   @UseGuards(JwtAuthGuard)
   async getTournamentPass(
     @Param('id') id: string,
-    @CurrentUser() user: any,
+    @CurrentUser() user: UserDto,
   ) {
     return this.tournamentsService.getTournamentPass(user.id, parseInt(id, 10));
   }
@@ -66,7 +67,7 @@ export class TournamentsController {
   async claimTournamentPassRewards(
     @Param('id') id: string,
     @Param('rewardType') rewardType: string,
-    @CurrentUser() user: any,
+    @CurrentUser() user: UserDto,
   ) {
     return this.tournamentsService.claimTournamentPassRewards(user.id, parseInt(id, 10), rewardType);
   }

@@ -21,15 +21,27 @@ import { GameMode, GameStatus, PlayerColor } from '../types/game.types';
 @WebSocketGateway({
   cors: {
     origin: (origin, callback) => {
-      // Разрешаем localhost на любом порту для разработки
+      // Разрешаем указанные домены
       const allowedOrigins = process.env.FRONTEND_URL 
-        ? [process.env.FRONTEND_URL]
-        : ['http://localhost:5173', 'http://localhost:5174', 'http://127.0.0.1:5173', 'http://127.0.0.1:5174'];
+        ? process.env.FRONTEND_URL.split(',').map(url => url.trim())
+        : process.env.NODE_ENV === 'production'
+          ? ['https://nardist.online', 'https://www.nardist.online']
+          : ['http://localhost:5173', 'http://localhost:5174', 'http://127.0.0.1:5173', 'http://127.0.0.1:5174'];
       
-      if (!origin || allowedOrigins.includes(origin) || origin.includes('localhost') || origin.includes('127.0.0.1')) {
-        callback(null, true);
+      // В production разрешаем только указанные домены
+      if (process.env.NODE_ENV === 'production') {
+        if (!origin || allowedOrigins.includes(origin)) {
+          callback(null, true);
+        } else {
+          callback(new Error('Not allowed by CORS'));
+        }
       } else {
-        callback(new Error('Not allowed by CORS'));
+        // В development разрешаем localhost и указанные домены
+        if (!origin || allowedOrigins.includes(origin) || origin.includes('localhost') || origin.includes('127.0.0.1')) {
+          callback(null, true);
+        } else {
+          callback(new Error('Not allowed by CORS'));
+        }
       }
     },
     credentials: true,

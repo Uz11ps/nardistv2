@@ -11,6 +11,18 @@
   z-index: 1000;
   padding: var(--spacing-md);
   animation: fadeIn var(--transition-normal);
+  /* Предотвращаем скролл фона */
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Для вложенных модальных окон увеличиваем z-index */
+.modal-overlay + .modal-overlay {
+  z-index: 1001;
+}
+
+.modal-overlay + .modal-overlay + .modal-overlay {
+  z-index: 1002;
 }
 
 .modal {

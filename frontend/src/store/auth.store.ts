@@ -40,7 +40,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       console.log('Attempting test login...');
       // Используем axios напрямую без токена для тестового входа
       const axios = (await import('axios')).default;
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      
+      // Определяем API URL
+      let API_URL = import.meta.env.VITE_API_URL;
+      if (!API_URL) {
+        // Если на production домене, используем его
+        if (window.location.hostname === 'nardist.online' || window.location.hostname === 'www.nardist.online') {
+          API_URL = window.location.origin;
+        } else {
+          // Иначе localhost для development
+          API_URL = 'http://localhost:3000';
+        }
+      }
+      
       const url = `${API_URL}/auth/test-login`;
       console.log('POST request to:', url);
       

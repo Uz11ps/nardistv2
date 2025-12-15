@@ -104,7 +104,12 @@ export const BusinessCreateModal = ({
                 className={`business-create-modal__type ${
                   isSelected ? 'business-create-modal__type--selected' : ''
                 } ${!canAfford ? 'business-create-modal__type--disabled' : ''}`}
-                onClick={() => canAfford && setSelectedType(business.type)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (canAfford) {
+                    setSelectedType(business.type);
+                  }
+                }}
               >
                 <div className="business-create-modal__type-icon">{business.icon}</div>
                 <div className="business-create-modal__type-info">

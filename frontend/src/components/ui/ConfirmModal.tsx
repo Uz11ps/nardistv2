@@ -1,3 +1,4 @@
+import React from 'react';
 import { Modal, Button } from './';
 import './ConfirmModal.css';
 
@@ -30,8 +31,22 @@ export const ConfirmModal = ({
 }: ConfirmModalProps) => {
   const canAfford = balance !== undefined && cost !== undefined ? balance >= cost : true;
 
+  const handleConfirm = React.useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!loading && canAfford) {
+      onConfirm();
+    }
+  }, [onConfirm, loading, canAfford]);
+
+  const handleCancel = React.useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!loading) {
+      onClose();
+    }
+  }, [onClose, loading]);
+
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={title} size="sm">
+    <Modal isOpen={isOpen} onClose={handleCancel} title={title} size="sm" closeOnOverlayClick={!loading}>
       <div className="confirm-modal">
         <p className="confirm-modal__message">{message}</p>
         
@@ -61,13 +76,13 @@ export const ConfirmModal = ({
         )}
 
         <div className="confirm-modal__actions">
-          <Button variant="outline" fullWidth onClick={onClose} disabled={loading}>
+          <Button variant="outline" fullWidth onClick={handleCancel} disabled={loading}>
             {cancelText}
           </Button>
           <Button
             variant={variant}
             fullWidth
-            onClick={onConfirm}
+            onClick={handleConfirm}
             loading={loading}
             disabled={!canAfford}
           >

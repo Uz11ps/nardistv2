@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Card, Button, Tabs, NotificationModal, ConfirmModal } from '../components/ui';
 import { GameBoard } from '../components/game/GameBoard';
@@ -104,6 +104,11 @@ export const Game = () => {
     };
   }, [user, gameState, navigate]);
 
+  const handleEndTurn = useCallback(() => {
+    if (!roomId) return;
+    wsService.sendGameAction(roomId, 'end-turn', {});
+  }, [roomId]);
+
   // Таймер хода
   useEffect(() => {
     if (isPlaying && gameState && gameState.status === 'IN_PROGRESS') {
@@ -131,7 +136,7 @@ export const Game = () => {
         clearInterval(timerRef.current);
       }
     };
-  }, [isPlaying, gameState, user]);
+  }, [isPlaying, gameState, user, handleEndTurn]);
 
   const handleStartBotGame = () => {
     // Запускаем локальную игру с ботом (без WebSocket)
@@ -275,36 +280,10 @@ export const Game = () => {
     setUsedDice([...usedDice, dieValue]);
   };
 
-  const handleEndTurn = () => {
-    if (!roomId) return;
-    wsService.sendGameAction(roomId, 'end-turn', {});
-  };
-
-  const handleSurrender = () => {
+  const handleSurrender = useCallback(() => {
     if (!roomId) return;
     setConfirmSurrender(true);
-  };
-
-  const tabs = [
-    {
-      id: 'SHORT',
-      label: 'Короткие нарды',
-      content: <GameContent mode="SHORT" />,
-    },
-    {
-      id: 'LONG',
-      label: 'Длинные нарды',
-      content: <GameContent mode="LONG" />,
-    },
-  ];
-
-  return (
-    <div className="game-page">
-      <Link to="/" className="game-page__back">←</Link>
-      <h1 className="game-page__title">🎲 Игра</h1>
-      <Tabs tabs={tabs} onChange={(id) => setGameMode(id as 'SHORT' | 'LONG')} />
-    </div>
-  );
+  }, [roomId]);
 
   function GameContent({ mode }: { mode: 'SHORT' | 'LONG' }) {
     // Локальная игра с ботом
@@ -419,8 +398,27 @@ export const Game = () => {
     );
   }
 
+  const tabs = [
+    {
+      id: 'SHORT',
+      label: 'Короткие нарды',
+      content: <GameContent mode="SHORT" />,
+    },
+    {
+      id: 'LONG',
+      label: 'Длинные нарды',
+      content: <GameContent mode="LONG" />,
+    },
+  ];
+
   return (
     <>
+      <div className="game-page">
+        <Link to="/" className="game-page__back">←</Link>
+        <h1 className="game-page__title">🎲 Игра</h1>
+        <Tabs tabs={tabs} onChange={(id) => setGameMode(id as 'SHORT' | 'LONG')} />
+      </div>
+
       {notification && (
         <NotificationModal
           isOpen={!!notification}

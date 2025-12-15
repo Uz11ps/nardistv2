@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { PrismaModule } from './prisma/prisma.module';
 import { RedisModule } from './redis/redis.module';
 import { ConfigModule } from './config/config.module';
@@ -22,10 +23,14 @@ import { ResourcesModule } from './resources/resources.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { MarketModule } from './market/market.module';
 import { SiegesModule } from './sieges/sieges.module';
+import { HealthModule } from './health/health.module';
+import { LoggerModule } from './common/logger/logger.module';
+import { ThrottleGuard } from './common/guards/throttle.guard';
 
 @Module({
   imports: [
     ConfigModule,
+    LoggerModule,
     PrismaModule,
     RedisModule,
     AuthModule,
@@ -48,9 +53,15 @@ import { SiegesModule } from './sieges/sieges.module';
     InventoryModule,
     MarketModule,
     SiegesModule,
+    HealthModule,
   ],
   controllers: [],
-  providers: [],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ThrottleGuard,
+    },
+  ],
 })
 export class AppModule {}
 

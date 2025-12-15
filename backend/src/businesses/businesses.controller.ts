@@ -9,6 +9,7 @@ import {
 import { BusinessesService } from './businesses.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { UserDto } from '../auth/dto/user.dto';
 
 @Controller('businesses')
 @UseGuards(JwtAuthGuard)
@@ -16,7 +17,7 @@ export class BusinessesController {
   constructor(private readonly businessesService: BusinessesService) {}
 
   @Get('my')
-  async getMyBusinesses(@CurrentUser() user: any) {
+  async getMyBusinesses(@CurrentUser() user: UserDto) {
     return this.businessesService.getUserBusinesses(user.id);
   }
 
@@ -27,7 +28,7 @@ export class BusinessesController {
 
   @Post('create')
   async createBusiness(
-    @CurrentUser() user: any,
+    @CurrentUser() user: UserDto,
     @Body() data: { districtId: number; type: string },
   ) {
     return this.businessesService.createBusiness({
@@ -38,7 +39,7 @@ export class BusinessesController {
 
   @Post(':id/collect')
   async collectIncome(
-    @CurrentUser() user: any,
+    @CurrentUser() user: UserDto,
     @Param('id') id: string,
   ) {
     return this.businessesService.collectIncome(user.id, parseInt(id));
@@ -46,7 +47,7 @@ export class BusinessesController {
 
   @Post(':id/upgrade')
   async upgradeBusiness(
-    @CurrentUser() user: any,
+    @CurrentUser() user: UserDto,
     @Param('id') id: string,
   ) {
     return this.businessesService.upgradeBusiness(user.id, parseInt(id));
@@ -54,7 +55,7 @@ export class BusinessesController {
 
   @Post(':id/produce')
   async produceResources(
-    @CurrentUser() user: any,
+    @CurrentUser() user: UserDto,
     @Param('id') id: string,
   ) {
     return this.businessesService.produceResources(user.id, parseInt(id));
@@ -62,7 +63,7 @@ export class BusinessesController {
 
   @Post(':id/collect-resources')
   async collectResources(
-    @CurrentUser() user: any,
+    @CurrentUser() user: UserDto,
     @Param('id') id: string,
     @Body() data: { amount: number },
   ) {
@@ -80,7 +81,7 @@ export class BusinessesController {
 
   @Post(':id/craft')
   async craftSkin(
-    @CurrentUser() user: any,
+    @CurrentUser() user: UserDto,
     @Param('id') id: string,
     @Body() data: { skinId: number },
   ) {
@@ -97,7 +98,7 @@ export class BusinessesController {
 
   @Post(':id/repair')
   async repairItemAtBusiness(
-    @CurrentUser() user: any,
+    @CurrentUser() user: UserDto,
     @Param('id') id: string,
     @Body() data: { itemId: number; repairType: 'PARTIAL' | 'FULL' },
   ) {
@@ -116,7 +117,7 @@ export class BusinessesController {
 
   @Post(':id/work')
   async workAtBusiness(
-    @CurrentUser() user: any,
+    @CurrentUser() user: UserDto,
     @Param('id') id: string,
     @Body() data: { hours?: number },
   ) {
@@ -125,7 +126,7 @@ export class BusinessesController {
 
   @Post(':id/job-postings')
   async createJobPosting(
-    @CurrentUser() user: any,
+    @CurrentUser() user: UserDto,
     @Param('id') id: string,
     @Body() data: {
       title: string;
@@ -150,7 +151,7 @@ export class BusinessesController {
 
   @Post('job-postings/:jobId/apply')
   async applyForJob(
-    @CurrentUser() user: any,
+    @CurrentUser() user: UserDto,
     @Param('jobId') jobId: string,
   ) {
     return this.businessesService.applyForJob(parseInt(jobId), user.id);
@@ -158,7 +159,7 @@ export class BusinessesController {
 
   @Post('job-postings/:jobId/work')
   async workAtJob(
-    @CurrentUser() user: any,
+    @CurrentUser() user: UserDto,
     @Param('jobId') jobId: string,
     @Body() data: { hours?: number },
   ) {
@@ -167,7 +168,7 @@ export class BusinessesController {
 
   @Post('job-postings/:jobId/delete')
   async deleteJobPosting(
-    @CurrentUser() user: any,
+    @CurrentUser() user: UserDto,
     @Param('jobId') jobId: string,
   ) {
     return this.businessesService.deleteJobPosting(parseInt(jobId), user.id);

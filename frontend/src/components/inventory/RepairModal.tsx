@@ -115,7 +115,10 @@ export const RepairModal = ({ isOpen, onClose, item, onRepair }: RepairModalProp
                       className={`repair-modal__business-option ${
                         selectedBusiness === business.id ? 'repair-modal__business-option--active' : ''
                       }`}
-                      onClick={() => setSelectedBusiness(business.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedBusiness(business.id);
+                      }}
                     >
                       <div>
                         <div style={{ fontWeight: 600 }}>
@@ -139,7 +142,10 @@ export const RepairModal = ({ isOpen, onClose, item, onRepair }: RepairModalProp
         <div className="repair-modal__options">
           <Card
             className={`repair-modal__option ${repairType === 'PARTIAL' ? 'repair-modal__option--active' : ''}`}
-            onClick={() => setRepairType('PARTIAL')}
+            onClick={(e) => {
+              e.stopPropagation();
+              setRepairType('PARTIAL');
+            }}
           >
             <div className="repair-modal__option-header">
               <h4 className="repair-modal__option-title">Частичный ремонт</h4>
@@ -152,7 +158,10 @@ export const RepairModal = ({ isOpen, onClose, item, onRepair }: RepairModalProp
 
           <Card
             className={`repair-modal__option ${repairType === 'FULL' ? 'repair-modal__option--active' : ''}`}
-            onClick={() => setRepairType('FULL')}
+            onClick={(e) => {
+              e.stopPropagation();
+              setRepairType('FULL');
+            }}
           >
             <div className="repair-modal__option-header">
               <h4 className="repair-modal__option-title">Полный ремонт</h4>

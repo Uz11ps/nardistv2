@@ -1,6 +1,21 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+// В production используем текущий домен, в development - localhost
+const getApiUrl = () => {
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+  
+  // Если на production домене, используем его
+  if (window.location.hostname === 'nardist.online' || window.location.hostname === 'www.nardist.online') {
+    return window.location.origin;
+  }
+  
+  // Иначе localhost для development
+  return 'http://localhost:3000';
+};
+
+const API_URL = getApiUrl();
 
 export const api = axios.create({
   baseURL: API_URL,

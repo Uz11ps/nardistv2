@@ -53,10 +53,23 @@ src/
 
 ## Переменные окружения
 
+### Development (локальная разработка)
+
 Создайте файл `.env.local`:
 
 ```
 VITE_API_URL=http://localhost:3000
 VITE_WS_URL=ws://localhost:3000
 ```
+
+### Production (на сервере)
+
+В production переменные окружения устанавливаются через Docker Compose:
+
+```
+VITE_API_URL=https://nardist.online
+VITE_WS_URL=https://nardist.online
+```
+
+Приложение автоматически определяет production окружение по домену `nardist.online` и использует правильные URL.
 
