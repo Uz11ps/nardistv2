@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Card, Button } from '../components/ui';
 import { useAuthStore } from '../store/auth.store';
 import { userService } from '../services';
+import { placeholders } from '../utils/placeholders';
 import './Home.css';
 
 export const Home = () => {
@@ -70,7 +71,7 @@ export const Home = () => {
       {/* Профиль вверху */}
       <div className="home__profile">
         <div className="home__avatar-large">
-          <img src={user.avatar || user.photoUrl || 'https://via.placeholder.com/120'} alt="Avatar" />
+          <img src={user.avatar || user.photoUrl || placeholders.avatarLarge} alt="Avatar" />
         </div>
         <h1 className="home__name">{user.nickname || user.firstName}</h1>
         <p className="home__level">Уровень {user.level || 1}</p>

@@ -5,6 +5,7 @@ import { RepairModal } from '../components/inventory';
 import { userService, gameHistoryService, inventoryService, resourceService, businessService } from '../services';
 import { useAuthStore } from '../store/auth.store';
 import type { InventoryItem } from '../types';
+import { placeholders } from '../utils/placeholders';
 import './Profile.css';
 
 export const Profile = () => {
@@ -70,7 +71,7 @@ export const Profile = () => {
       <Link to="/" className="profile-page__back">←</Link>
       <div className="profile-page__header">
         <div className="profile-page__avatar">
-          <img src={user.avatar || user.photoUrl || 'https://via.placeholder.com/100'} alt="Avatar" />
+          <img src={user.avatar || user.photoUrl || placeholders.avatar} alt="Avatar" />
         </div>
         <div className="profile-page__info">
           <h1 className="profile-page__name">{user.nickname || user.firstName}</h1>

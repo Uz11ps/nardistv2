@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { Card, Button, Modal, Input, NotificationModal, ConfirmModal } from '../components/ui';
 import { clanService } from '../services';
 import { useAuthStore } from '../store/auth.store';
+import { placeholders } from '../utils/placeholders';
 import './ClanDetail.css';
 
 export const ClanDetail = () => {
@@ -178,7 +179,7 @@ export const ClanDetail = () => {
             <div key={member.id} className="clan-detail__member">
               <div className="clan-detail__member-info">
                 <div className="clan-detail__member-avatar">
-                  <img src={member.user?.photoUrl || member.user?.avatar || 'https://via.placeholder.com/50'} alt="Avatar" />
+                  <img src={member.user?.photoUrl || member.user?.avatar || placeholders.avatarSmall} alt="Avatar" />
                 </div>
                 <div className="clan-detail__member-details">
                   <div className="clan-detail__member-name">

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Card, Button, Tabs, Input } from '../components/ui';
 import { marketService, inventoryService } from '../services';
 import type { InventoryItem } from '../types';
+import { placeholders } from '../utils/placeholders';
 import './Market.css';
 
 const rarityColors: Record<string, string> = {
@@ -153,7 +154,7 @@ const MarketBuy = ({ items, loading }: { items: any[]; loading: boolean }) => {
             return (
               <Card key={listing.id} className="market-item">
                 <div className="market-item__preview">
-                  <img src={skin?.previewUrl || 'https://via.placeholder.com/200'} alt={skin?.name} />
+                  <img src={skin?.previewUrl || placeholders.item} alt={skin?.name} />
                   <div
                     className="market-item__rarity-badge"
                     style={{ backgroundColor: rarityColors[rarity] }}
@@ -241,7 +242,7 @@ const MarketSell = ({ inventory, loading }: { inventory: InventoryItem[]; loadin
           {userItems.map((item) => (
             <Card key={item.id} className="market-sell-item">
               <div className="market-sell-item__preview">
-                <img src={item.skin?.previewUrl || 'https://via.placeholder.com/100'} alt={item.skin?.name} />
+                <img src={item.skin?.previewUrl || placeholders.itemSmall} alt={item.skin?.name} />
               </div>
               <div className="market-sell-item__info">
                 <h4 className="market-sell-item__name">{item.skin?.name || 'Предмет'}</h4>

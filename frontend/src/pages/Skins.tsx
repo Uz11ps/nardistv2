@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, Button, Tabs } from '../components/ui';
 import { inventoryService } from '../services';
+import { placeholders } from '../utils/placeholders';
 import './Skins.css';
 
 export const Skins = () => {
@@ -57,7 +58,7 @@ const SkinsGrid = ({ skins, loading }: { skins: any[]; loading: boolean }) => {
       {skins.map((item) => (
         <Card key={item.id} className="skin-card">
           <div className="skin-card__preview">
-            <img src={item.skin?.previewUrl || 'https://via.placeholder.com/200x150'} alt={item.skin?.name} />
+            <img src={item.skin?.previewUrl || placeholders.itemMedium} alt={item.skin?.name} />
           </div>
           <div className="skin-card__info">
             <h3 className="skin-card__name">{item.skin?.name || 'Скин'}</h3>

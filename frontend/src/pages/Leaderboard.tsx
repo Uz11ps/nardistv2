@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, Tabs } from '../components/ui';
 import { ratingsService } from '../services';
+import { placeholders } from '../utils/placeholders';
 import './Leaderboard.css';
 
 export const Leaderboard = () => {
@@ -55,7 +56,7 @@ const LeaderboardTable = ({ mode }: { mode: 'SHORT' | 'LONG' }) => {
           <div className="leaderboard-item__rank">#{index + 1}</div>
           <div className="leaderboard-item__avatar">
             <img
-              src={rating.user?.avatar || rating.user?.photoUrl || 'https://via.placeholder.com/50'}
+              src={rating.user?.avatar || rating.user?.photoUrl || placeholders.avatarSmall}
               alt={rating.user?.nickname || rating.user?.firstName}
             />
           </div>
