@@ -2,12 +2,14 @@ import { Injectable } from '@nestjs/common';
 import { RedisService } from '../../redis/redis.service';
 import { GameState, GameMode, GameStatus, PlayerColor } from '../types/game.types';
 import { GameLogicService } from './game-logic.service';
+import { RngService } from './rng.service';
 
 @Injectable()
 export class GameRoomService {
   constructor(
     private readonly redis: RedisService,
     private readonly gameLogic: GameLogicService,
+    private readonly rng: RngService,
   ) {}
 
   /**
@@ -21,6 +23,12 @@ export class GameRoomService {
     const roomId = `game:${Date.now()}:${Math.random().toString(36).substr(2, 9)}`;
     const gameState = this.gameLogic.initializeGame(mode, whitePlayerId, blackPlayerId);
     gameState.status = GameStatus.IN_PROGRESS;
+    
+    // Генерируем seed для игры
+    const gameSeed = this.rng.createGameSeed();
+    (gameState as any).seed = gameSeed.seed;
+    (gameState as any).seedHash = gameSeed.hash;
+    (gameState as any).rollCounter = 0;
 
     await this.redis.set(
       `room:${roomId}`,

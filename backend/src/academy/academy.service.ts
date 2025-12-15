@@ -45,11 +45,27 @@ export class AcademyService {
    * Проверить доступ к статье
    */
   async checkArticleAccess(userId: number, articleId: number): Promise<boolean> {
-    // Проверяем, есть ли запись о покупке (можно добавить модель ArticlePurchase)
-    // Пока проверяем через подписку или прямую оплату
+    const article = await this.prisma.academyArticle.findUnique({
+      where: { id: articleId },
+    });
+
+    if (!article) {
+      return false;
+    }
+
+    // Если статья бесплатная, доступ открыт
+    if (!article.isPaid) {
+      return true;
+    }
+
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      include: { subscription: true },
+      include: { 
+        subscription: true,
+        articlePurchases: {
+          where: { articleId },
+        },
+      },
     });
 
     if (!user) {
@@ -61,8 +77,11 @@ export class AcademyService {
       return true;
     }
 
-    // TODO: Проверить прямую покупку статьи (нужно добавить модель ArticlePurchase)
-    // Пока возвращаем false для платных статей без подписки
+    // Проверяем, куплена ли статья
+    if (user.articlePurchases && user.articlePurchases.length > 0) {
+      return true;
+    }
+
     return false;
   }
 
@@ -90,6 +109,20 @@ export class AcademyService {
       throw new Error('Not enough NAR coins');
     }
 
+    // Проверяем, не куплена ли уже статья
+    const existingPurchase = await this.prisma.articlePurchase.findUnique({
+      where: {
+        userId_articleId: {
+          userId,
+          articleId,
+        },
+      },
+    });
+
+    if (existingPurchase) {
+      return { success: true, articleId, alreadyPurchased: true };
+    }
+
     // Списываем NAR
     await this.prisma.user.update({
       where: { id: userId },
@@ -98,8 +131,15 @@ export class AcademyService {
       },
     });
 
-    // TODO: Создать запись о покупке (нужна модель ArticlePurchase)
-    // Пока просто возвращаем успех
+    // Создаем запись о покупке
+    await this.prisma.articlePurchase.create({
+      data: {
+        userId,
+        articleId,
+        paymentMethod: 'NAR',
+        amount: article.priceCoin,
+      },
+    });
 
     return { success: true, articleId };
   }
@@ -123,11 +163,36 @@ export class AcademyService {
     // TODO: Интеграция с платежной системой TON/USDT
     // Пока просто возвращаем успех (в реальности нужно проверить платеж)
 
-    // TODO: Создать запись о покупке
+    // Проверяем, не куплена ли уже статья
+    const existingPurchase = await this.prisma.articlePurchase.findUnique({
+      where: {
+        userId_articleId: {
+          userId,
+          articleId,
+        },
+      },
+    });
+
+    if (existingPurchase) {
+      return { success: true, articleId, alreadyPurchased: true };
+    }
+
+    // Создаем запись о покупке
+    await this.prisma.articlePurchase.create({
+      data: {
+        userId,
+        articleId,
+        paymentMethod: paymentData.method || 'CRYPTO',
+        transactionId: paymentData.transactionId,
+      },
+    });
 
     return { success: true, articleId, transactionId: paymentData.transactionId };
   }
 
+  /**
+   * Повысить пользователя до тренера (если уровень >= 20)
+   */
   async promoteToTrainer(userId: number) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -141,10 +206,106 @@ export class AcademyService {
       where: { userId },
       update: {
         role: 'TRAINER',
+        level: user.level,
       },
       create: {
         userId,
         role: 'TRAINER',
+        level: user.level,
+      },
+    });
+  }
+
+  /**
+   * Получить роль пользователя в академии
+   */
+  async getUserRole(userId: number) {
+    const role = await this.prisma.academyRole.findUnique({
+      where: { userId },
+    });
+
+    return role || { userId, role: 'STUDENT', level: 1 };
+  }
+
+  /**
+   * Проверить, является ли пользователь тренером
+   */
+  async isTrainer(userId: number): Promise<boolean> {
+    const role = await this.prisma.academyRole.findUnique({
+      where: { userId },
+    });
+
+    return role?.role === 'TRAINER';
+  }
+
+  /**
+   * Получить список тренеров
+   */
+  async getTrainers() {
+    const trainers = await this.prisma.academyRole.findMany({
+      where: { role: 'TRAINER' },
+      include: {
+        user: {
+          select: {
+            id: true,
+            nickname: true,
+            firstName: true,
+            lastName: true,
+            level: true,
+            avatar: true,
+            photoUrl: true,
+          },
+        },
+      },
+      orderBy: { level: 'desc' },
+    });
+
+    return trainers.map(t => ({
+      ...t.user,
+      trainerLevel: t.level,
+    }));
+  }
+
+  /**
+   * Получить статьи тренера
+   */
+  async getTrainerArticles(trainerId: number) {
+    return this.prisma.academyArticle.findMany({
+      where: {
+        authorId: trainerId,
+        isPublished: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  /**
+   * Создать платный курс/разбор от тренера
+   */
+  async createTrainerCourse(
+    trainerId: number,
+    data: {
+      title: string;
+      content: string;
+      priceCoin: number;
+      category?: string;
+    },
+  ) {
+    // Проверяем, что пользователь - тренер
+    const isTrainer = await this.isTrainer(trainerId);
+    if (!isTrainer) {
+      throw new Error('Only trainers can create courses');
+    }
+
+    return this.prisma.academyArticle.create({
+      data: {
+        title: data.title,
+        content: data.content,
+        authorId: trainerId,
+        isPaid: true,
+        priceCoin: data.priceCoin,
+        category: data.category || 'TRAINER_COURSE',
+        isPublished: false, // Тренер должен опубликовать вручную
       },
     });
   }

@@ -40,7 +40,12 @@ export class GameHistoryService {
       commission = economyResult.totalCommission;
     }
 
-    // Сохраняем игру
+    // Извлекаем seed и hash из gameState для сохранения
+    const gameStateData = data.gameState as any;
+    const seed = gameStateData.seed || null;
+    const seedHash = gameStateData.seedHash || null;
+    
+    // Сохраняем игру с seed и hash
     const gameHistory = await this.prisma.gameHistory.create({
       data: {
         roomId: data.roomId,
@@ -48,7 +53,11 @@ export class GameHistoryService {
         whitePlayerId,
         blackPlayerId,
         winnerId,
-        gameState: data.gameState,
+        gameState: {
+          ...gameStateData,
+          seed, // Сохраняем seed для проверки честности
+          seedHash, // Сохраняем hash для верификации
+        },
         moves: data.moves,
         duration: data.duration,
         betAmount,
@@ -95,6 +104,12 @@ export class GameHistoryService {
         // Игнорируем ошибки при регистрации осады (не критично)
         console.error('Error recording siege game:', error);
       }
+    }
+
+    // Проверяем онбординг для обоих игроков
+    if (winnerId) {
+      const isBotGame = blackPlayerId === -1 || whitePlayerId === -1;
+      await this.checkOnboardingGames(whitePlayerId, blackPlayerId, isBotGame);
     }
 
     return gameHistory;
@@ -165,6 +180,145 @@ export class GameHistoryService {
         blackPlayer: true,
       },
     });
+  }
+
+  /**
+   * Проверить и обновить прогресс онбординга для игроков
+   */
+  private async checkOnboardingGames(
+    whitePlayerId: number,
+    blackPlayerId: number,
+    isBotGame: boolean,
+  ) {
+    try {
+      // Проверяем, является ли это игрой с ботом (ID бота = -1)
+      if (isBotGame) {
+        // Обновляем прогресс для обоих игроков (если один из них - бот)
+        for (const playerId of [whitePlayerId, blackPlayerId]) {
+          if (playerId > 0) {
+            const user = await this.prisma.user.findUnique({
+              where: { id: playerId },
+            });
+
+            if (user && !user.onboardingBotGameCompleted) {
+              await this.prisma.user.update({
+                where: { id: playerId },
+                data: { onboardingBotGameCompleted: true },
+              });
+
+              // Обновляем прогресс квеста
+              await this.updateOnboardingQuestProgress(playerId, 'Тренировка с ботом', 1);
+              await this.checkOnboardingCompletion(playerId);
+            }
+          }
+        }
+      } else {
+        // Это быстрая игра с реальным соперником
+        for (const playerId of [whitePlayerId, blackPlayerId]) {
+          if (playerId > 0) {
+            const user = await this.prisma.user.findUnique({
+              where: { id: playerId },
+            });
+
+            if (user && !user.onboardingQuickGameCompleted) {
+              await this.prisma.user.update({
+                where: { id: playerId },
+                data: { onboardingQuickGameCompleted: true },
+              });
+
+              // Обновляем прогресс квеста
+              await this.updateOnboardingQuestProgress(playerId, 'Первая онлайн-партия', 1);
+              await this.checkOnboardingCompletion(playerId);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error checking onboarding games:', error);
+    }
+  }
+
+  /**
+   * Обновить прогресс онбординг-квеста
+   */
+  private async updateOnboardingQuestProgress(
+    userId: number,
+    questTitle: string,
+    progress: number,
+  ) {
+    try {
+      const quest = await this.prisma.quest.findFirst({
+        where: {
+          type: 'ONBOARDING',
+          title: questTitle,
+        },
+      });
+
+      if (quest) {
+        const questProgress = await this.prisma.questProgress.upsert({
+          where: {
+            questId_userId: {
+              questId: quest.id,
+              userId,
+            },
+          },
+          update: {
+            progress: Math.min(progress, quest.target),
+            completed: progress >= quest.target,
+            completedAt: progress >= quest.target ? new Date() : null,
+          },
+          create: {
+            questId: quest.id,
+            userId,
+            progress: Math.min(progress, quest.target),
+            completed: progress >= quest.target,
+            completedAt: progress >= quest.target ? new Date() : null,
+          },
+        });
+
+        // Если квест выполнен, награждаем пользователя
+        if (questProgress.completed && questProgress.completedAt) {
+          await this.prisma.user.update({
+            where: { id: userId },
+            data: {
+              narCoin: { increment: quest.rewardCoin },
+              xp: { increment: quest.rewardXp },
+            },
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error updating onboarding quest progress:', error);
+    }
+  }
+
+  /**
+   * Проверить, завершен ли весь онбординг
+   */
+  private async checkOnboardingCompletion(userId: number) {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+      });
+
+      if (!user) {
+        return;
+      }
+
+      const allCompleted =
+        user.onboardingBotGameCompleted &&
+        user.onboardingQuickGameCompleted &&
+        user.onboardingCityViewed;
+
+      if (allCompleted && !user.onboardingCompleted) {
+        await this.prisma.user.update({
+          where: { id: userId },
+          data: { onboardingCompleted: true },
+        });
+      }
+    } catch (error) {
+      console.error('Error checking onboarding completion:', error);
+    }
   }
 }
 

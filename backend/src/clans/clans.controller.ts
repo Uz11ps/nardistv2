@@ -94,13 +94,14 @@ export class ClansController {
     @CurrentUser() user: UserDto,
     @Param('id') id: string,
     @Param('districtId') districtId: string,
-    @Body() data: { amount: number },
+    @Body() data: { amount: number; clanShare?: number }, // clanShare: доля для казны (0-1), остальное участникам
   ) {
     return this.clansService.distributeDistrictFund(
       user.id,
       parseInt(id),
       parseInt(districtId),
       data.amount,
+      data.clanShare,
     );
   }
 

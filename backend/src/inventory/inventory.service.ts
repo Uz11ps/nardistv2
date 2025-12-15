@@ -9,12 +9,23 @@ export class InventoryService {
    * Получить инвентарь пользователя
    */
   async getUserInventory(userId: number) {
-    return this.prisma.inventoryItem.findMany({
+    const items = await this.prisma.inventoryItem.findMany({
       where: { userId },
       include: {
         skin: true,
       },
       orderBy: { isEquipped: 'desc' },
+    });
+
+    // Добавляем вычисленные previewUrl для каждого предмета на основе состояния износа
+    return items.map(item => {
+      const visualState = this.getVisualState(item.durability, item.durabilityMax);
+      const previewUrl = this.getPreviewUrlForState(item.skin.previewUrl, visualState);
+      return {
+        ...item,
+        previewUrl, // Добавляем вычисленный previewUrl
+        visualState, // Добавляем состояние износа
+      };
     });
   }
 
@@ -186,16 +197,32 @@ export class InventoryService {
 
       if (wearAmount > 0) {
         const newDurability = Math.max(0, item.durability - wearAmount);
-        // Определяем визуальное состояние на основе прочности
         const visualState = this.getVisualState(newDurability, item.durabilityMax);
+        const newPreviewUrl = this.getPreviewUrlForState(item.skin.previewUrl, visualState);
+        
+        // Проверяем падение редкости при критическом износе
+        let newRarity = item.rarity;
+        if (visualState === 'BROKEN' && item.rarity !== 'COMMON') {
+          const rarityOrder = ['COMMON', 'UNCOMMON', 'RARE', 'EPIC', 'LEGENDARY', 'MYTHIC'];
+          const currentIndex = rarityOrder.indexOf(item.rarity);
+          if (currentIndex > 0) {
+            newRarity = rarityOrder[currentIndex - 1];
+          }
+        }
+        
+        const updateData: any = {
+          durability: newDurability,
+        };
+        
+        // Обновляем редкость только если упала
+        if (newRarity !== item.rarity) {
+          updateData.rarity = newRarity;
+        }
         
         updates.push(
           this.prisma.inventoryItem.update({
             where: { id: item.id },
-            data: { 
-              durability: newDurability,
-              // Обновляем previewUrl если нужно (можно добавить поле visualStateUrl в схему)
-            },
+            data: updateData,
           }),
         );
       }
@@ -227,6 +254,45 @@ export class InventoryService {
   }
 
   /**
+   * Получить previewUrl для состояния износа
+   * Можно добавить суффиксы к URL или использовать разные изображения
+   */
+  private getPreviewUrlForState(baseUrl: string, state: 'NEW' | 'USED' | 'WORN' | 'BROKEN'): string {
+    if (!baseUrl) {
+      return baseUrl;
+    }
+
+    // Если URL уже содержит состояние, заменяем его
+    const stateSuffixes = {
+      NEW: '',
+      USED: '_used',
+      WORN: '_worn',
+      BROKEN: '_broken',
+    };
+
+    // Удаляем старые суффиксы
+    let cleanUrl = baseUrl.replace(/_(used|worn|broken)(\.\w+)?$/, '');
+    
+    // Добавляем расширение обратно, если оно было
+    const extensionMatch = baseUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i);
+    const extension = extensionMatch ? extensionMatch[0] : '';
+    
+    // Если состояние не NEW, добавляем суффикс
+    if (state !== 'NEW' && stateSuffixes[state]) {
+      // Вставляем суффикс перед расширением
+      if (extension) {
+        cleanUrl = cleanUrl.replace(extension, '') + stateSuffixes[state] + extension;
+      } else {
+        cleanUrl = cleanUrl + stateSuffixes[state];
+      }
+    } else {
+      cleanUrl = cleanUrl + extension;
+    }
+
+    return cleanUrl;
+  }
+
+  /**
    * Получить информацию о визуальном состоянии предмета
    */
   async getItemVisualInfo(itemId: number) {
@@ -240,9 +306,14 @@ export class InventoryService {
     }
 
     const visualState = this.getVisualState(item.durability, item.durabilityMax);
+    // Вычисляем previewUrl на основе состояния износа
+    const previewUrl = this.getPreviewUrlForState(item.skin.previewUrl, visualState);
     
     return {
-      item,
+      item: {
+        ...item,
+        previewUrl, // Добавляем вычисленный previewUrl
+      },
       visualState,
       durabilityPercentage: (item.durability / item.durabilityMax) * 100,
     };

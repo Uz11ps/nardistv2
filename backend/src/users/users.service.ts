@@ -1,20 +1,68 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CacheService } from '../common/services/cache.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly cache: CacheService,
+  ) {}
 
   async getProfile(userId: number) {
+    // Пытаемся получить из кэша
+    const cacheKey = `user:${userId}:profile`;
+    const cached = await this.cache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     // Проверяем и применяем регенерацию перед возвратом профиля
     await this.checkAndRegenerate(userId);
 
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      include: {
-        subscription: true,
-        academyRole: true,
+      select: {
+        id: true,
+        telegramId: true,
+        firstName: true,
+        lastName: true,
+        username: true,
+        nickname: true,
+        country: true,
+        avatar: true,
+        photoUrl: true,
+        level: true,
+        xp: true,
+        narCoin: true,
+        energy: true,
+        energyMax: true,
+        lives: true,
+        livesMax: true,
+        power: true,
+        powerMax: true,
+        statsEconomy: true,
+        statsEnergy: true,
+        statsLives: true,
+        statsPower: true,
+        referralCode: true,
+        isPremium: true,
+        subscription: {
+          select: {
+            id: true,
+            plan: true,
+            startDate: true,
+            endDate: true,
+            isActive: true,
+          },
+        },
+        academyRole: {
+          select: {
+            id: true,
+            role: true,
+          },
+        },
       },
     });
 
@@ -50,6 +98,10 @@ export class UsersService {
       subscription: user.subscription,
       academyRole: user.academyRole,
     };
+
+    // Кэшируем на 30 секунд
+    await this.cache.set(cacheKey, profile, 30);
+    return profile;
   }
 
   /**
@@ -98,6 +150,9 @@ export class UsersService {
       },
     });
 
+    // Инвалидируем кэш
+    await this.cache.invalidateUserCache(userId);
+
     return { success: true, newLevel: currentStat + 1 };
   }
 
@@ -117,7 +172,7 @@ export class UsersService {
   }
 
   async updateProfile(userId: number, dto: UpdateProfileDto) {
-    return this.prisma.user.update({
+    const result = await this.prisma.user.update({
       where: { id: userId },
       data: {
         nickname: dto.nickname,
@@ -125,6 +180,11 @@ export class UsersService {
         avatar: dto.avatar,
       },
     });
+
+    // Инвалидируем кэш
+    await this.cache.invalidateUserCache(userId);
+
+    return result;
   }
 
   async getStats(userId: number) {

@@ -38,6 +38,10 @@ export class SubscriptionService {
   }
 
   async checkSubscription(userId: number): Promise<boolean> {
+    return this.hasActiveSubscription(userId);
+  }
+
+  async hasActiveSubscription(userId: number): Promise<boolean> {
     const subscription = await this.prisma.subscription.findUnique({
       where: { userId },
     });

@@ -36,7 +36,21 @@ export class AuthService {
           isPremium: telegramUser.isPremium || false,
           photoUrl: telegramUser.photoUrl || null,
           referralCode,
+          onboardingCompleted: false,
+          onboardingBotGameCompleted: false,
+          onboardingQuickGameCompleted: false,
+          onboardingCityViewed: false,
         },
+      });
+
+      // Выдаем стартовый набор скинов асинхронно (не блокируем ответ)
+      this.giveStarterPackAsync(user.id).catch(err => {
+        console.error('Error giving starter pack:', err);
+      });
+
+      // Инициализируем онбординг асинхронно (не блокируем ответ)
+      this.initializeOnboardingAsync(user.id).catch(err => {
+        console.error('Error initializing onboarding:', err);
       });
     } else {
       // Обновляем данные пользователя
@@ -136,6 +150,98 @@ export class AuthService {
 
   private generateReferralCode(): string {
     return randomBytes(4).toString('hex').toUpperCase();
+  }
+
+  /**
+   * Асинхронная инициализация онбординга (избегаем циклических зависимостей)
+   */
+  private async initializeOnboardingAsync(userId: number) {
+    // Создаем онбординг-квесты, если их еще нет
+    const onboardingQuests = [
+      {
+        type: 'ONBOARDING',
+        title: 'Тренировка с ботом',
+        description: 'Сыграйте одну партию с ботом, чтобы освоиться с игрой',
+        target: 1,
+        rewardCoin: 50,
+        rewardXp: 25,
+      },
+      {
+        type: 'ONBOARDING',
+        title: 'Первая онлайн-партия',
+        description: 'Сыграйте одну быструю партию с другим игроком',
+        target: 1,
+        rewardCoin: 100,
+        rewardXp: 50,
+      },
+      {
+        type: 'ONBOARDING',
+        title: 'Знакомство с Городом',
+        description: 'Посетите экран Города и посмотрите все 7 районов',
+        target: 1,
+        rewardCoin: 50,
+        rewardXp: 25,
+      },
+    ];
+
+    for (const questData of onboardingQuests) {
+      const existingQuest = await this.prisma.quest.findFirst({
+        where: {
+          type: 'ONBOARDING',
+          title: questData.title,
+        },
+      });
+
+      if (!existingQuest) {
+        await this.prisma.quest.create({
+          data: {
+            type: questData.type,
+            title: questData.title,
+            description: questData.description,
+            target: questData.target,
+            rewardCoin: questData.rewardCoin,
+            rewardXp: questData.rewardXp,
+            isActive: true,
+            durationType: 'EVER',
+          },
+        });
+      }
+    }
+  }
+
+  /**
+   * Выдать стартовый набор новому пользователю
+   */
+  private async giveStarterPackAsync(userId: number) {
+    try {
+      // Находим все дефолтные скины
+      const defaultSkins = await this.prisma.skin.findMany({
+        where: {
+          isDefault: true,
+          isActive: true,
+        },
+      });
+
+      // Создаем предметы в инвентаре для каждого дефолтного скина
+      for (const skin of defaultSkins) {
+        await this.prisma.inventoryItem.create({
+          data: {
+            userId,
+            skinId: skin.id,
+            rarity: skin.rarity,
+            durability: skin.durabilityMax,
+            durabilityMax: skin.durabilityMax,
+            weight: skin.weight,
+            isEquipped: false,
+          },
+        });
+      }
+
+      console.log(`Starter pack given to user ${userId}: ${defaultSkins.length} items`);
+    } catch (error) {
+      console.error('Error giving starter pack:', error);
+      // Не пробрасываем ошибку, чтобы не блокировать регистрацию
+    }
   }
 }
 

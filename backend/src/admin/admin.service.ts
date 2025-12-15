@@ -119,13 +119,135 @@ export class AdminService {
 
   async getSkins() {
     return this.prisma.skin.findMany({
+      include: {
+        inventoryItems: {
+          select: {
+            id: true,
+            userId: true,
+          },
+        },
+        marketListings: {
+          select: {
+            id: true,
+            price: true,
+            isActive: true,
+          },
+        },
+      },
       orderBy: { createdAt: 'desc' },
     });
   }
 
-  async createSkin(data: any) {
+  async getSkinById(id: number) {
+    return this.prisma.skin.findUnique({
+      where: { id },
+      include: {
+        inventoryItems: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                nickname: true,
+                firstName: true,
+              },
+            },
+          },
+        },
+        marketListings: {
+          include: {
+            seller: {
+              select: {
+                id: true,
+                nickname: true,
+                firstName: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  async createSkin(data: {
+    name: string;
+    type: string;
+    previewUrl: string;
+    rarity?: string;
+    weight?: number;
+    durabilityMax?: number;
+    priceCoin?: number;
+    isDefault?: boolean;
+    isActive?: boolean;
+  }) {
     return this.prisma.skin.create({
-      data,
+      data: {
+        name: data.name,
+        type: data.type,
+        previewUrl: data.previewUrl,
+        rarity: data.rarity || 'COMMON',
+        weight: data.weight || 1,
+        durabilityMax: data.durabilityMax || 100,
+        priceCoin: data.priceCoin || 0,
+        isDefault: data.isDefault || false,
+        isActive: data.isActive !== undefined ? data.isActive : true,
+      },
+    });
+  }
+
+  async updateSkin(id: number, data: {
+    name?: string;
+    type?: string;
+    previewUrl?: string;
+    rarity?: string;
+    weight?: number;
+    durabilityMax?: number;
+    priceCoin?: number;
+    isDefault?: boolean;
+    isActive?: boolean;
+  }) {
+    return this.prisma.skin.update({
+      where: { id },
+      data: {
+        ...data,
+        updatedAt: new Date(),
+      },
+    });
+  }
+
+  async activateSkin(id: number) {
+    return this.prisma.skin.update({
+      where: { id },
+      data: { isActive: true },
+    });
+  }
+
+  async deactivateSkin(id: number) {
+    return this.prisma.skin.update({
+      where: { id },
+      data: { isActive: false },
+    });
+  }
+
+  async deleteSkin(id: number) {
+    // Проверяем, используется ли скин
+    const skin = await this.prisma.skin.findUnique({
+      where: { id },
+      include: {
+        inventoryItems: true,
+        marketListings: true,
+      },
+    });
+
+    if (!skin) {
+      throw new Error('Skin not found');
+    }
+
+    if (skin.inventoryItems.length > 0 || skin.marketListings.length > 0) {
+      throw new Error('Cannot delete skin that is in use. Deactivate it instead.');
+    }
+
+    return this.prisma.skin.delete({
+      where: { id },
     });
   }
 
@@ -402,6 +524,67 @@ export class AdminService {
       limit,
       totalPages: Math.ceil(total / limit),
     };
+  }
+
+  async getGameById(id: number) {
+    return this.prisma.gameHistory.findUnique({
+      where: { id },
+      include: {
+        whitePlayer: {
+          select: {
+            id: true,
+            nickname: true,
+            firstName: true,
+            level: true,
+          },
+        },
+        blackPlayer: {
+          select: {
+            id: true,
+            nickname: true,
+            firstName: true,
+            level: true,
+          },
+        },
+      },
+    });
+  }
+
+  async getGameLogs(gameId: number) {
+    const game = await this.prisma.gameHistory.findUnique({
+      where: { id: gameId },
+    });
+
+    if (!game) {
+      throw new Error('Game not found');
+    }
+
+    // Возвращаем детальную информацию о игре, включая все ходы и броски
+    return {
+      game,
+      moves: game.moves || [],
+      gameState: game.gameState || {},
+      rngSeed: game.rngSeed,
+      rngHash: game.rngHash,
+      duration: game.duration,
+      // Дополнительная информация о бросках кубиков
+      diceRolls: this.extractDiceRolls(game.moves || []),
+    };
+  }
+
+  private extractDiceRolls(moves: any[]): any[] {
+    const diceRolls: any[] = [];
+    moves.forEach((move, index) => {
+      if (move.dice) {
+        diceRolls.push({
+          moveIndex: index,
+          dice: move.dice,
+          player: move.player,
+          timestamp: move.timestamp,
+        });
+      }
+    });
+    return diceRolls;
   }
 
   async addCoins(userId: number, amount: number) {

@@ -95,8 +95,11 @@ export class EconomyService {
     const cityTax = winnerCommission.cityTax;
     const districtFee = winnerCommission.districtFee;
 
-    // Налог города (сжигается или идет в общий фонд)
-    // Пока просто логируем, можно добавить отдельную таблицу для городского фонда
+    // Налог города: 10% сжигается (удаляется из оборота)
+    // Это дефляционный механизм для контроля инфляции
+    const burnedAmount = Math.floor(cityTax);
+    // Логируем сжигание (в будущем можно добавить таблицу для отслеживания)
+    console.log(`City tax burned: ${burnedAmount} NAR from game ${betAmount} NAR bet`);
 
     // Комиссия района
     if (districtId) {
@@ -208,6 +211,99 @@ export class EconomyService {
     return {
       clanId: district.clanId,
       amount,
+      newClanTreasury: (await this.prisma.clan.findUnique({ where: { id: district.clanId } }))!.treasury,
+    };
+  }
+
+  /**
+   * Распределение фонда района: часть в казну клана, часть участникам
+   */
+  async distributeDistrictFund(
+    districtId: number,
+    totalAmount: number,
+    clanShare: number = 0.5, // 50% в казну клана по умолчанию
+  ) {
+    const district = await this.prisma.district.findUnique({
+      where: { id: districtId },
+      include: {
+        clan: {
+          include: {
+            members: {
+              where: {
+                role: { in: ['LEADER', 'OFFICER', 'MEMBER'] },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!district || !district.clanId) {
+      throw new Error('District has no controlling clan');
+    }
+
+    const fund = await this.prisma.districtFund.findUnique({
+      where: { districtId },
+    });
+
+    if (!fund || fund.balance < totalAmount) {
+      throw new Error('Insufficient fund balance');
+    }
+
+    const clanAmount = Math.floor(totalAmount * clanShare);
+    const membersAmount = totalAmount - clanAmount;
+
+    // Часть в казну клана
+    if (clanAmount > 0) {
+      await this.prisma.clan.update({
+        where: { id: district.clanId },
+        data: {
+          treasury: { increment: clanAmount },
+        },
+      });
+    }
+
+    // Часть участникам (равномерно)
+    if (membersAmount > 0 && district.clan.members.length > 0) {
+      const perMember = Math.floor(membersAmount / district.clan.members.length);
+      const remainder = membersAmount - (perMember * district.clan.members.length);
+
+      // Начисляем каждому участнику
+      for (const member of district.clan.members) {
+        await this.prisma.user.update({
+          where: { id: member.userId },
+          data: {
+            narCoin: { increment: perMember },
+          },
+        });
+      }
+
+      // Остаток (если есть) идет в казну
+      if (remainder > 0) {
+        await this.prisma.clan.update({
+          where: { id: district.clanId },
+          data: {
+            treasury: { increment: remainder },
+          },
+        });
+      }
+    }
+
+    // Списываем с фонда
+    await this.prisma.districtFund.update({
+      where: { districtId },
+      data: {
+        balance: { decrement: totalAmount },
+      },
+    });
+
+    return {
+      clanId: district.clanId,
+      totalAmount,
+      clanAmount,
+      membersAmount,
+      perMember: district.clan.members.length > 0 ? Math.floor(membersAmount / district.clan.members.length) : 0,
+      membersCount: district.clan.members.length,
       newClanTreasury: (await this.prisma.clan.findUnique({ where: { id: district.clanId } }))!.treasury,
     };
   }

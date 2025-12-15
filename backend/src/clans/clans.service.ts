@@ -322,13 +322,14 @@ export class ClansService {
   }
 
   /**
-   * Распределить фонд района в клановую казну
+   * Распределить фонд района: часть в казну клана, часть участникам
    */
   async distributeDistrictFund(
     leaderId: number,
     clanId: number,
     districtId: number,
     amount: number,
+    clanShare?: number, // Доля для казны клана (0-1), по умолчанию 0.5
   ) {
     // Проверяем права
     const leader = await this.prisma.clanMember.findUnique({
@@ -353,8 +354,8 @@ export class ClansService {
       throw new Error('District is not controlled by this clan');
     }
 
-    // Используем метод из EconomyService
-    return this.economyService.distributeDistrictFundToClan(districtId, amount);
+    // Используем метод из EconomyService с распределением
+    return this.economyService.distributeDistrictFund(districtId, amount, clanShare);
   }
 
   /**

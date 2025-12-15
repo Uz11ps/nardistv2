@@ -69,5 +69,10 @@ export const tournamentsService = {
     const response = await api.post(`/tournaments/${tournamentId}/pass/rewards/${rewardType}/claim`);
     return response.data;
   },
+
+  async getAvailableTournamentPassRewards(tournamentId: number): Promise<{ available: string[]; claimed: string[] }> {
+    const response = await api.get(`/tournaments/${tournamentId}/pass/rewards/available`);
+    return response.data;
+  },
 };
 

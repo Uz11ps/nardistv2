@@ -21,5 +21,10 @@ export class ReferralsController {
   ) {
     return this.referralsService.useReferralCode(user.id, code);
   }
+
+  @Get('link')
+  async getLink(@CurrentUser() user: UserDto) {
+    return this.referralsService.getReferralLink(user.id);
+  }
 }
 

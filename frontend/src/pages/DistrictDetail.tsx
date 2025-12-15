@@ -271,23 +271,30 @@ export const DistrictDetail = () => {
                       Доступно к сбору: {income} NAR
                     </div>
                   )}
-                  {isOwner && business.productionPerHour && business.storageCurrent > 0 && (
+                  {isOwner && business.productionPerHour && (
                     <div className="district-detail__business-production">
                       <div className="district-detail__business-production-info">
-                        <span>📦 На складе: {business.storageCurrent} {getResourceName(business.type === 'BOARD_WORKSHOP' ? 'WOOD' : business.type === 'DICE_FACTORY' ? 'BONE' : 'METAL')}</span>
-                        {business.storageLimit && (
-                          <span> / {business.storageLimit}</span>
-                        )}
+                        <div className="district-detail__production-stats">
+                          <span>⚙️ Производство: {business.productionPerHour} {getResourceName(business.type === 'BOARD_WORKSHOP' ? 'WOOD' : business.type === 'DICE_FACTORY' ? 'BONE' : 'METAL')}/час</span>
+                          {business.storageCurrent !== undefined && (
+                            <span>📦 На складе: {business.storageCurrent}</span>
+                          )}
+                          {business.storageLimit && (
+                            <span> / {business.storageLimit}</span>
+                          )}
+                        </div>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setCollectAmount({ business, amount: business.storageCurrent });
-                        }}
-                      >
-                        Собрать ресурсы
-                      </Button>
+                      {business.storageCurrent > 0 && (
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={() => {
+                            setCollectAmount({ business, amount: business.storageCurrent });
+                          }}
+                        >
+                          Собрать ресурсы ({business.storageCurrent})
+                        </Button>
+                      )}
                     </div>
                   )}
                   {isOwner && business.productionPerHour && calculateProduced(business) > 0 && (

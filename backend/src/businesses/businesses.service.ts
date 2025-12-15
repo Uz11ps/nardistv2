@@ -685,13 +685,16 @@ export class BusinessesService {
       });
     }
 
-    // 40% сжигается (просто не начисляется никому)
+    // 40% сжигается (не начисляется никому) - это механизм дефляции
+    // Можно добавить логирование сжигания для статистики
+    console.log(`Burned ${burnedAmount} NAR from repair at business ${businessId} (item ${itemId})`);
 
     return {
       item: updated,
       cost: repairCost,
       ownerShare,
       burnedAmount,
+      message: `Item repaired. ${ownerShare > 0 ? `${ownerShare} NAR paid to business owner. ` : ''}${burnedAmount} NAR burned.`,
     };
   }
 

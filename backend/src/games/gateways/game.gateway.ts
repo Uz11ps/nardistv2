@@ -15,6 +15,7 @@ import { GameRoomService } from '../services/game-room.service';
 import { GameLogicService } from '../services/game-logic.service';
 import { MatchmakingService } from '../services/matchmaking.service';
 import { BotService } from '../services/bot.service';
+import { RngService } from '../services/rng.service';
 import { GameHistoryService } from '../../game-history/game-history.service';
 import { GameMode, GameStatus, PlayerColor } from '../types/game.types';
 
@@ -62,7 +63,18 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly matchmaking: MatchmakingService,
     private readonly botService: BotService,
     private readonly gameHistory: GameHistoryService,
+    private readonly rng: RngService,
   ) {}
+
+  /**
+   * Запустить периодическую проверку таймеров для всех активных игр
+   */
+  private startTimerChecks() {
+    setInterval(async () => {
+      // Получаем все активные комнаты (можно оптимизировать через Redis)
+      // Пока просто проверяем при каждом действии
+    }, 5000); // Проверяем каждые 5 секунд
+  }
 
   async handleConnection(client: Socket) {
     try {
@@ -108,13 +120,23 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     client.join(data.roomId);
     console.log(`User ${userId} joined room ${data.roomId}`);
 
+    // Получаем текущее состояние игры для синхронизации
+    const state = await this.gameRoom.getGameState(data.roomId);
+    if (state) {
+      // Отправляем полное состояние игры для восстановления
+      client.emit('game-state-sync', {
+        state,
+        roomId: data.roomId,
+      });
+    }
+
     // Уведомляем других участников комнаты
     client.to(data.roomId).emit('user-joined', {
       userId,
       roomId: data.roomId,
     });
 
-    return { success: true, roomId: data.roomId };
+    return { success: true, roomId: data.roomId, state };
   }
 
   @SubscribeMessage('leave-room')
@@ -172,6 +194,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       
       case 'end-turn':
         return await this.handleEndTurn(client, data.roomId, state, userId);
+      
+      case 'sync-state':
+        // Запрос синхронизации состояния (для переподключения)
+        return { success: true, state };
       
       default:
         return { error: 'Unknown action' };
@@ -283,6 +309,53 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   /**
+   * Проверить и обработать истечение времени хода
+   */
+  private async checkTurnTimeout(roomId: string, state: any) {
+    if (state.status !== 'IN_PROGRESS') {
+      return;
+    }
+
+    const now = Date.now();
+    const elapsed = (now - state.turnStartTime) / 1000;
+    const timeLimit = state.turnTimeLimit || 60;
+
+    if (elapsed > timeLimit) {
+      // Время истекло - автоматический фолд
+      const currentPlayerId = state.currentPlayer === PlayerColor.WHITE 
+        ? state.players.white 
+        : state.players.black;
+      
+      const winnerId = state.currentPlayer === PlayerColor.WHITE 
+        ? state.players.black 
+        : state.players.white;
+
+      // Завершаем игру
+      state.status = GameStatus.FINISHED;
+      
+      // Сохраняем игру в историю
+      await this.gameHistory.saveGame({
+        roomId,
+        mode: state.mode,
+        whitePlayerId: state.players.white!,
+        blackPlayerId: state.players.black!,
+        winnerId,
+        gameState: state,
+        moves: state.moves,
+        duration: Math.floor((now - state.turnStartTime) / 1000),
+      });
+
+      this.server.to(roomId).emit('game-ended', {
+        winner: state.currentPlayer === PlayerColor.WHITE ? PlayerColor.BLACK : PlayerColor.WHITE,
+        reason: 'timeout',
+        state,
+      });
+
+      await this.gameRoom.deleteRoom(roomId);
+    }
+  }
+
+  /**
    * Обработка окончания хода
    */
   private async handleEndTurn(
@@ -317,8 +390,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
    * Обработка хода бота
    */
   private async processBotTurn(roomId: string, state: any) {
-      // Бросаем кубики за бота
-      const dice = this.gameLogic.rollDice();
+      // Бросаем кубики за бота используя криптографический RNG
+      const seed = state.seed || '';
+      const rollCounter = state.rollCounter || 0;
+      const dice = this.rng.rollDice(seed, rollCounter);
+      
       // Обновляем счетчик бросков
       const diceRollsCount = state.diceRollsCount || { white: 0, black: 0 };
       if (state.currentPlayer === PlayerColor.WHITE) {
@@ -326,7 +402,12 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       } else {
         diceRollsCount.black = (diceRollsCount.black || 0) + 1;
       }
-      let newState = { ...state, dice, diceRollsCount };
+      let newState = { 
+        ...state, 
+        dice, 
+        diceRollsCount,
+        rollCounter: rollCounter + 1,
+      };
       await this.gameRoom.saveGameState(roomId, newState);
 
     this.server.to(roomId).emit('dice-rolled', {

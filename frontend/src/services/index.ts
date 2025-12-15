@@ -16,4 +16,8 @@ export * from './subscription.service';
 export * from './academy.service';
 export * from './admin.service';
 export * from './siege.service';
+export * from './onboarding.service';
+export * from './referrals.service';
+export * from './analytics.service';
+export * from './trainer.service';
 

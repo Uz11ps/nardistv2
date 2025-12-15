@@ -39,6 +39,11 @@ model User {
   lastEnergyRegen DateTime? // Последняя регенерация энергии/жизней
   referralCode    String    @unique
   referredBy      Int?
+  // Онбординг
+  onboardingCompleted Boolean @default(false)
+  onboardingBotGameCompleted Boolean @default(false)
+  onboardingQuickGameCompleted Boolean @default(false)
+  onboardingCityViewed Boolean @default(false)
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -268,7 +273,26 @@ model AcademyArticle {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  purchases ArticlePurchase[]
+
   @@map("academy_articles")
+}
+
+// Покупки статей пользователями
+model ArticlePurchase {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  articleId Int
+  paymentMethod String // NAR, TON, USDT, RUBLES, TELEGRAM_STARS
+  amount    Int? // Сумма в NAR (если оплата NAR)
+  transactionId String? // ID транзакции для криптоплатежей
+  createdAt DateTime @default(now())
+
+  user    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  article AcademyArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, articleId])
+  @@map("article_purchases")
 }
 
 model Skin {

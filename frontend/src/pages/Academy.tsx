@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Card, Button, Modal, NotificationModal, ConfirmModal } from '../components/ui';
+import { Card, Button, Modal, NotificationModal, ConfirmModal, Icon } from '../components/ui';
 import { academyService, userService } from '../services';
 import { useAuthStore } from '../store/auth.store';
 import './Academy.css';
@@ -43,7 +43,10 @@ export const Academy = () => {
   return (
     <div className="academy-page">
       <Link to="/" className="academy-page__back">←</Link>
-      <h1 className="academy-page__title">📚 Академия</h1>
+      <h1 className="academy-page__title">
+        <Icon name="book" size={28} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
+        Академия
+      </h1>
       <div className="academy-articles">
         {articles.length === 0 ? (
           <Card>Нет доступных статей</Card>
@@ -58,12 +61,18 @@ export const Academy = () => {
               <div className="academy-article__header">
                 <h3 className="academy-article__title">{article.title}</h3>
                 {article.isPaid && (
-                  <span className="academy-article__badge">💰 {article.priceCoin} NAR</span>
+                  <span className="academy-article__badge">
+                    <Icon name="coin" size={14} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+                    {article.priceCoin} NAR
+                  </span>
                 )}
               </div>
               <div className="academy-article__meta">
                 <span className="academy-article__category">{article.category}</span>
-                <span className="academy-article__views">👁️ {article.views}</span>
+                <span className="academy-article__views">
+                  <Icon name="eye" size={14} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+                  {article.views}
+                </span>
               </div>
             </Card>
           ))

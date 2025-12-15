@@ -1,9 +1,14 @@
 import { Injectable } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
+import { InventoryService } from '../inventory/inventory.service';
 
 @Injectable()
 export class TournamentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly inventoryService: InventoryService,
+  ) {}
 
   async createTournament(data: {
     name: string;
@@ -121,6 +126,21 @@ export class TournamentsService {
         },
       },
     });
+  }
+
+  /**
+   * Автоматическое создание Олимпиады Нардиста каждый месяц
+   * Запускается 1-го числа каждого месяца в 00:00
+   */
+  @Cron(CronExpression.EVERY_1ST_DAY_OF_MONTH_AT_MIDNIGHT)
+  async autoCreateOlympiad() {
+    console.log('Auto-creating Olympiad for current month...');
+    try {
+      await this.createOlympiad();
+      console.log('Olympiad created successfully');
+    } catch (error) {
+      console.error('Error auto-creating Olympiad:', error);
+    }
   }
 
   /**
@@ -258,13 +278,17 @@ export class TournamentsService {
   /**
    * Купить Tournament Pass для турнира
    */
-  async purchaseTournamentPass(userId: number, tournamentId: number) {
+  async purchaseTournamentPass(userId: number, tournamentId: number, paymentMethod: 'NAR' | 'TON' | 'USDT' | 'RUBLES' | 'TELEGRAM_STARS' = 'NAR') {
     const tournament = await this.prisma.tournament.findUnique({
       where: { id: tournamentId },
     });
 
     if (!tournament) {
       throw new Error('Tournament not found');
+    }
+
+    if (!tournament.hasTournamentPass) {
+      throw new Error('This tournament does not have a Tournament Pass');
     }
 
     // Проверяем, не куплен ли уже пасс
@@ -281,16 +305,22 @@ export class TournamentsService {
       throw new Error('Tournament pass already purchased');
     }
 
-    // TODO: Списываем NAR или TON/USDT (пока просто создаем пасс)
-    // const passPrice = 500; // NAR
-    // const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    // if (!user || user.narCoin < passPrice) {
-    //   throw new Error('Not enough NAR');
-    // }
-    // await this.prisma.user.update({
-    //   where: { id: userId },
-    //   data: { narCoin: { decrement: passPrice } },
-    // });
+    // Оплата через NAR
+    if (paymentMethod === 'NAR') {
+      const passPrice = 500; // NAR
+      const user = await this.prisma.user.findUnique({ where: { id: userId } });
+      if (!user || user.narCoin < passPrice) {
+        throw new Error('Not enough NAR');
+      }
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { narCoin: { decrement: passPrice } },
+      });
+    } else {
+      // TODO: Интеграция с TON/USDT/RUBLES/TELEGRAM_STARS
+      // Пока просто создаем пасс (в реальном приложении здесь будет проверка транзакции)
+      console.log(`Tournament Pass purchase via ${paymentMethod} - payment verification needed`);
+    }
 
     return this.prisma.tournamentPass.create({
       data: {
@@ -340,6 +370,9 @@ export class TournamentsService {
           tournamentId,
         },
       },
+      include: {
+        tournament: true,
+      },
     });
 
     if (!pass || !pass.isActive) {
@@ -352,9 +385,64 @@ export class TournamentsService {
       throw new Error('Reward already claimed');
     }
 
-    // TODO: Выдать награду (NAR, скины и т.д.)
+    // Определяем награды в зависимости от типа
+    const rewards: Record<string, { nar?: number; xp?: number; skinId?: number }> = {
+      'LEVEL_5': { nar: 100, xp: 50 },
+      'LEVEL_10': { nar: 250, xp: 100 },
+      'LEVEL_15': { nar: 500, xp: 200 },
+      'LEVEL_20': { nar: 1000, xp: 500, skinId: null }, // Специальный скин
+      'PARTICIPATION': { nar: 50, xp: 25 },
+      'TOP_10': { nar: 500, xp: 250 },
+      'TOP_5': { nar: 1000, xp: 500 },
+      'TOP_3': { nar: 2000, xp: 1000, skinId: null }, // Редкий скин
+      'WINNER': { nar: 5000, xp: 2000, skinId: null }, // Эпический скин
+    };
+
+    const reward = rewards[rewardType];
+    if (!reward) {
+      throw new Error('Invalid reward type');
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Выдаем NAR
+    if (reward.nar) {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { narCoin: { increment: reward.nar } },
+      });
+    }
+
+    // Выдаем XP
+    if (reward.xp) {
+      const newXp = (user.xp || 0) + reward.xp;
+      const newLevel = Math.floor(newXp / 100) + 1; // 100 XP = 1 уровень
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          xp: newXp,
+          level: newLevel,
+        },
+      });
+    }
+
+    // Выдаем скин (если указан)
+    if (reward.skinId !== undefined) {
+      // TODO: Создать специальный скин для Tournament Pass или использовать существующий
+      // Пока просто помечаем, что награда выдана
+    }
+
+    // Обновляем информацию о полученных наградах
     rewardsClaimed[rewardType] = {
       claimedAt: new Date().toISOString(),
+      reward: {
+        nar: reward.nar || 0,
+        xp: reward.xp || 0,
+        skinId: reward.skinId,
+      },
     };
 
     await this.prisma.tournamentPass.update({
@@ -364,7 +452,59 @@ export class TournamentsService {
       },
     });
 
-    return { success: true, rewardType };
+    return {
+      success: true,
+      rewardType,
+      reward: {
+        nar: reward.nar || 0,
+        xp: reward.xp || 0,
+        skinId: reward.skinId,
+      },
+    };
+  }
+
+  /**
+   * Получить доступные награды для Tournament Pass
+   */
+  async getAvailableTournamentPassRewards(userId: number, tournamentId: number) {
+    const pass = await this.getTournamentPass(userId, tournamentId);
+    if (!pass) {
+      return { available: [], claimed: [] };
+    }
+
+    const participant = await this.prisma.tournamentParticipant.findUnique({
+      where: {
+        tournamentId_userId: {
+          tournamentId,
+          userId,
+        },
+      },
+    });
+
+    const rewardsClaimed = (pass.rewardsClaimed as any) || {};
+    const available = [];
+    const claimed = [];
+
+    // Определяем доступные награды на основе прогресса
+    const rewardLevels = [
+      { type: 'PARTICIPATION', condition: () => participant !== null },
+      { type: 'LEVEL_5', condition: () => participant && participant.wins >= 5 },
+      { type: 'LEVEL_10', condition: () => participant && participant.wins >= 10 },
+      { type: 'LEVEL_15', condition: () => participant && participant.wins >= 15 },
+      { type: 'LEVEL_20', condition: () => participant && participant.wins >= 20 },
+    ];
+
+    for (const rewardLevel of rewardLevels) {
+      if (rewardLevel.condition()) {
+        if (rewardsClaimed[rewardLevel.type]) {
+          claimed.push(rewardLevel.type);
+        } else {
+          available.push(rewardLevel.type);
+        }
+      }
+    }
+
+    return { available, claimed };
   }
 }
 

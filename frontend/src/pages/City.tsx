@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Card, Button } from '../components/ui';
-import { districtService, businessService } from '../services';
+import { Card, Button, Icon } from '../components/ui';
+import { districtService, businessService, onboardingService } from '../services';
 import { useAuthStore } from '../store/auth.store';
 import './City.css';
 
@@ -41,6 +41,11 @@ export const City = () => {
         setBusinesses([]);
       })
       .finally(() => setLoading(false));
+
+    // Отмечаем просмотр города для онбординга
+    onboardingService.markCityViewed().catch(err => {
+      console.warn('Failed to mark city viewed:', err);
+    });
   }, []);
 
 
@@ -51,7 +56,10 @@ export const City = () => {
   return (
     <div className="city-page">
       <div className="city-page__header">
-        <h1 className="city-page__title">🏙️ Город Нард</h1>
+        <h1 className="city-page__title">
+          <Icon name="city" size={28} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
+          Город Нард
+        </h1>
       </div>
 
       <div className="city-districts">

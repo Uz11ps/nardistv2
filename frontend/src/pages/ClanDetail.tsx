@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Card, Button, Modal, Input, NotificationModal, ConfirmModal } from '../components/ui';
+import { Card, Button, Modal, Input, NotificationModal, ConfirmModal, Icon } from '../components/ui';
 import { clanService } from '../services';
 import { useAuthStore } from '../store/auth.store';
 import { placeholders } from '../utils/placeholders';
@@ -64,7 +64,9 @@ export const ClanDetail = () => {
              <Link to="/clans" className="clan-detail__back">←</Link>
              <div className="clan-detail__header">
                <div className="clan-detail__clan-hero">
-                 <div className="clan-detail__clan-icon-large">🛡️</div>
+                 <div className="clan-detail__clan-icon-large">
+                  <Icon name="shield" size={48} />
+                </div>
                  <div className="clan-detail__clan-details">
                    <h1 className="clan-detail__title">{clan.name}</h1>
                    <div className="clan-detail__clan-meta">
@@ -110,7 +112,9 @@ export const ClanDetail = () => {
               Общий фонд клана. Средства поступают из налогов и вкладов участников
             </p>
             <div className="clan-detail__treasury-balance">
-              <div className="clan-detail__treasury-icon">💰</div>
+              <div className="clan-detail__treasury-icon">
+                <Icon name="coin" size={32} />
+              </div>
               <div className="clan-detail__treasury-amount">{(clan.treasury || 0).toLocaleString()} NAR</div>
               <div className="clan-detail__treasury-income">+3 200 NAR / неделя (поступления)</div>
             </div>
@@ -223,7 +227,8 @@ export const ClanDetail = () => {
                         }
                       }}
                     >
-                      ⭐ Офицер
+                      <Icon name="star" size={16} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+                      Офицер
                     </Button>
                   )}
                   {member.role === 'OFFICER' && (
@@ -353,14 +358,16 @@ export const ClanDetail = () => {
               fullWidth
               onClick={() => setTreasuryModal(true)}
             >
-              💰 Управление казной ({clan.treasury.toLocaleString()} NAR)
+              <Icon name="coin" size={16} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+              Управление казной ({clan.treasury.toLocaleString()} NAR)
             </Button>
             <Button
               variant="outline"
               fullWidth
               onClick={() => setSettingsModal(true)}
             >
-              ⚙️ Настройки клана
+              <Icon name="settings" size={16} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+              Настройки клана
             </Button>
           </div>
         </Card>

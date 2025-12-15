@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Card, Button, Tabs, NotificationModal, ConfirmModal } from '../components/ui';
+import { Card, Button, Tabs, NotificationModal, ConfirmModal, Icon } from '../components/ui';
 import { GameBoard } from '../components/game/GameBoard';
 import { BotGame } from '../game/components/BotGame';
 import { wsService } from '../services/websocket.service';
@@ -368,7 +368,10 @@ export const Game = () => {
                 </Button>
               )}
 
-              <div className="game-timer">⏱️ {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}</div>
+              <div className="game-timer">
+                <Icon name="settings" size={16} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+                {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
+              </div>
               
               <Button variant="danger" onClick={handleSurrender}>
                 Сдаться
