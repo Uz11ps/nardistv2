@@ -37,6 +37,7 @@ jobs:
           tags: ${{ env.REGISTRY }}/uz11ps/nardist-backend:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          platforms: linux/amd64
 
       - name: Build and push frontend image
         uses: docker/build-push-action@v5
@@ -46,6 +47,7 @@ jobs:
           tags: ${{ env.REGISTRY }}/uz11ps/nardist-frontend:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          platforms: linux/amd64
 
       - name: Deploy to server
         uses: appleboy/ssh-action@v1.0.0
