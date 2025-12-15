@@ -10,12 +10,14 @@ COPY prisma ./prisma/
 RUN npm ci --legacy-peer-deps --prefer-offline --no-audit --progress=false || \
     npm install --legacy-peer-deps --prefer-offline --no-audit --progress=false
 
+# Генерируем Prisma клиент (нужны все зависимости)
+RUN npx prisma generate
+
 # Копируем исходный код
 COPY . .
 
 # Собираем приложение
 RUN npm run build
-RUN npx prisma generate
 
 FROM node:18-alpine AS production
 
@@ -27,11 +29,12 @@ COPY prisma ./prisma/
 
 # Устанавливаем только production зависимости с оптимизацией
 RUN npm ci --only=production --legacy-peer-deps --prefer-offline --no-audit --progress=false || \
-    npm install --only=production --legacy-peer-deps --prefer-offline --no-audit --progress=false && \
-    npx prisma generate
+    npm install --only=production --legacy-peer-deps --prefer-offline --no-audit --progress=false
 
-# Копируем собранное приложение
+# Копируем собранное приложение и сгенерированный Prisma клиент
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
 EXPOSE 3000
 
