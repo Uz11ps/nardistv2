@@ -7,10 +7,9 @@ const getWsUrl = () => {
   }
   
   // Если на production домене, используем его (wss для HTTPS)
-  if (window.location.hostname === 'nardist.online' || window.location.hostname === 'www.nardist.online') {
-    // Используем wss:// для HTTPS или ws:// для HTTP
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    return `${protocol}//${window.location.hostname}`;
+  if (window.location.hostname === 'nardist.online' || window.location.hostname === 'www.nardist.online' || window.location.hostname.endsWith('.nardist.online')) {
+    // Всегда используем wss:// для production
+    return `wss://${window.location.hostname}`;
   }
   
   // Иначе localhost для development
