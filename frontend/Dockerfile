@@ -3,12 +3,9 @@ FROM node:18-alpine AS builder
 WORKDIR /app
 
 COPY package*.json ./
-# Используем npm ci если есть package-lock.json, иначе npm install с оптимизацией
-RUN if [ -f package-lock.json ]; then \
-      npm ci --prefer-offline --no-audit --progress=false; \
-    else \
-      npm install --legacy-peer-deps --prefer-offline --no-audit --progress=false; \
-    fi
+# Используем npm ci для быстрой установки (требует package-lock.json)
+RUN npm ci --prefer-offline --no-audit --progress=false || \
+    npm install --legacy-peer-deps --prefer-offline --no-audit --progress=false
 
 COPY . .
 RUN npm run build

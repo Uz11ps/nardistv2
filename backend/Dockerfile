@@ -6,12 +6,9 @@ WORKDIR /app
 COPY package*.json ./
 COPY prisma ./prisma/
 
-# Используем npm ci если есть package-lock.json, иначе npm install с оптимизацией
-RUN if [ -f package-lock.json ]; then \
-      npm ci --legacy-peer-deps --prefer-offline --no-audit --progress=false; \
-    else \
-      npm install --legacy-peer-deps --prefer-offline --no-audit --progress=false; \
-    fi
+# Используем npm ci для быстрой установки (требует package-lock.json)
+RUN npm ci --legacy-peer-deps --prefer-offline --no-audit --progress=false || \
+    npm install --legacy-peer-deps --prefer-offline --no-audit --progress=false
 
 # Копируем исходный код
 COPY . .
@@ -29,11 +26,8 @@ COPY package*.json ./
 COPY prisma ./prisma/
 
 # Устанавливаем только production зависимости с оптимизацией
-RUN if [ -f package-lock.json ]; then \
-      npm ci --only=production --legacy-peer-deps --prefer-offline --no-audit --progress=false; \
-    else \
-      npm install --only=production --legacy-peer-deps --prefer-offline --no-audit --progress=false; \
-    fi && \
+RUN npm ci --only=production --legacy-peer-deps --prefer-offline --no-audit --progress=false || \
+    npm install --only=production --legacy-peer-deps --prefer-offline --no-audit --progress=false && \
     npx prisma generate
 
 # Копируем собранное приложение
