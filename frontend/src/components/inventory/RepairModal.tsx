@@ -103,7 +103,7 @@ export const RepairModal = ({ isOpen, onClose, item, onRepair }: RepairModalProp
                 <p style={{ marginBottom: '0.5rem', fontSize: '0.9rem' }}>
                   Выберите мастерскую (60% оплаты пойдет владельцу, 40% сгорит):
                 </p>
-                {repairBusinesses.map((business) => {
+                {Array.isArray(repairBusinesses) ? repairBusinesses.map((business) => {
                   const businessTypeNames: Record<string, string> = {
                     BOARD_WORKSHOP: 'Мастерская досок',
                     DICE_FACTORY: 'Фабрика зариков',
@@ -133,7 +133,7 @@ export const RepairModal = ({ isOpen, onClose, item, onRepair }: RepairModalProp
                       </div>
                     </Card>
                   );
-                })}
+                }) : null}
               </>
             )}
           </div>
