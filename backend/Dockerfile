@@ -5,10 +5,7 @@ FROM node:18-alpine AS builder
 
 WORKDIR /app
 
-# Устанавливаем OpenSSL для Prisma (без обновления индекса - OpenSSL уже есть в базовом образе)
-# libc6-compat нужен для совместимости некоторых нативных модулей
-RUN apk add --no-cache openssl libc6-compat || \
-    (apk update && apk add --no-cache openssl libc6-compat)
+# OpenSSL уже есть в node:18-alpine, дополнительная установка не требуется
 
 # Копируем файлы зависимостей для кэширования
 COPY package.json package-lock.json* ./
@@ -34,9 +31,7 @@ FROM node:18-alpine AS production
 
 WORKDIR /app
 
-# Устанавливаем OpenSSL для Prisma (без обновления индекса)
-RUN apk add --no-cache openssl libc6-compat || \
-    (apk update && apk add --no-cache openssl libc6-compat)
+# OpenSSL уже есть в node:18-alpine, дополнительная установка не требуется
 
 # Создаем непривилегированного пользователя
 RUN addgroup -g 1001 -S nodejs && \
