@@ -15,8 +15,8 @@ COPY package*.json ./
 COPY prisma ./prisma/
 
 # Устанавливаем зависимости (используем npm install, так как lock файл может быть не синхронизирован)
-ENV npm_config_loglevel=error
-RUN npm install --legacy-peer-deps --no-audit --progress=false
+ENV npm_config_loglevel=warn
+RUN npm install --legacy-peer-deps --no-audit
 
 # Генерируем Prisma клиент (нужны все зависимости)
 RUN npx prisma generate
@@ -44,8 +44,8 @@ COPY package*.json ./
 COPY prisma ./prisma/
 
 # Устанавливаем только production зависимости с оптимизацией
-ENV npm_config_loglevel=error
-RUN npm install --only=production --legacy-peer-deps --no-audit --progress=false
+ENV npm_config_loglevel=warn
+RUN npm install --only=production --legacy-peer-deps --no-audit
 
 # Копируем собранное приложение и сгенерированный Prisma клиент
 COPY --from=builder /app/dist ./dist
