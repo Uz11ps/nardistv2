@@ -43,9 +43,7 @@ COPY package.json package-lock.json* ./
 COPY prisma ./prisma/
 
 # Устанавливаем только production зависимости
-ENV npm_config_fetch_timeout=60000
-ENV npm_config_fetch_retries=3
-RUN npm ci --only=production --legacy-peer-deps --prefer-offline --no-audit --silent --progress=false && \
+RUN npm ci --only=production --legacy-peer-deps --no-audit && \
     npm cache clean --force
 
 # Копируем собранное приложение и Prisma Client из builder
