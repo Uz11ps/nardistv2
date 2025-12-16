@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 set -e
 
 # Ищем OpenSSL библиотеки в стандартных местах Ubuntu/Debian
