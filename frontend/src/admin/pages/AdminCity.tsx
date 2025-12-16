@@ -266,7 +266,7 @@ export const AdminCity = () => {
                     </div>
                   </div>
                 </Card>
-              )) : null}
+              )) : null
             ) : (
               <Card>
                 <p>В этом районе нет доступных предприятий</p>
