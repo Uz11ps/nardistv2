@@ -34,7 +34,6 @@ RUN npm install --legacy-peer-deps --no-audit --ignore-scripts
 # Указываем Prisma где искать библиотеки OpenSSL 1.1.x
 ENV PRISMA_OPENSSL_LIBRARY=/libssl/openssl/libssl.so.1.1
 ENV PRISMA_OPENSSL_LIBRARY_CRYPTO=/libssl/openssl/libcrypto.so.1.1
-ENV LD_LIBRARY_PATH=/libssl/openssl:/usr/lib:/lib
 RUN npx prisma generate
 
 # Копируем исходный код
