@@ -3,12 +3,10 @@ FROM node:18-alpine AS builder
 WORKDIR /app
 
 # Устанавливаем OpenSSL для Prisma
-# Устанавливаем openssl1.1-compat для совместимости с Prisma
-RUN apk add --no-cache openssl openssl-dev openssl1.1-compat || \
-    (apk add --no-cache openssl openssl-dev && \
-     mkdir -p /usr/lib && \
-     ln -sf /usr/lib/libssl.so.3 /usr/lib/libssl.so.1.1 && \
-     ln -sf /usr/lib/libcrypto.so.3 /usr/lib/libcrypto.so.1.1)
+RUN apk add --no-cache openssl openssl-dev && \
+    mkdir -p /usr/lib && \
+    ln -sf /usr/lib/libssl.so.3 /usr/lib/libssl.so.1.1 && \
+    ln -sf /usr/lib/libcrypto.so.3 /usr/lib/libcrypto.so.1.1
 
 # Устанавливаем зависимости для кэширования
 COPY package*.json ./
@@ -37,12 +35,10 @@ FROM node:18-alpine AS production
 WORKDIR /app
 
 # Устанавливаем OpenSSL для Prisma
-# Устанавливаем openssl1.1-compat для совместимости с Prisma
-RUN apk add --no-cache openssl openssl-dev openssl1.1-compat || \
-    (apk add --no-cache openssl openssl-dev && \
-     mkdir -p /usr/lib && \
-     ln -sf /usr/lib/libssl.so.3 /usr/lib/libssl.so.1.1 && \
-     ln -sf /usr/lib/libcrypto.so.3 /usr/lib/libcrypto.so.1.1)
+RUN apk add --no-cache openssl openssl-dev && \
+    mkdir -p /usr/lib && \
+    ln -sf /usr/lib/libssl.so.3 /usr/lib/libssl.so.1.1 && \
+    ln -sf /usr/lib/libcrypto.so.3 /usr/lib/libcrypto.so.1.1
 
 # Копируем только package.json для production зависимостей
 COPY package*.json ./
