@@ -29,9 +29,6 @@ ENV npm_config_fetch_retries=3
 RUN npm install --legacy-peer-deps --no-audit --ignore-scripts
 
 # Генерируем Prisma клиент (нужны все зависимости)
-# Указываем Prisma где искать библиотеки OpenSSL 1.1.x
-ENV PRISMA_OPENSSL_LIBRARY=/libssl/openssl/libssl.so.1.1
-ENV PRISMA_OPENSSL_LIBRARY_CRYPTO=/libssl/openssl/libcrypto.so.1.1
 RUN npx prisma generate
 
 # Копируем исходный код
@@ -52,10 +49,6 @@ COPY --from=alpine:3.16 /usr/lib/libcrypto.so.1.1 /libssl/openssl/libcrypto.so.1
 COPY --from=alpine:3.16 /usr/lib/libssl.so.1.1 /usr/lib/libssl.so.1.1
 COPY --from=alpine:3.16 /usr/lib/libcrypto.so.1.1 /usr/lib/libcrypto.so.1.1
 
-# Устанавливаем переменные окружения для Prisma runtime
-ENV PRISMA_OPENSSL_LIBRARY=/libssl/openssl/libssl.so.1.1
-ENV PRISMA_OPENSSL_LIBRARY_CRYPTO=/libssl/openssl/libcrypto.so.1.1
-ENV LD_LIBRARY_PATH=/libssl/openssl:/usr/lib:/lib
 
 # Копируем только package.json для production зависимостей
 COPY package*.json ./

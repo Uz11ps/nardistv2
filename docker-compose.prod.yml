@@ -49,8 +49,6 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       FRONTEND_URL: ${FRONTEND_URL:-https://nardist.online}
-      PRISMA_OPENSSL_LIBRARY: /usr/lib/libssl.so.1.1
-      PRISMA_OPENSSL_LIBRARY_CRYPTO: /usr/lib/libcrypto.so.1.1
     depends_on:
       postgres:
         condition: service_healthy
