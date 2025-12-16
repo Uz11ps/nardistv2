@@ -91,7 +91,8 @@ fi
 echo "🚀 Starting containers (recreating with new images)..."
 # Если образы уже скачаны, не пересобираем их
 if [ "$USE_PREBUILT" = true ]; then
-    $DOCKER_COMPOSE -f docker-compose.prod.yml up -d --force-recreate --no-build
+    echo "📦 Using pre-built images, skipping build..."
+    $DOCKER_COMPOSE -f docker-compose.prod.yml up -d --force-recreate --no-build --pull never
 else
     $DOCKER_COMPOSE -f docker-compose.prod.yml up -d --force-recreate
 fi
