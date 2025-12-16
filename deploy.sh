@@ -85,8 +85,8 @@ else
     $DOCKER_COMPOSE -f docker-compose.prod.yml build --parallel backend frontend
 fi
 
-echo "🚀 Starting containers..."
-$DOCKER_COMPOSE -f docker-compose.prod.yml up -d
+echo "🚀 Starting containers (recreating with new images)..."
+$DOCKER_COMPOSE -f docker-compose.prod.yml up -d --force-recreate
 
 echo "⏳ Waiting for services to be ready..."
 sleep 10
