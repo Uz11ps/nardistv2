@@ -64,6 +64,7 @@ model User {
   ownedClans       Clan[]                  @relation("ClanLeader")
   tournamentPasses TournamentPass[]
   jobEmployees     JobEmployee[]           @relation("JobEmployees")
+  articlePurchases ArticlePurchase[]
 
   @@map("users")
 }
