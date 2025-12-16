@@ -2,19 +2,15 @@ FROM node:18-alpine AS builder
 
 WORKDIR /app
 
-# Копируем OpenSSL 1.1.x из alpine:3.16 (последняя версия Alpine с OpenSSL 1.1.x)
-# Создаем папку libssl/openssl где Prisma ищет библиотеки
-RUN mkdir -p /libssl/openssl
+# Устанавливаем OpenSSL 1.1.x из репозитория Alpine 3.16
+RUN echo "http://dl-cdn.alpinelinux.org/alpine/v3.16/main" >> /etc/apk/repositories && \
+    apk add --no-cache libssl1.1 libcrypto1.1 || \
+    (apk add --no-cache --allow-untrusted libssl1.1 libcrypto1.1 || true)
 
-# Копируем библиотеки из alpine:3.16 образа
-COPY --from=alpine:3.16 /usr/lib/libssl.so.1.1 /libssl/openssl/libssl.so.1.1
-COPY --from=alpine:3.16 /usr/lib/libcrypto.so.1.1 /libssl/openssl/libcrypto.so.1.1
-COPY --from=alpine:3.16 /usr/lib/libssl.so.1.1 /usr/lib/libssl.so.1.1
-COPY --from=alpine:3.16 /usr/lib/libcrypto.so.1.1 /usr/lib/libcrypto.so.1.1
-
-# Проверяем что файлы скопировались
-RUN ls -la /libssl/openssl/ && \
-    ls -la /usr/lib/libssl.so.1.1 /usr/lib/libcrypto.so.1.1
+# Проверяем что OpenSSL установлен
+RUN ls -la /usr/lib/libssl.so.1.1 /usr/lib/libcrypto.so.1.1 || \
+    ls -la /lib/libssl.so.1.1 /lib/libcrypto.so.1.1 || \
+    find /usr/lib /lib -name "libssl.so.1.1" -o -name "libcrypto.so.1.1"
 
 # Устанавливаем зависимости для кэширования
 COPY package*.json ./
@@ -29,6 +25,8 @@ ENV npm_config_fetch_retries=3
 RUN npm install --legacy-peer-deps --no-audit --ignore-scripts
 
 # Генерируем Prisma клиент (нужны все зависимости)
+# Устанавливаем LD_LIBRARY_PATH для поиска OpenSSL
+ENV LD_LIBRARY_PATH=/usr/lib:/lib:${LD_LIBRARY_PATH:-}
 RUN npx prisma generate
 
 # Копируем исходный код
