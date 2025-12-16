@@ -6,9 +6,6 @@ WORKDIR /app
 COPY --from=alpine:3.16 /usr/lib/libssl.so.1.1 /usr/lib/libssl.so.1.1
 COPY --from=alpine:3.16 /usr/lib/libcrypto.so.1.1 /usr/lib/libcrypto.so.1.1
 
-# Копируем openssl CLI из alpine:3.16
-COPY --from=alpine:3.16 /usr/bin/openssl /usr/bin/openssl
-
 # Создаем символические ссылки для совместимости
 RUN ln -sf /usr/lib/libssl.so.1.1 /usr/lib/libssl.so && \
     ln -sf /usr/lib/libcrypto.so.1.1 /usr/lib/libcrypto.so
@@ -43,9 +40,6 @@ WORKDIR /app
 # Копируем OpenSSL 1.1.x из alpine:3.16 для runtime
 COPY --from=alpine:3.16 /usr/lib/libssl.so.1.1 /usr/lib/libssl.so.1.1
 COPY --from=alpine:3.16 /usr/lib/libcrypto.so.1.1 /usr/lib/libcrypto.so.1.1
-
-# Копируем openssl CLI из alpine:3.16
-COPY --from=alpine:3.16 /usr/bin/openssl /usr/bin/openssl
 
 # Создаем символические ссылки для совместимости
 RUN ln -sf /usr/lib/libssl.so.1.1 /usr/lib/libssl.so && \
