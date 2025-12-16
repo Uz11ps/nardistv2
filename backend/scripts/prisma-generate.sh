@@ -1,48 +1,35 @@
 #!/bin/sh
 set -e
 
-# Ищем OpenSSL библиотеки в стандартных местах Ubuntu/Debian
-# Приоритет: /lib/x86_64-linux-gnu/ (стандартное место в Ubuntu)
-SSL_PATHS=(
-  "/lib/x86_64-linux-gnu/libssl.so.3"
-  "/lib/x86_64-linux-gnu/libssl.so.1.1"
-  "/usr/lib/x86_64-linux-gnu/libssl.so.3"
-  "/usr/lib/x86_64-linux-gnu/libssl.so.1.1"
-  "/usr/lib/libssl.so.3"
-  "/usr/lib/libssl.so.1.1"
-  "/lib/libssl.so.3"
-  "/lib/libssl.so.1.1"
-)
-
-CRYPTO_PATHS=(
-  "/lib/x86_64-linux-gnu/libcrypto.so.3"
-  "/lib/x86_64-linux-gnu/libcrypto.so.1.1"
-  "/usr/lib/x86_64-linux-gnu/libcrypto.so.3"
-  "/usr/lib/x86_64-linux-gnu/libcrypto.so.1.1"
-  "/usr/lib/libcrypto.so.3"
-  "/usr/lib/libcrypto.so.1.1"
-  "/lib/libcrypto.so.3"
-  "/lib/libcrypto.so.1.1"
-)
-
-# Ищем через find как fallback (приоритет /lib/x86_64-linux-gnu/ для Ubuntu, /usr/lib для Alpine)
+# Ищем OpenSSL библиотеки в стандартных местах (Alpine/Ubuntu)
+# Используем find для поиска, приоритет: /lib/x86_64-linux-gnu/ для Ubuntu, /usr/lib для Alpine
 SSL_PATH=$(find /lib/x86_64-linux-gnu /usr/lib/x86_64-linux-gnu /usr/lib /lib -name "libssl.so*" 2>/dev/null | head -1)
 CRYPTO_PATH=$(find /lib/x86_64-linux-gnu /usr/lib/x86_64-linux-gnu /usr/lib /lib -name "libcrypto.so*" 2>/dev/null | head -1)
 
-# Проверяем стандартные пути
-for path in "${SSL_PATHS[@]}"; do
-  if [ -f "$path" ]; then
-    SSL_PATH="$path"
-    break
+# Если не нашли через find, проверяем стандартные пути вручную
+if [ -z "$SSL_PATH" ]; then
+  if [ -f "/lib/x86_64-linux-gnu/libssl.so.3" ]; then
+    SSL_PATH="/lib/x86_64-linux-gnu/libssl.so.3"
+  elif [ -f "/usr/lib/libssl.so.3" ]; then
+    SSL_PATH="/usr/lib/libssl.so.3"
+  elif [ -f "/lib/libssl.so.3" ]; then
+    SSL_PATH="/lib/libssl.so.3"
+  elif [ -f "/usr/lib/libssl.so.1.1" ]; then
+    SSL_PATH="/usr/lib/libssl.so.1.1"
   fi
-done
+fi
 
-for path in "${CRYPTO_PATHS[@]}"; do
-  if [ -f "$path" ]; then
-    CRYPTO_PATH="$path"
-    break
+if [ -z "$CRYPTO_PATH" ]; then
+  if [ -f "/lib/x86_64-linux-gnu/libcrypto.so.3" ]; then
+    CRYPTO_PATH="/lib/x86_64-linux-gnu/libcrypto.so.3"
+  elif [ -f "/usr/lib/libcrypto.so.3" ]; then
+    CRYPTO_PATH="/usr/lib/libcrypto.so.3"
+  elif [ -f "/lib/libcrypto.so.3" ]; then
+    CRYPTO_PATH="/lib/libcrypto.so.3"
+  elif [ -f "/usr/lib/libcrypto.so.1.1" ]; then
+    CRYPTO_PATH="/usr/lib/libcrypto.so.1.1"
   fi
-done
+fi
 
 if [ -n "$SSL_PATH" ] && [ -f "$SSL_PATH" ]; then
   export PRISMA_OPENSSL_LIBRARY="$SSL_PATH"
