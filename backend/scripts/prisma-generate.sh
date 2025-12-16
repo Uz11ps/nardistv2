@@ -51,6 +51,15 @@ if [ -n "$SSL_PATH" ]; then
   export LD_LIBRARY_PATH="$SSL_DIR:${LD_LIBRARY_PATH:-}"
 fi
 
-# Запускаем генерацию Prisma
+# Явно указываем версию OpenSSL для Prisma (3.0.x если нашли .so.3, иначе 1.1.x)
+if echo "$SSL_PATH" | grep -q "\.so\.3"; then
+  export PRISMA_OPENSSL_VERSION="3.0.x"
+  echo "Detected OpenSSL 3.0.x"
+else
+  export PRISMA_OPENSSL_VERSION="1.1.x"
+  echo "Detected OpenSSL 1.1.x"
+fi
+
+# Запускаем генерацию Prisma с явным указанием binaryTarget
 npx prisma generate "$@"
 
