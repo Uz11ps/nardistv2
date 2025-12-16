@@ -14,9 +14,13 @@ RUN (apk info openssl >/dev/null 2>&1 && echo "OpenSSL already installed") || \
 COPY package*.json ./
 COPY prisma ./prisma/
 
-# Устанавливаем зависимости (используем npm install, так как lock файл может быть не синхронизирован)
+# Устанавливаем зависимости (используем npm ci для скорости, fallback на npm install)
 ENV npm_config_loglevel=warn
-RUN npm install --legacy-peer-deps --no-audit
+ENV npm_config_fetch_timeout=60000
+ENV npm_config_fetch_retries=3
+# npm ci быстрее и надежнее, но требует синхронизированный lock файл
+RUN npm ci --legacy-peer-deps --no-audit || \
+    (echo "⚠️ npm ci failed, using npm install..." && npm install --legacy-peer-deps --no-audit)
 
 # Генерируем Prisma клиент (нужны все зависимости)
 RUN npx prisma generate
@@ -43,9 +47,12 @@ RUN (apk info openssl >/dev/null 2>&1 && echo "OpenSSL already installed") || \
 COPY package*.json ./
 COPY prisma ./prisma/
 
-# Устанавливаем только production зависимости с оптимизацией
+# Устанавливаем только production зависимости (используем npm ci для скорости)
 ENV npm_config_loglevel=warn
-RUN npm install --only=production --legacy-peer-deps --no-audit
+ENV npm_config_fetch_timeout=60000
+ENV npm_config_fetch_retries=3
+RUN npm ci --only=production --legacy-peer-deps --no-audit || \
+    (echo "⚠️ npm ci failed, using npm install..." && npm install --only=production --legacy-peer-deps --no-audit)
 
 # Копируем собранное приложение и сгенерированный Prisma клиент
 COPY --from=builder /app/dist ./dist
