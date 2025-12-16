@@ -481,7 +481,7 @@ export const ClanDetail = () => {
                   <option key={member.userId} value={member.userId}>
                     {member.user?.nickname || member.user?.firstName || `Игрок #${member.userId}`}
                   </option>
-                ))}
+                )) : null}
               </select>
             </div>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
