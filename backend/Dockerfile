@@ -2,12 +2,8 @@ FROM node:18-alpine AS builder
 
 WORKDIR /app
 
-# OpenSSL уже есть в node:18-alpine, просто находим и создаем symlinks для Prisma
-RUN mkdir -p /usr/lib && \
-    SSL_LIB=$(find /usr/lib /lib -name "libssl.so.3" 2>/dev/null | head -1) && \
-    CRYPTO_LIB=$(find /usr/lib /lib -name "libcrypto.so.3" 2>/dev/null | head -1) && \
-    if [ -n "$SSL_LIB" ]; then ln -sf "$SSL_LIB" /usr/lib/libssl.so.1.1; fi && \
-    if [ -n "$CRYPTO_LIB" ]; then ln -sf "$CRYPTO_LIB" /usr/lib/libcrypto.so.1.1; fi
+# Устанавливаем openssl1.1-compat для Prisma (Prisma требует OpenSSL 1.1.x)
+RUN apk add --no-cache openssl1.1-compat
 
 # Устанавливаем зависимости для кэширования
 COPY package*.json ./
@@ -35,12 +31,8 @@ FROM node:18-alpine AS production
 
 WORKDIR /app
 
-# OpenSSL уже есть в node:18-alpine, просто находим и создаем symlinks для Prisma
-RUN mkdir -p /usr/lib && \
-    SSL_LIB=$(find /usr/lib /lib -name "libssl.so.3" 2>/dev/null | head -1) && \
-    CRYPTO_LIB=$(find /usr/lib /lib -name "libcrypto.so.3" 2>/dev/null | head -1) && \
-    if [ -n "$SSL_LIB" ]; then ln -sf "$SSL_LIB" /usr/lib/libssl.so.1.1; fi && \
-    if [ -n "$CRYPTO_LIB" ]; then ln -sf "$CRYPTO_LIB" /usr/lib/libcrypto.so.1.1; fi
+# Устанавливаем openssl1.1-compat для Prisma (Prisma требует OpenSSL 1.1.x)
+RUN apk add --no-cache openssl1.1-compat
 
 # Копируем только package.json для production зависимостей
 COPY package*.json ./
