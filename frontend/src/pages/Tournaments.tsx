@@ -149,8 +149,8 @@ export const Tournaments = () => {
       <div className="tournaments-list">
         {tournaments.length === 0 ? (
           <Card>Нет доступных турниров</Card>
-        ) : (
-          Array.isArray(tournaments) ? tournaments
+        ) : Array.isArray(tournaments) ? (
+          tournaments
             .filter(t => !isOlympiad(t)) // Олимпиада показывается отдельно
             .map((tournament) => {
               const hasPass = tournamentPasses[tournament.id];
@@ -211,9 +211,9 @@ export const Tournaments = () => {
                   </div>
                 </Card>
               );
-            }) : (
-              <div>Нет доступных турниров</div>
-            )}
+            })
+        ) : (
+          <Card>Нет доступных турниров</Card>
         )}
       </div>
 

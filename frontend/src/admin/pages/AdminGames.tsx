@@ -30,7 +30,7 @@ export const AdminGames = () => {
       game.blackPlayer?.firstName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       game.roomId.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesMode && matchesSearch;
-  });
+  }) : [];
 
   const columns = [
     {

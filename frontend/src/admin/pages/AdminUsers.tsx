@@ -25,7 +25,7 @@ export const AdminUsers = () => {
       user.nickname?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.firstName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.telegramId.toString().includes(searchQuery),
-  );
+  ) : [];
 
   const columns = [
     {
