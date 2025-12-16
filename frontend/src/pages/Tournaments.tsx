@@ -211,7 +211,9 @@ export const Tournaments = () => {
                   </div>
                 </Card>
               );
-            })
+            }) : (
+              <div>Нет доступных турниров</div>
+            )}
         )}
       </div>
 
