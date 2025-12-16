@@ -12,11 +12,13 @@ COPY package.json package-lock.json* ./
 COPY prisma ./prisma/
 
 # Устанавливаем все зависимости (включая devDependencies для сборки)
-# Добавляем таймауты и флаги для ускорения
-ENV npm_config_fetch_timeout=60000
-ENV npm_config_fetch_retries=3
-RUN npm ci --legacy-peer-deps --prefer-offline --no-audit --progress=false --loglevel=error || \
-    npm install --legacy-peer-deps --prefer-offline --no-audit --progress=false --loglevel=error
+# Настраиваем npm registry и таймауты
+ENV npm_config_registry=https://registry.npmjs.org/
+ENV npm_config_fetch_timeout=300000
+ENV npm_config_fetch_retries=5
+ENV npm_config_maxsockets=10
+# Используем npm install вместо npm ci для большей надежности
+RUN npm install --legacy-peer-deps --no-audit --progress=true --loglevel=warn
 
 # Генерируем Prisma Client
 RUN npx prisma generate --schema=./prisma/schema.prisma
