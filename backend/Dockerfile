@@ -19,8 +19,9 @@ ENV npm_config_loglevel=warn
 ENV npm_config_fetch_timeout=10000
 ENV npm_config_fetch_retries=3
 # npm ci быстрее и надежнее, но требует синхронизированный lock файл
-RUN npm ci --legacy-peer-deps --no-audit || \
-    (echo "⚠️ npm ci failed, using npm install..." && npm install --legacy-peer-deps --no-audit)
+# --ignore-scripts пропускает postinstall скрипты которые могут зависать
+RUN npm ci --legacy-peer-deps --no-audit --ignore-scripts || \
+    (echo "⚠️ npm ci failed, using npm install..." && npm install --legacy-peer-deps --no-audit --ignore-scripts)
 
 # Генерируем Prisma клиент (нужны все зависимости)
 RUN npx prisma generate
@@ -51,8 +52,8 @@ COPY prisma ./prisma/
 ENV npm_config_loglevel=warn
 ENV npm_config_fetch_timeout=10000
 ENV npm_config_fetch_retries=3
-RUN npm ci --only=production --legacy-peer-deps --no-audit || \
-    (echo "⚠️ npm ci failed, using npm install..." && npm install --only=production --legacy-peer-deps --no-audit)
+RUN npm ci --only=production --legacy-peer-deps --no-audit --ignore-scripts || \
+    (echo "⚠️ npm ci failed, using npm install..." && npm install --only=production --legacy-peer-deps --no-audit --ignore-scripts)
 
 # Копируем собранное приложение и сгенерированный Prisma клиент
 COPY --from=builder /app/dist ./dist
