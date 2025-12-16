@@ -2,10 +2,13 @@ FROM node:18-alpine AS builder
 
 WORKDIR /app
 
-# OpenSSL уже установлен в node:18-alpine, просто создаем symlinks для Prisma
-RUN mkdir -p /usr/lib && \
-    (ln -sf /usr/lib/libssl.so.3 /usr/lib/libssl.so.1.1 2>/dev/null || true) && \
-    (ln -sf /usr/lib/libcrypto.so.3 /usr/lib/libcrypto.so.1.1 2>/dev/null || true)
+# Устанавливаем OpenSSL для Prisma
+RUN apk add --no-cache openssl openssl-dev && \
+    mkdir -p /usr/lib && \
+    (ln -sf /usr/lib/libssl.so.3 /usr/lib/libssl.so.1.1 2>/dev/null || \
+     ln -sf /lib/libssl.so.3 /usr/lib/libssl.so.1.1 2>/dev/null || true) && \
+    (ln -sf /usr/lib/libcrypto.so.3 /usr/lib/libcrypto.so.1.1 2>/dev/null || \
+     ln -sf /lib/libcrypto.so.3 /usr/lib/libcrypto.so.1.1 2>/dev/null || true)
 
 # Устанавливаем зависимости для кэширования
 COPY package*.json ./
@@ -21,6 +24,9 @@ RUN npm ci --legacy-peer-deps --no-audit --ignore-scripts || \
     (echo "⚠️ npm ci failed, using npm install..." && npm install --legacy-peer-deps --no-audit --ignore-scripts)
 
 # Генерируем Prisma клиент (нужны все зависимости)
+# Устанавливаем переменные окружения для Prisma OpenSSL
+ENV PRISMA_OPENSSL_LIBRARY=/usr/lib/libssl.so.1.1
+ENV PRISMA_OPENSSL_LIBRARY_CRYPTO=/usr/lib/libcrypto.so.1.1
 RUN npx prisma generate
 
 # Копируем исходный код
@@ -33,10 +39,13 @@ FROM node:18-alpine AS production
 
 WORKDIR /app
 
-# OpenSSL уже установлен в node:18-alpine, просто создаем symlinks для Prisma
-RUN mkdir -p /usr/lib && \
-    (ln -sf /usr/lib/libssl.so.3 /usr/lib/libssl.so.1.1 2>/dev/null || true) && \
-    (ln -sf /usr/lib/libcrypto.so.3 /usr/lib/libcrypto.so.1.1 2>/dev/null || true)
+# Устанавливаем OpenSSL для Prisma
+RUN apk add --no-cache openssl openssl-dev && \
+    mkdir -p /usr/lib && \
+    (ln -sf /usr/lib/libssl.so.3 /usr/lib/libssl.so.1.1 2>/dev/null || \
+     ln -sf /lib/libssl.so.3 /usr/lib/libssl.so.1.1 2>/dev/null || true) && \
+    (ln -sf /usr/lib/libcrypto.so.3 /usr/lib/libcrypto.so.1.1 2>/dev/null || \
+     ln -sf /lib/libcrypto.so.3 /usr/lib/libcrypto.so.1.1 2>/dev/null || true)
 
 # Копируем только package.json для production зависимостей
 COPY package*.json ./
@@ -46,6 +55,9 @@ COPY prisma ./prisma/
 ENV npm_config_loglevel=warn
 ENV npm_config_fetch_timeout=10000
 ENV npm_config_fetch_retries=3
+# Устанавливаем переменные окружения для Prisma OpenSSL
+ENV PRISMA_OPENSSL_LIBRARY=/usr/lib/libssl.so.1.1
+ENV PRISMA_OPENSSL_LIBRARY_CRYPTO=/usr/lib/libcrypto.so.1.1
 RUN npm ci --only=production --legacy-peer-deps --no-audit --ignore-scripts || \
     (echo "⚠️ npm ci failed, using npm install..." && npm install --only=production --legacy-peer-deps --no-audit --ignore-scripts)
 
