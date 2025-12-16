@@ -101,7 +101,7 @@ export const Clans = () => {
       <div className="clans-page__section">
         <h2 className="clans-page__section-title">Все кланы</h2>
         <div className="clans-page__list">
-          {clans.map((clan) => (
+          {Array.isArray(clans) ? clans.map((clan) => (
             <Link key={clan.id} to={`/clans/${clan.id}`}>
               <Card className="clans-page__clan-card">
                 <div className="clans-page__clan-card-header">
@@ -135,7 +135,9 @@ export const Clans = () => {
                 <div className="clans-page__clan-card-arrow">→</div>
               </Card>
             </Link>
-          ))}
+          )) : (
+            <div>Нет доступных кланов</div>
+          )}
         </div>
       </div>
     </div>

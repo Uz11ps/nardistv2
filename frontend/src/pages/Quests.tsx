@@ -10,13 +10,19 @@ export const Quests = () => {
 
   useEffect(() => {
     questsService.getActive()
-      .then(setQuests)
-      .catch(console.error)
+      .then((data) => {
+        // Гарантируем что это массив
+        setQuests(Array.isArray(data) ? data : []);
+      })
+      .catch((error) => {
+        console.error('Failed to load quests:', error);
+        setQuests([]);
+      })
       .finally(() => setLoading(false));
   }, []);
 
-  const dailyQuests = quests.filter((q) => q.type === 'DAILY');
-  const weeklyQuests = quests.filter((q) => q.type === 'WEEKLY');
+  const dailyQuests = Array.isArray(quests) ? quests.filter((q) => q.type === 'DAILY') : [];
+  const weeklyQuests = Array.isArray(quests) ? quests.filter((q) => q.type === 'WEEKLY') : [];
 
   const tabs = [
     {
@@ -54,7 +60,7 @@ const QuestsList = ({ quests, loading }: { quests: any[]; loading: boolean }) =>
 
   return (
     <div className="quests-list">
-      {quests.map((quest) => (
+      {Array.isArray(quests) ? quests.map((quest) => (
         <Card key={quest.id} className="quest-card">
           <div className="quest-card__header">
             <h3 className="quest-card__title">{quest.title}</h3>
@@ -91,7 +97,9 @@ const QuestsList = ({ quests, loading }: { quests: any[]; loading: boolean }) =>
             )}
           </div>
         </Card>
-      ))}
+      )) : (
+        <div className="quests-list">Нет доступных квестов</div>
+      )}
     </div>
   );
 };

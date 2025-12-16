@@ -67,8 +67,8 @@ export const Home = () => {
     );
   }
 
-  const shortRating = stats?.ratings?.find((r: any) => r.mode === 'SHORT');
-  const longRating = stats?.ratings?.find((r: any) => r.mode === 'LONG');
+  const shortRating = Array.isArray(stats?.ratings) ? stats.ratings.find((r: any) => r.mode === 'SHORT') : undefined;
+  const longRating = Array.isArray(stats?.ratings) ? stats.ratings.find((r: any) => r.mode === 'LONG') : undefined;
 
   const xpPercent = user.xp ? Math.min((user.xp % 1000) / 10, 100) : 0;
   const currentXp = user.xp ? (user.xp % 1000) : 0;

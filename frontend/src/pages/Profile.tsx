@@ -358,8 +358,8 @@ const ProfileStats = ({ user }: { user: any }) => {
     return <div>Загрузка статистики...</div>;
   }
 
-  const shortRating = stats.ratings?.find((r: any) => r.mode === 'SHORT');
-  const longRating = stats.ratings?.find((r: any) => r.mode === 'LONG');
+  const shortRating = Array.isArray(stats.ratings) ? stats.ratings.find((r: any) => r.mode === 'SHORT') : undefined;
+  const longRating = Array.isArray(stats.ratings) ? stats.ratings.find((r: any) => r.mode === 'LONG') : undefined;
 
   return (
     <div className="profile-stats">
@@ -796,8 +796,8 @@ const ProfileInventory = () => {
     return <div>Загрузка инвентаря...</div>;
   }
 
-  const equippedItems = inventory.filter(item => item.isEquipped);
-  const unequippedItems = inventory.filter(item => !item.isEquipped);
+  const equippedItems = Array.isArray(inventory) ? inventory.filter(item => item.isEquipped) : [];
+  const unequippedItems = Array.isArray(inventory) ? inventory.filter(item => !item.isEquipped) : [];
 
   return (
     <div className="profile-inventory">
@@ -962,7 +962,7 @@ const ProfileInventory = () => {
       <div className="profile-inventory__section">
         <h3 className="profile-inventory__title">Ресурсы</h3>
         <div className="profile-inventory__resources">
-          {resources.map((resource) => (
+          {Array.isArray(resources) ? resources.map((resource) => (
             <Card key={resource.id} className="profile-inventory__resource">
               <div className="profile-inventory__resource-icon">
                 <Icon name={resourceIcons[resource.type] || 'gift'} size={20} />
@@ -982,7 +982,9 @@ const ProfileInventory = () => {
                 <span className="profile-inventory__resource-amount">{resource.amount}</span>
               </div>
             </Card>
-          ))}
+          )) : (
+            <div>Нет ресурсов</div>
+          )}
         </div>
       </div>
 
@@ -1079,7 +1081,7 @@ const ProfileHistory = () => {
 
   return (
     <div className="profile-history">
-      {history.map((game) => {
+      {Array.isArray(history) ? history.map((game) => {
         const isWinner = game.winnerId === user?.id;
         const opponent = game.whitePlayerId === user?.id ? game.blackPlayer : game.whitePlayer;
         return (
@@ -1122,7 +1124,9 @@ const ProfileHistory = () => {
             </div>
           </Card>
         );
-      })}
+      }) : (
+        <div>Нет истории игр</div>
+      )}
     </div>
   );
 };

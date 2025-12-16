@@ -20,7 +20,7 @@ export const Academy = () => {
       userService.getProfile().catch(() => ({ narCoin: 0 })),
     ])
       .then(([articlesData, userData]) => {
-        setArticles(articlesData);
+        setArticles(Array.isArray(articlesData) ? articlesData : []);
         setUserBalance(userData.narCoin || 0);
       })
       .catch(console.error)
@@ -48,9 +48,9 @@ export const Academy = () => {
         Академия
       </h1>
       <div className="academy-articles">
-        {articles.length === 0 ? (
+        {Array.isArray(articles) && articles.length === 0 ? (
           <Card>Нет доступных статей</Card>
-        ) : (
+        ) : Array.isArray(articles) ? (
           articles.map((article) => (
             <Card
               key={article.id}
@@ -75,8 +75,9 @@ export const Academy = () => {
                 </span>
               </div>
             </Card>
-          ))
-        )}
+          )) : (
+            <Card>Нет доступных статей</Card>
+          )}
       </div>
       {selectedArticle && (
         <Modal

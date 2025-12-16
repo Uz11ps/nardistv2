@@ -31,8 +31,9 @@ export const City = () => {
       businessService.getMyBusinesses().catch(() => []),
     ])
       .then(([dists, bus]) => {
-        setDistricts(dists);
-        setBusinesses(bus);
+        // Гарантируем что это массивы
+        setDistricts(Array.isArray(dists) ? dists : []);
+        setBusinesses(Array.isArray(bus) ? bus : []);
       })
       .catch((error) => {
         console.warn('Failed to load city data:', error);
@@ -65,8 +66,8 @@ export const City = () => {
       <div className="city-districts">
         <h2 className="city-section__title">Районы города</h2>
         <div className="city-districts__grid">
-          {districts.map((district) => {
-            const userDistrictBusinesses = businesses.filter((b) => b.districtId === district.id);
+          {Array.isArray(districts) ? districts.map((district) => {
+            const userDistrictBusinesses = Array.isArray(businesses) ? businesses.filter((b) => b.districtId === district.id) : [];
             return (
               <Link key={district.id} to={`/city/district/${district.id}`}>
                 <Card className="city-district">
@@ -89,7 +90,9 @@ export const City = () => {
                 </Card>
               </Link>
             );
-          })}
+          }) : (
+            <div className="city-districts__empty">Нет доступных районов</div>
+          )}
         </div>
       </div>
 

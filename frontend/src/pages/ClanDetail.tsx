@@ -56,7 +56,7 @@ export const ClanDetail = () => {
     );
   }
 
-  const isMember = clan?.members?.some((m: any) => m.userId === authUser?.id);
+  const isMember = Array.isArray(clan?.members) ? clan.members.some((m: any) => m.userId === authUser?.id) : false;
   const isLeader = clan?.leaderId === authUser?.id;
 
          return (
@@ -179,7 +179,7 @@ export const ClanDetail = () => {
               style={{ marginBottom: '1rem' }}
             />
             <div className="clan-detail__members">
-              {clan.members?.map((member: any) => (
+              {Array.isArray(clan.members) ? clan.members.map((member: any) => (
             <div key={member.id} className="clan-detail__member">
               <div className="clan-detail__member-info">
                 <div className="clan-detail__member-avatar">
@@ -277,8 +277,9 @@ export const ClanDetail = () => {
             <h3 className="clan-detail__section-title">Районы города</h3>
             {clan.districts && clan.districts.length > 0 ? (
               <div className="clan-detail__districts">
-                {clan.districts.map((district) => {
-                  const fund = districtFunds.find((f) => f.district.id === district.id);
+                {Array.isArray(clan.districts) ? clan.districts.map((district) => {
+                  const safeDistrictFunds = Array.isArray(districtFunds) ? districtFunds : [];
+                  const fund = safeDistrictFunds.find((f) => f.district.id === district.id);
                   const fundBalance = fund?.fund?.balance || 0;
                   return (
                     <Card key={district.id} className="clan-detail__district-card">
@@ -295,7 +296,9 @@ export const ClanDetail = () => {
                       </Link>
                     </Card>
                   );
-                })}
+                }) : (
+                  <div>Нет районов</div>
+                )}
               </div>
             ) : (
               <p>Клан не владеет районами</p>
@@ -474,7 +477,7 @@ export const ClanDetail = () => {
                 style={{ width: '100%', padding: '0.5rem', backgroundColor: '#1a1a1a', border: '1px solid #333', borderRadius: '4px', color: '#fff' }}
               >
                 <option value="">Выберите участника</option>
-                {clan.members?.map((member: any) => (
+                {Array.isArray(clan.members) ? clan.members.map((member: any) => (
                   <option key={member.userId} value={member.userId}>
                     {member.user?.nickname || member.user?.firstName || `Игрок #${member.userId}`}
                   </option>

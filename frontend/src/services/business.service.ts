@@ -23,7 +23,8 @@ export interface Business {
 export const businessService = {
   async getMyBusinesses(): Promise<Business[]> {
     const response = await api.get<Business[]>('/businesses/my');
-    return response.data;
+    // Гарантируем что возвращается массив
+    return Array.isArray(response.data) ? response.data : [];
   },
 
   async getDistrictBusinesses(districtId: number): Promise<Business[]> {

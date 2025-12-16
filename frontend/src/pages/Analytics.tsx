@@ -34,20 +34,21 @@ export const Analytics = () => {
             });
           } catch (error) {
             // Fallback на локальный расчет если API недоступен
-            const wins = historyData.filter((g: any) => g.winnerId === user.id).length;
-            const losses = historyData.filter((g: any) => 
+            const safeHistoryData = Array.isArray(historyData) ? historyData : [];
+            const wins = safeHistoryData.filter((g: any) => g.winnerId === user.id).length;
+            const losses = safeHistoryData.filter((g: any) => 
               g.winnerId && g.winnerId !== user.id && (g.whitePlayerId === user.id || g.blackPlayerId === user.id)
             ).length;
             
             setGameStats({
-              totalGames: historyData.length,
+              totalGames: safeHistoryData.length,
               wins,
               losses,
-              winRate: historyData.length > 0 
-                ? ((wins / historyData.length) * 100).toFixed(1)
+              winRate: safeHistoryData.length > 0 
+                ? ((wins / safeHistoryData.length) * 100).toFixed(1)
                 : '0',
-              averageDuration: historyData.length > 0
-                ? Math.round(historyData.reduce((sum: number, g: any) => sum + (g.duration || 0), 0) / historyData.length)
+              averageDuration: safeHistoryData.length > 0
+                ? Math.round(safeHistoryData.reduce((sum: number, g: any) => sum + (g.duration || 0), 0) / safeHistoryData.length)
                 : 0,
             });
           }

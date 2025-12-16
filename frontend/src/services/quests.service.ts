@@ -20,7 +20,8 @@ export interface Quest {
 export const questsService = {
   async getActive(): Promise<Quest[]> {
     const response = await api.get<Quest[]>('/quests');
-    return response.data;
+    // Гарантируем что возвращается массив
+    return Array.isArray(response.data) ? response.data : [];
   },
 
   async updateProgress(questId: number, progress: number): Promise<Quest> {

@@ -39,8 +39,13 @@ const LeaderboardTable = ({ mode }: { mode: 'SHORT' | 'LONG' }) => {
 
   useEffect(() => {
     ratingsService.getLeaderboard(mode)
-      .then(setRatings)
-      .catch(console.error)
+      .then((data) => {
+        setRatings(Array.isArray(data) ? data : []);
+      })
+      .catch((error) => {
+        console.error('Failed to load ratings:', error);
+        setRatings([]);
+      })
       .finally(() => setLoading(false));
   }, [mode]);
 
@@ -60,7 +65,7 @@ const LeaderboardTable = ({ mode }: { mode: 'SHORT' | 'LONG' }) => {
 
   return (
     <div className="leaderboard-table">
-      {ratings.map((rating, index) => (
+      {Array.isArray(ratings) ? ratings.map((rating, index) => (
         <Card key={rating.id} className="leaderboard-item">
           <div className="leaderboard-item__rank">#{index + 1}</div>
           <div className="leaderboard-item__avatar">
@@ -77,7 +82,9 @@ const LeaderboardTable = ({ mode }: { mode: 'SHORT' | 'LONG' }) => {
           </div>
           <div className="leaderboard-item__rating">{rating.rating}</div>
         </Card>
-      ))}
+      )) : (
+        <div className="leaderboard-table">Нет данных</div>
+      )}
     </div>
   );
 };

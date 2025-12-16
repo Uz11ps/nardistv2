@@ -45,12 +45,13 @@ export const DistrictDetail = () => {
       ])
         .then(([districtData, businessesData, userData, resourcesData, userClanData, activeSieges]) => {
           setDistrict(districtData);
-          setBusinesses(businessesData);
+          setBusinesses(Array.isArray(businessesData) ? businessesData : []);
           setUserBalance(userData.narCoin || 0);
-          setUserResources(resourcesData);
+          setUserResources(Array.isArray(resourcesData) ? resourcesData : []);
           setUserClan(userClanData);
           
-          const siege = activeSieges.find((s: any) => s.districtId === districtId);
+          const safeActiveSieges = Array.isArray(activeSieges) ? activeSieges : [];
+          const siege = safeActiveSieges.find((s: any) => s.districtId === districtId);
           setActiveSiege(siege || null);
           
           if (districtData.clanId) {
@@ -81,7 +82,7 @@ export const DistrictDetail = () => {
     );
   }
 
-  const userBusinesses = businesses.filter((b) => b.userId === user?.id);
+  const userBusinesses = Array.isArray(businesses) ? businesses.filter((b) => b.userId === user?.id) : [];
   
   const businessTypeNames: Record<string, string> = {
     COURT_TABLE: 'Дворовый стол',
@@ -211,7 +212,8 @@ export const DistrictDetail = () => {
                   type: 'success',
                 });
                 const activeSieges = await siegeService.getActiveSieges();
-                const siege = activeSieges.find((s: any) => s.districtId === districtId);
+                const safeActiveSieges = Array.isArray(activeSieges) ? activeSieges : [];
+                const siege = safeActiveSieges.find((s: any) => s.districtId === districtId);
                 setActiveSiege(siege || null);
               } catch (error: any) {
                 setNotification({
@@ -247,7 +249,7 @@ export const DistrictDetail = () => {
 
       <div className="district-detail__businesses">
         <h3 className="district-detail__section-title">Предприятия в районе</h3>
-        {businesses.length > 0 ? (
+        {Array.isArray(businesses) && businesses.length > 0 ? (
           <div className="district-detail__businesses-list">
             {businesses.map((business) => {
               const isOwner = business.userId === user?.id;
@@ -431,7 +433,7 @@ export const DistrictDetail = () => {
             { type: 'ARENA', name: 'Турнирная Арена', cost: 1000, icon: '🏟️' },
           ].map((businessType) => {
             const canAfford = userBalance >= businessType.cost;
-            const alreadyExists = userBusinesses.some((b) => b.type === businessType.type);
+            const alreadyExists = Array.isArray(userBusinesses) ? userBusinesses.some((b) => b.type === businessType.type) : false;
             return (
               <Card
                 key={businessType.type}
@@ -651,10 +653,11 @@ export const DistrictDetail = () => {
             {craftModal.recipes.length === 0 ? (
               <p>Нет доступных рецептов для этого предприятия</p>
             ) : (
-              craftModal.recipes.map((recipe: any) => {
+              Array.isArray(craftModal.recipes) ? craftModal.recipes.map((recipe: any) => {
                 if (!recipe.recipe) return null;
+                const safeUserResources = Array.isArray(userResources) ? userResources : [];
                 const hasResources = Object.entries(recipe.recipe).every(([type, amount]: [string, any]) => {
-                  const resource = userResources.find((r) => r.type === type);
+                  const resource = safeUserResources.find((r) => r.type === type);
                   return resource && resource.amount >= amount;
                 });
                 return (
@@ -665,7 +668,8 @@ export const DistrictDetail = () => {
                         <p style={{ fontSize: '0.9rem', color: '#999' }}>Тип: {recipe.skin.type}</p>
                         <div style={{ marginTop: '0.5rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
                           {Object.entries(recipe.recipe).map(([type, amount]: [string, any]) => {
-                            const resource = userResources.find((r) => r.type === type);
+                            const safeUserResources = Array.isArray(userResources) ? userResources : [];
+                            const resource = safeUserResources.find((r) => r.type === type);
                             const hasEnough = resource && resource.amount >= amount;
                             return (
                               <span
@@ -699,8 +703,8 @@ export const DistrictDetail = () => {
                               businessService.getDistrictBusinesses(districtId),
                               resourceService.getMyResources(),
                             ]);
-                            setBusinesses(businessesData);
-                            setUserResources(resourcesData);
+                            setBusinesses(Array.isArray(businessesData) ? businessesData : []);
+                            setUserResources(Array.isArray(resourcesData) ? resourcesData : []);
                             setCraftModal(null);
                           } catch (error: any) {
                             setNotification({

@@ -29,13 +29,15 @@ export const Tournaments = () => {
         
         // Создаем мапу пассов по tournamentId
         const passesMap: Record<number, any> = {};
-        passesData.forEach((pass: any) => {
+        const safePassesData = Array.isArray(passesData) ? passesData : [];
+        safePassesData.forEach((pass: any) => {
           passesMap[pass.tournamentId] = pass;
         });
         setTournamentPasses(passesMap);
 
         // Загружаем пассы для каждого турнира
-        tournamentsData.forEach(async (tournament: any) => {
+        const safeTournamentsData = Array.isArray(tournamentsData) ? tournamentsData : [];
+        safeTournamentsData.forEach(async (tournament: any) => {
           try {
             const pass = await tournamentsService.getTournamentPass(tournament.id);
             if (pass) {
@@ -148,7 +150,7 @@ export const Tournaments = () => {
         {tournaments.length === 0 ? (
           <Card>Нет доступных турниров</Card>
         ) : (
-          tournaments
+          Array.isArray(tournaments) ? tournaments
             .filter(t => !isOlympiad(t)) // Олимпиада показывается отдельно
             .map((tournament) => {
               const hasPass = tournamentPasses[tournament.id];

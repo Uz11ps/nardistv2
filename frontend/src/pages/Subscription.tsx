@@ -74,9 +74,9 @@ export const Subscription = () => {
                 </div>
                 <div className="subscription-plan__duration">{plan.duration}</div>
                 <ul className="subscription-plan__features">
-                  {plan.features.map((feature, index) => (
+                  {Array.isArray(plan.features) ? plan.features.map((feature, index) => (
                     <li key={index}>✓ {feature}</li>
-                  ))}
+                  )) : null}
                 </ul>
                 <Button
                   variant={plan.popular ? 'primary' : 'outline'}

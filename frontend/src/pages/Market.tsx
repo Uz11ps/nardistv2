@@ -47,7 +47,7 @@ export const Market = () => {
       .finally(() => setLoading(false));
   }, []);
 
-  const filteredItems = listings.filter((item) => {
+  const filteredItems = Array.isArray(listings) ? listings.filter((item) => {
     const matchesSearch =
       searchQuery === '' ||
       (item.inventoryItem?.skin?.name || item.skin?.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -154,7 +154,7 @@ const MarketBuy = ({ items, loading }: { items: any[]; loading: boolean }) => {
     <div className="market-buy">
       {items.length > 0 ? (
         <div className="market-buy__grid">
-          {items.map((listing) => {
+          {Array.isArray(items) ? items.map((listing) => {
             const item = listing.inventoryItem || listing;
             const skin = item.skin || listing.skin;
             const rarity = item.rarity || skin?.rarity || 'COMMON';
@@ -215,7 +215,9 @@ const MarketBuy = ({ items, loading }: { items: any[]; loading: boolean }) => {
                 </Button>
               </Card>
             );
-          })}
+          }) : (
+            <div>Нет доступных предметов</div>
+          )}
         </div>
       ) : (
         <Card className="market-buy__empty">
@@ -227,7 +229,7 @@ const MarketBuy = ({ items, loading }: { items: any[]; loading: boolean }) => {
 };
 
 const MarketSell = ({ inventory, loading }: { inventory: InventoryItem[]; loading: boolean }) => {
-  const userItems = inventory.filter((item) => !item.isEquipped);
+  const userItems = Array.isArray(inventory) ? inventory.filter((item) => !item.isEquipped) : [];
 
   const handleSell = async (item: InventoryItem, price: number) => {
     if (!price || price <= 0) {
@@ -258,7 +260,7 @@ const MarketSell = ({ inventory, loading }: { inventory: InventoryItem[]; loadin
   return (
     <div className="market-sell">
       <h3 className="market-sell__title">Ваши предметы для продажи</h3>
-      {userItems.length > 0 ? (
+      {Array.isArray(userItems) && userItems.length > 0 ? (
         <div className="market-sell__list">
           {userItems.map((item) => (
             <Card key={item.id} className="market-sell-item">
