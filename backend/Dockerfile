@@ -28,7 +28,7 @@ RUN timeout 300 npm install @prisma/engines@5.20.0 --no-save --legacy-peer-deps 
     echo "Prisma engines install timeout, will download during generate"
 
 # Устанавливаем LD_LIBRARY_PATH для поиска OpenSSL ДО генерации
-ENV LD_LIBRARY_PATH=/usr/lib:/lib:${LD_LIBRARY_PATH:-}
+ENV LD_LIBRARY_PATH=/usr/lib:/lib
 
 # Диагностика перед генерацией Prisma
 RUN echo "=== DIAGNOSTICS ===" && \
@@ -78,7 +78,7 @@ RUN ln -sf /usr/lib/libssl.so.1.1 /usr/lib/libssl.so && \
     ln -sf /usr/lib/libcrypto.so.1.1 /usr/lib/libcrypto.so
 
 # Устанавливаем LD_LIBRARY_PATH для runtime
-ENV LD_LIBRARY_PATH=/usr/lib:/lib:${LD_LIBRARY_PATH:-}
+ENV LD_LIBRARY_PATH=/usr/lib:/lib
 
 
 # Копируем только package.json для production зависимостей
