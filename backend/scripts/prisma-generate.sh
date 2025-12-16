@@ -60,6 +60,12 @@ else
   echo "Detected OpenSSL 1.1.x"
 fi
 
-# Запускаем генерацию Prisma с явным указанием binaryTarget
+# Отключаем загрузку бинарников с сервера - используем только локальные
+export PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING=1
+export PRISMA_SKIP_POSTINSTALL_GENERATE=true
+export PRISMA_ENGINES_MIRROR=""
+export PRISMA_CLI_BINARY_TARGETS="debian-openssl-3.0.x"
+
+# Запускаем генерацию Prisma - использует локальные бинарники если есть
 npx prisma generate "$@"
 
