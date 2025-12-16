@@ -43,7 +43,7 @@ COPY package.json package-lock.json* ./
 COPY prisma ./prisma/
 
 # Устанавливаем только production зависимости
-RUN npm ci --only=production --legacy-peer-deps --no-audit && \
+RUN npm ci --omit=dev --legacy-peer-deps --no-audit && \
     npm cache clean --force
 
 # Копируем собранное приложение и Prisma Client из builder
