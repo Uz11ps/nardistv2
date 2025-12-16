@@ -12,8 +12,11 @@ COPY package.json package-lock.json* ./
 COPY prisma ./prisma/
 
 # Устанавливаем все зависимости (включая devDependencies для сборки)
-RUN npm ci --legacy-peer-deps --prefer-offline --no-audit || \
-    npm install --legacy-peer-deps --prefer-offline --no-audit
+# Добавляем таймауты и флаги для ускорения
+ENV npm_config_fetch_timeout=60000
+ENV npm_config_fetch_retries=3
+RUN npm ci --legacy-peer-deps --prefer-offline --no-audit --progress=false --loglevel=error || \
+    npm install --legacy-peer-deps --prefer-offline --no-audit --progress=false --loglevel=error
 
 # Генерируем Prisma Client
 RUN npx prisma generate --schema=./prisma/schema.prisma
@@ -42,7 +45,9 @@ COPY package.json package-lock.json* ./
 COPY prisma ./prisma/
 
 # Устанавливаем только production зависимости
-RUN npm ci --only=production --legacy-peer-deps --prefer-offline --no-audit --silent && \
+ENV npm_config_fetch_timeout=60000
+ENV npm_config_fetch_retries=3
+RUN npm ci --only=production --legacy-peer-deps --prefer-offline --no-audit --silent --progress=false && \
     npm cache clean --force
 
 # Копируем собранное приложение и Prisma Client из builder
