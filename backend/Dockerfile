@@ -12,7 +12,7 @@ COPY package.json package-lock.json* ./
 COPY prisma ./prisma/
 
 # Устанавливаем все зависимости (включая devDependencies для сборки)
-# Игнорируем scripts чтобы избежать зависаний на eslint и других инструментах
+# --ignore-scripts пропускает postinstall скрипты которые могут зависать
 RUN npm install --legacy-peer-deps --ignore-scripts
 
 # Генерируем Prisma Client
