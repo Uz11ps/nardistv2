@@ -2,8 +2,9 @@ FROM node:18-alpine AS builder
 
 WORKDIR /app
 
-# Устанавливаем openssl1.1-compat для Prisma (Prisma требует OpenSSL 1.1.x)
-RUN apk add --no-cache openssl1.1-compat
+# Устанавливаем OpenSSL 1.1.x из edge репозитория для Prisma
+RUN apk add --no-cache --repository=http://dl-cdn.alpinelinux.org/alpine/edge/main openssl1.1 || \
+    apk add --no-cache openssl || true
 
 # Устанавливаем зависимости для кэширования
 COPY package*.json ./
@@ -18,8 +19,12 @@ ENV npm_config_fetch_retries=3
 RUN npm install --legacy-peer-deps --no-audit --ignore-scripts
 
 # Генерируем Prisma клиент (нужны все зависимости)
-# Используем npm скрипт который правильно найдет OpenSSL в /lib/x86_64-linux-gnu/
-RUN npm run prisma:generate
+# Устанавливаем переменные окружения для OpenSSL 3.0.x
+RUN SSL_PATH=$(find /usr/lib /lib -name "libssl.so.3" 2>/dev/null | head -1) && \
+    CRYPTO_PATH=$(find /usr/lib /lib -name "libcrypto.so.3" 2>/dev/null | head -1) && \
+    export PRISMA_OPENSSL_LIBRARY=${SSL_PATH:-/usr/lib/libssl.so.3} && \
+    export PRISMA_OPENSSL_LIBRARY_CRYPTO=${CRYPTO_PATH:-/usr/lib/libcrypto.so.3} && \
+    npx prisma generate
 
 # Копируем исходный код
 COPY . .
@@ -31,8 +36,9 @@ FROM node:18-alpine AS production
 
 WORKDIR /app
 
-# Устанавливаем openssl1.1-compat для Prisma (Prisma требует OpenSSL 1.1.x)
-RUN apk add --no-cache openssl1.1-compat
+# Устанавливаем OpenSSL 1.1.x из edge репозитория для Prisma
+RUN apk add --no-cache --repository=http://dl-cdn.alpinelinux.org/alpine/edge/main openssl1.1 || \
+    apk add --no-cache openssl || true
 
 # Копируем только package.json для production зависимостей
 COPY package*.json ./
