@@ -2,13 +2,12 @@ FROM node:18-alpine AS builder
 
 WORKDIR /app
 
-# Устанавливаем OpenSSL для Prisma
-RUN apk add --no-cache openssl openssl-dev && \
-    mkdir -p /usr/lib && \
-    (ln -sf /usr/lib/libssl.so.3 /usr/lib/libssl.so.1.1 2>/dev/null || \
-     ln -sf /lib/libssl.so.3 /usr/lib/libssl.so.1.1 2>/dev/null || true) && \
-    (ln -sf /usr/lib/libcrypto.so.3 /usr/lib/libcrypto.so.1.1 2>/dev/null || \
-     ln -sf /lib/libcrypto.so.3 /usr/lib/libcrypto.so.1.1 2>/dev/null || true)
+# OpenSSL уже есть в node:18-alpine, просто находим и создаем symlinks для Prisma
+RUN mkdir -p /usr/lib && \
+    SSL_LIB=$(find /usr/lib /lib -name "libssl.so.3" 2>/dev/null | head -1) && \
+    CRYPTO_LIB=$(find /usr/lib /lib -name "libcrypto.so.3" 2>/dev/null | head -1) && \
+    if [ -n "$SSL_LIB" ]; then ln -sf "$SSL_LIB" /usr/lib/libssl.so.1.1; fi && \
+    if [ -n "$CRYPTO_LIB" ]; then ln -sf "$CRYPTO_LIB" /usr/lib/libcrypto.so.1.1; fi
 
 # Устанавливаем зависимости для кэширования
 COPY package*.json ./
@@ -24,10 +23,14 @@ RUN npm ci --legacy-peer-deps --no-audit --ignore-scripts || \
     (echo "⚠️ npm ci failed, using npm install..." && npm install --legacy-peer-deps --no-audit --ignore-scripts)
 
 # Генерируем Prisma клиент (нужны все зависимости)
-# Устанавливаем переменные окружения для Prisma OpenSSL
-ENV PRISMA_OPENSSL_LIBRARY=/usr/lib/libssl.so.1.1
-ENV PRISMA_OPENSSL_LIBRARY_CRYPTO=/usr/lib/libcrypto.so.1.1
-RUN npx prisma generate
+# Устанавливаем переменные окружения для Prisma OpenSSL перед генерацией
+RUN SSL_PATH=$(find /usr/lib /lib -name "libssl.so.1.1" -o -name "libssl.so.3" 2>/dev/null | head -1) && \
+    CRYPTO_PATH=$(find /usr/lib /lib -name "libcrypto.so.1.1" -o -name "libcrypto.so.3" 2>/dev/null | head -1) && \
+    export PRISMA_OPENSSL_LIBRARY=${SSL_PATH:-/usr/lib/libssl.so.1.1} && \
+    export PRISMA_OPENSSL_LIBRARY_CRYPTO=${CRYPTO_PATH:-/usr/lib/libcrypto.so.1.1} && \
+    echo "Using OpenSSL: $PRISMA_OPENSSL_LIBRARY" && \
+    echo "Using Crypto: $PRISMA_OPENSSL_LIBRARY_CRYPTO" && \
+    npx prisma generate
 
 # Копируем исходный код
 COPY . .
@@ -39,13 +42,12 @@ FROM node:18-alpine AS production
 
 WORKDIR /app
 
-# Устанавливаем OpenSSL для Prisma
-RUN apk add --no-cache openssl openssl-dev && \
-    mkdir -p /usr/lib && \
-    (ln -sf /usr/lib/libssl.so.3 /usr/lib/libssl.so.1.1 2>/dev/null || \
-     ln -sf /lib/libssl.so.3 /usr/lib/libssl.so.1.1 2>/dev/null || true) && \
-    (ln -sf /usr/lib/libcrypto.so.3 /usr/lib/libcrypto.so.1.1 2>/dev/null || \
-     ln -sf /lib/libcrypto.so.3 /usr/lib/libcrypto.so.1.1 2>/dev/null || true)
+# OpenSSL уже есть в node:18-alpine, просто находим и создаем symlinks для Prisma
+RUN mkdir -p /usr/lib && \
+    SSL_LIB=$(find /usr/lib /lib -name "libssl.so.3" 2>/dev/null | head -1) && \
+    CRYPTO_LIB=$(find /usr/lib /lib -name "libcrypto.so.3" 2>/dev/null | head -1) && \
+    if [ -n "$SSL_LIB" ]; then ln -sf "$SSL_LIB" /usr/lib/libssl.so.1.1; fi && \
+    if [ -n "$CRYPTO_LIB" ]; then ln -sf "$CRYPTO_LIB" /usr/lib/libcrypto.so.1.1; fi
 
 # Копируем только package.json для production зависимостей
 COPY package*.json ./
