@@ -23,11 +23,11 @@ ENV npm_config_fetch_retries=3
 RUN npm install --legacy-peer-deps --no-audit --ignore-scripts
 
 # Генерируем Prisma клиент (нужны все зависимости)
-# Устанавливаем переменные окружения для OpenSSL 3.0.x
-RUN SSL_PATH=$(find /usr/lib /lib -name "libssl.so.3" 2>/dev/null | head -1) && \
-    CRYPTO_PATH=$(find /usr/lib /lib -name "libcrypto.so.3" 2>/dev/null | head -1) && \
-    export PRISMA_OPENSSL_LIBRARY=${SSL_PATH:-/usr/lib/libssl.so.3} && \
-    export PRISMA_OPENSSL_LIBRARY_CRYPTO=${CRYPTO_PATH:-/usr/lib/libcrypto.so.3} && \
+# Указываем Prisma где искать библиотеки OpenSSL 1.1.x в папке libssl/openssl
+RUN export PRISMA_OPENSSL_LIBRARY=/libssl/openssl/libssl.so.1.1 && \
+    export PRISMA_OPENSSL_LIBRARY_CRYPTO=/libssl/openssl/libcrypto.so.1.1 && \
+    export LD_LIBRARY_PATH=/libssl/openssl:/usr/lib:/lib:${LD_LIBRARY_PATH:-} && \
+    ls -la /libssl/openssl/ && \
     npx prisma generate
 
 # Копируем исходный код
