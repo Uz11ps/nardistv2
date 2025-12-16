@@ -33,8 +33,7 @@ services:
 
   backend:
     # Используем готовый образ если указан, иначе собираем локально
-    # ВАЖНО: Для применения исправлений пересоберите образ локально
-    # image: ${BACKEND_IMAGE:-nardist-backend:latest}
+    image: ${BACKEND_IMAGE:-nardist-backend:latest}
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -114,4 +113,3 @@ volumes:
 networks:
   nardist_network:
     driver: bridge
-

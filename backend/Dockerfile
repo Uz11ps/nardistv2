@@ -1,23 +1,25 @@
-# ============================================
-# Stage 1: Builder - сборка приложения
-# ============================================
 FROM node:18-alpine AS builder
 
 WORKDIR /app
 
-# Устанавливаем OpenSSL для Prisma (без обновления индекса - используем существующий кэш)
-RUN apk add --no-cache openssl
+# Устанавливаем OpenSSL для Prisma
+# В Alpine 3.21 используется OpenSSL 3, создаем symlinks для совместимости с Prisma
+RUN apk add --no-cache openssl && \
+    mkdir -p /usr/lib && \
+    (ln -sf /usr/lib/libssl.so.3 /usr/lib/libssl.so.1.1 || true) && \
+    (ln -sf /usr/lib/libcrypto.so.3 /usr/lib/libcrypto.so.1.1 || true)
 
-# Копируем файлы зависимостей для кэширования
-COPY package.json package-lock.json* ./
+# Устанавливаем зависимости для кэширования
+COPY package*.json ./
 COPY prisma ./prisma/
 
-# Устанавливаем все зависимости (включая devDependencies для сборки)
-# --ignore-scripts пропускает postinstall скрипты которые могут зависать
-RUN npm install --legacy-peer-deps --ignore-scripts
+# Используем npm ci для быстрой установки (требует package-lock.json)
+ENV npm_config_loglevel=error
+RUN npm ci --legacy-peer-deps --prefer-offline --no-audit --progress=false --silent || \
+    npm install --legacy-peer-deps --prefer-offline --no-audit --progress=false --silent
 
-# Генерируем Prisma Client
-RUN npx prisma generate --schema=./prisma/schema.prisma
+# Генерируем Prisma клиент (нужны все зависимости)
+RUN npx prisma generate
 
 # Копируем исходный код
 COPY . .
@@ -25,45 +27,31 @@ COPY . .
 # Собираем приложение
 RUN npm run build
 
-# ============================================
-# Stage 2: Production - финальный образ
-# ============================================
 FROM node:18-alpine AS production
 
 WORKDIR /app
 
-# OpenSSL уже есть в node:18-alpine, дополнительная установка не требуется
+# Устанавливаем OpenSSL для Prisma
+# В Alpine 3.21 используется OpenSSL 3, создаем symlinks для совместимости с Prisma
+RUN apk add --no-cache openssl && \
+    mkdir -p /usr/lib && \
+    (ln -sf /usr/lib/libssl.so.3 /usr/lib/libssl.so.1.1 || true) && \
+    (ln -sf /usr/lib/libcrypto.so.3 /usr/lib/libcrypto.so.1.1 || true)
 
-# Создаем непривилегированного пользователя
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nestjs -u 1001
-
-# Копируем package.json для production зависимостей
-COPY package.json package-lock.json* ./
+# Копируем только package.json для production зависимостей
+COPY package*.json ./
 COPY prisma ./prisma/
 
-# Устанавливаем только production зависимости
-# --ignore-scripts пропускает postinstall скрипты которые могут зависать
-RUN npm ci --omit=dev --legacy-peer-deps --no-audit --ignore-scripts
+# Устанавливаем только production зависимости с оптимизацией
+ENV npm_config_loglevel=error
+RUN npm ci --only=production --legacy-peer-deps --prefer-offline --no-audit --progress=false --silent || \
+    npm install --only=production --legacy-peer-deps --prefer-offline --no-audit --progress=false --silent
 
-# Копируем собранное приложение и Prisma Client из builder
-COPY --from=builder --chown=nestjs:nodejs /app/dist ./dist
-COPY --from=builder --chown=nestjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder --chown=nestjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
+# Копируем собранное приложение и сгенерированный Prisma клиент
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
-# Переключаемся на непривилегированного пользователя
-USER nestjs
-
-# Открываем порт
 EXPOSE 3000
 
-# Переменные окружения
-ENV NODE_ENV=production
-ENV PORT=3000
-
-# Healthcheck (проверяет /health endpoint)
-HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
-
-# Запускаем приложение
 CMD ["node", "dist/main"]
