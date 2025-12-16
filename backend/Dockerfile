@@ -2,9 +2,9 @@ FROM node:18-alpine AS builder
 
 WORKDIR /app
 
-# Устанавливаем OpenSSL 1.1.x из edge репозитория для Prisma
-RUN apk add --no-cache --repository=http://dl-cdn.alpinelinux.org/alpine/edge/main openssl1.1 || \
-    apk add --no-cache openssl || true
+# Скачиваем готовые бинарники OpenSSL 1.1.x из другого образа
+COPY --from=alpine:3.16 /usr/lib/libssl.so.1.1 /usr/lib/libssl.so.1.1
+COPY --from=alpine:3.16 /usr/lib/libcrypto.so.1.1 /usr/lib/libcrypto.so.1.1
 
 # Устанавливаем зависимости для кэширования
 COPY package*.json ./
@@ -36,9 +36,9 @@ FROM node:18-alpine AS production
 
 WORKDIR /app
 
-# Устанавливаем OpenSSL 1.1.x из edge репозитория для Prisma
-RUN apk add --no-cache --repository=http://dl-cdn.alpinelinux.org/alpine/edge/main openssl1.1 || \
-    apk add --no-cache openssl || true
+# Скачиваем готовые бинарники OpenSSL 1.1.x из другого образа
+COPY --from=alpine:3.16 /usr/lib/libssl.so.1.1 /usr/lib/libssl.so.1.1
+COPY --from=alpine:3.16 /usr/lib/libcrypto.so.1.1 /usr/lib/libcrypto.so.1.1
 
 # Копируем только package.json для production зависимостей
 COPY package*.json ./
