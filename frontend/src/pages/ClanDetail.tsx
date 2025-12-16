@@ -267,7 +267,7 @@ export const ClanDetail = () => {
                 </div>
               )}
             </div>
-          ))}
+          )) : null}
             </div>
           </Card>
         )}

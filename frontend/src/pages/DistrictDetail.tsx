@@ -720,7 +720,7 @@ export const DistrictDetail = () => {
                     </div>
                   </Card>
                 );
-              })
+              }) : null}
             )}
           </div>
         </Modal>

@@ -195,7 +195,7 @@ export const AdminCity = () => {
                   <span>Предприятий: {district._count?.businesses || 0}</span>
                 </div>
               </Card>
-            )}) : null}
+            )) : null}
           </div>
         </div>
       ),
@@ -218,7 +218,7 @@ export const AdminCity = () => {
             <h3>Предприятия в районе "{selectedDistrict.name}"</h3>
           </div>
           <div className="admin-city__list">
-            {              businessConfigs.length > 0 ? (
+            {businessConfigs.length > 0 ? (
               Array.isArray(businessConfigs) ? businessConfigs.map((config) => (
                 <Card key={config.type} className="admin-city__config-card">
                   <div className="admin-city__config-header">

@@ -233,7 +233,7 @@ export const AdminDashboard = () => {
                         </td>
                       </tr>
                     );
-                  })}
+                  }) : null}
                 </tbody>
               </table>
             ) : (
