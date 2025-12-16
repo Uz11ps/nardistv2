@@ -76,10 +76,9 @@ jobs:
               exit 1
             fi
             
-            # Обновляем код (сохраняем локальные изменения в docker-compose.prod.yml)
-            git stash || true
-            git pull origin main || git pull origin master
-            git stash pop || true
+            # Обновляем код (принудительно берем версию из репозитория, локальные изменения не важны)
+            git fetch origin
+            git reset --hard origin/main || git reset --hard origin/master
             
             # Загружаем переменные окружения
             if [ -f .env ]; then
