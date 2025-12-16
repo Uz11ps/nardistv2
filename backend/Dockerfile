@@ -22,8 +22,13 @@ ENV npm_config_fetch_retries=3
 # --ignore-scripts пропускает postinstall скрипты которые могут зависать
 RUN npm install --legacy-peer-deps --no-audit --ignore-scripts
 
-# Prisma уже установлен через npm install выше
-# Бинарники установятся при prisma generate
+# Устанавливаем бинарники Prisma (postinstall скрипт был пропущен из-за --ignore-scripts)
+RUN cd node_modules/@prisma && npm run postinstall || \
+    (cd ../.. && npx prisma generate --schema=./prisma/schema.prisma 2>/dev/null || true) || \
+    echo "Prisma binaries will be downloaded during generate"
+
+# Устанавливаем LD_LIBRARY_PATH для поиска OpenSSL ДО генерации
+ENV LD_LIBRARY_PATH=/usr/lib:/lib:${LD_LIBRARY_PATH:-}
 
 # Диагностика перед генерацией Prisma
 RUN echo "=== DIAGNOSTICS ===" && \
@@ -32,14 +37,12 @@ RUN echo "=== DIAGNOSTICS ===" && \
     echo "LD_LIBRARY_PATH: $LD_LIBRARY_PATH" && \
     echo "Prisma engines dir:" && \
     ls -la node_modules/@prisma/engines/ 2>/dev/null || echo "NOT FOUND" && \
-    echo "Prisma client dir:" && \
-    ls -la node_modules/.prisma/ 2>/dev/null || echo "NOT FOUND" && \
+    echo "Prisma engines binaries:" && \
+    find node_modules/@prisma/engines -name "*.so.node" -o -name "query-engine*" 2>/dev/null | head -5 || echo "NO BINARIES FOUND" && \
     echo "=== END DIAGNOSTICS ==="
 
-# Генерируем Prisma клиент (нужны все зависимости)
-# Устанавливаем LD_LIBRARY_PATH для поиска OpenSSL
-ENV LD_LIBRARY_PATH=/usr/lib:/lib:${LD_LIBRARY_PATH:-}
-# Отключаем загрузку бинарников - используем установленные
+# Генерируем Prisma клиент
+# Отключаем загрузку бинарников - они должны быть установлены через npm
 ENV PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING=1
 ENV PRISMA_SKIP_POSTINSTALL_GENERATE=true
 # Генерируем с таймаутом на случай зависания
