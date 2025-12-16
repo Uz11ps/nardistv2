@@ -5,7 +5,8 @@ FROM node:18-alpine AS builder
 
 WORKDIR /app
 
-# OpenSSL уже есть в node:18-alpine, дополнительная установка не требуется
+# Устанавливаем OpenSSL для Prisma (без обновления индекса - используем существующий кэш)
+RUN apk add --no-cache openssl
 
 # Копируем файлы зависимостей для кэширования
 COPY package.json package-lock.json* ./
