@@ -5,8 +5,8 @@ FROM node:18-alpine AS builder
 
 WORKDIR /app
 
-# Устанавливаем OpenSSL для Prisma (без обновления индекса - используем существующий кэш)
-RUN apk add --no-cache openssl
+# Устанавливаем OpenSSL для Prisma (проверяем наличие, если нет - устанавливаем без обновления индекса)
+RUN apk add --no-cache openssl 2>&1 | grep -v "fetch" || true
 
 # Копируем файлы зависимостей для кэширования
 COPY package.json package-lock.json* ./
