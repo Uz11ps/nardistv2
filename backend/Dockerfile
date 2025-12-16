@@ -42,11 +42,22 @@ RUN echo "=== DIAGNOSTICS ===" && \
     echo "=== END DIAGNOSTICS ==="
 
 # Генерируем Prisma клиент
-# Отключаем загрузку бинарников - они должны быть установлены через npm
+# Переменные окружения для обхода проблем с загрузкой бинарников
 ENV PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING=1
 ENV PRISMA_SKIP_POSTINSTALL_GENERATE=true
-# Генерируем с таймаутом на случай зависания
-RUN timeout 300 npx prisma generate || npx prisma generate
+ENV PRISMA_ENGINES_MIRROR=""
+ENV PRISMA_BINARY_DOWNLOAD_TIMEOUT=300000
+# Пытаемся использовать локальные бинарники если есть, иначе скачиваем
+RUN if [ -d "node_modules/@prisma/engines" ] && [ "$(ls -A node_modules/@prisma/engines/*.so.node 2>/dev/null)" ]; then \
+        echo "Using existing Prisma binaries"; \
+        npx prisma generate; \
+    else \
+        echo "Downloading Prisma binaries..."; \
+        timeout 600 npx prisma generate || \
+        (echo "Prisma generate timeout, trying with skip download..." && \
+         PRISMA_SKIP_DOWNLOAD=1 npx prisma generate || \
+         npx prisma generate); \
+    fi
 
 # Копируем исходный код
 COPY . .
