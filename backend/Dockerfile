@@ -22,8 +22,8 @@ ENV npm_config_fetch_retries=3
 # --ignore-scripts пропускает postinstall скрипты которые могут зависать
 RUN npm install --legacy-peer-deps --no-audit --ignore-scripts
 
-# Устанавливаем бинарники Prisma отдельно (без --ignore-scripts)
-RUN npm install prisma@5.20.0 --save-dev --legacy-peer-deps --no-audit || true
+# Prisma уже установлен через npm install выше
+# Бинарники установятся при prisma generate
 
 # Генерируем Prisma клиент (нужны все зависимости)
 # Устанавливаем LD_LIBRARY_PATH для поиска OpenSSL
