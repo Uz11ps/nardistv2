@@ -25,6 +25,17 @@ RUN npm install --legacy-peer-deps --no-audit --ignore-scripts
 # Prisma уже установлен через npm install выше
 # Бинарники установятся при prisma generate
 
+# Диагностика перед генерацией Prisma
+RUN echo "=== DIAGNOSTICS ===" && \
+    echo "OpenSSL libraries:" && \
+    ls -la /usr/lib/libssl.so* /usr/lib/libcrypto.so* 2>/dev/null || echo "NOT FOUND" && \
+    echo "LD_LIBRARY_PATH: $LD_LIBRARY_PATH" && \
+    echo "Prisma engines dir:" && \
+    ls -la node_modules/@prisma/engines/ 2>/dev/null || echo "NOT FOUND" && \
+    echo "Prisma client dir:" && \
+    ls -la node_modules/.prisma/ 2>/dev/null || echo "NOT FOUND" && \
+    echo "=== END DIAGNOSTICS ==="
+
 # Генерируем Prisma клиент (нужны все зависимости)
 # Устанавливаем LD_LIBRARY_PATH для поиска OpenSSL
 ENV LD_LIBRARY_PATH=/usr/lib:/lib:${LD_LIBRARY_PATH:-}
