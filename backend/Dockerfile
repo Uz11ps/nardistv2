@@ -14,9 +14,7 @@ COPY --from=alpine:3.16 /usr/lib/libcrypto.so.1.1 /usr/lib/libcrypto.so.1.1
 
 # Проверяем что файлы скопировались
 RUN ls -la /libssl/openssl/ && \
-    ls -la /usr/lib/libssl.so.1.1 /usr/lib/libcrypto.so.1.1 && \
-    file /libssl/openssl/libssl.so.1.1 && \
-    file /libssl/openssl/libcrypto.so.1.1
+    ls -la /usr/lib/libssl.so.1.1 /usr/lib/libcrypto.so.1.1
 
 # Устанавливаем зависимости для кэширования
 COPY package*.json ./
