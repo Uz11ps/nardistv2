@@ -43,7 +43,8 @@ COPY package.json package-lock.json* ./
 COPY prisma ./prisma/
 
 # Устанавливаем только production зависимости
-RUN npm ci --omit=dev --legacy-peer-deps --no-audit && \
+# --ignore-scripts пропускает postinstall скрипты которые могут зависать
+RUN npm ci --omit=dev --legacy-peer-deps --no-audit --ignore-scripts && \
     npm cache clean --force
 
 # Копируем собранное приложение и Prisma Client из builder
