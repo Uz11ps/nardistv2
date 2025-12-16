@@ -175,7 +175,8 @@ export class GameHistoryService {
       if (filters.result === 'win') {
         where.winnerId = userId;
       } else if (filters.result === 'loss') {
-        where.winnerId = { not: userId, not: null };
+        where.winnerId = { not: userId };
+        where.NOT = { winnerId: null };
       } else if (filters.result === 'draw') {
         where.winnerId = null;
       }
