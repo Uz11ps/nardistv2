@@ -16,7 +16,7 @@ COPY prisma ./prisma/
 
 # Устанавливаем зависимости (используем npm ci для скорости, fallback на npm install)
 ENV npm_config_loglevel=warn
-ENV npm_config_fetch_timeout=60000
+ENV npm_config_fetch_timeout=10000
 ENV npm_config_fetch_retries=3
 # npm ci быстрее и надежнее, но требует синхронизированный lock файл
 RUN npm ci --legacy-peer-deps --no-audit || \
@@ -49,7 +49,7 @@ COPY prisma ./prisma/
 
 # Устанавливаем только production зависимости (используем npm ci для скорости)
 ENV npm_config_loglevel=warn
-ENV npm_config_fetch_timeout=60000
+ENV npm_config_fetch_timeout=10000
 ENV npm_config_fetch_retries=3
 RUN npm ci --only=production --legacy-peer-deps --no-audit || \
     (echo "⚠️ npm ci failed, using npm install..." && npm install --only=production --legacy-peer-deps --no-audit)
