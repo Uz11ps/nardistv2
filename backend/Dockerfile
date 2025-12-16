@@ -44,8 +44,7 @@ COPY prisma ./prisma/
 
 # Устанавливаем только production зависимости
 # --ignore-scripts пропускает postinstall скрипты которые могут зависать
-RUN npm ci --omit=dev --legacy-peer-deps --no-audit --ignore-scripts && \
-    npm cache clean --force
+RUN npm ci --omit=dev --legacy-peer-deps --no-audit --ignore-scripts
 
 # Копируем собранное приложение и Prisma Client из builder
 COPY --from=builder --chown=nestjs:nodejs /app/dist ./dist
