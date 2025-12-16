@@ -62,10 +62,12 @@ if [ -n "$BACKEND_IMAGE" ] && [ "$BACKEND_IMAGE" != "nardist-backend:latest" ] &
     # Если оба образа скачаны, используем их, иначе собираем недостающие
     if [ "$BACKEND_PULLED" = true ] && [ "$FRONTEND_PULLED" = true ]; then
         echo "✅ Using pre-built images from registry (much faster!)"
+        USE_PREBUILT=true
     else
         echo "🔨 Building missing images locally (this may take 5-10 minutes)..."
         export DOCKER_BUILDKIT=1
         export COMPOSE_DOCKER_CLI_BUILD=1
+        USE_PREBUILT=false
         
         if [ "$BACKEND_PULLED" = false ]; then
             echo "🔨 Building backend..."
@@ -83,10 +85,16 @@ else
     export DOCKER_BUILDKIT=1
     export COMPOSE_DOCKER_CLI_BUILD=1
     $DOCKER_COMPOSE -f docker-compose.prod.yml build --parallel backend frontend
+    USE_PREBUILT=false
 fi
 
 echo "🚀 Starting containers (recreating with new images)..."
-$DOCKER_COMPOSE -f docker-compose.prod.yml up -d --force-recreate
+# Если образы уже скачаны, не пересобираем их
+if [ "$USE_PREBUILT" = true ]; then
+    $DOCKER_COMPOSE -f docker-compose.prod.yml up -d --force-recreate --no-build
+else
+    $DOCKER_COMPOSE -f docker-compose.prod.yml up -d --force-recreate
+fi
 
 echo "⏳ Waiting for services to be ready..."
 sleep 10
