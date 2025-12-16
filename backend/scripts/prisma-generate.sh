@@ -25,7 +25,7 @@ CRYPTO_PATHS=(
   "/lib/libcrypto.so.1.1"
 )
 
-# Ищем через find как fallback (приоритет /lib/x86_64-linux-gnu/)
+# Ищем через find как fallback (приоритет /lib/x86_64-linux-gnu/ для Ubuntu, /usr/lib для Alpine)
 SSL_PATH=$(find /lib/x86_64-linux-gnu /usr/lib/x86_64-linux-gnu /usr/lib /lib -name "libssl.so*" 2>/dev/null | head -1)
 CRYPTO_PATH=$(find /lib/x86_64-linux-gnu /usr/lib/x86_64-linux-gnu /usr/lib /lib -name "libcrypto.so*" 2>/dev/null | head -1)
 

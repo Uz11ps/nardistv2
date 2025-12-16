@@ -12,6 +12,7 @@ RUN mkdir -p /usr/lib && \
 # Устанавливаем зависимости для кэширования
 COPY package*.json ./
 COPY prisma ./prisma/
+COPY scripts ./scripts/
 
 # Устанавливаем зависимости (используем npm ci для скорости, fallback на npm install)
 ENV npm_config_loglevel=warn
