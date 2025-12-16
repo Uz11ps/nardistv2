@@ -2,6 +2,8 @@
 // Оставлен для возможного будущего использования
 import { Injectable, NestMiddleware } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
+// @ts-ignore - helmet может быть не установлен
+import helmet from 'helmet';
 
 @Injectable()
 export class SecurityMiddleware implements NestMiddleware {

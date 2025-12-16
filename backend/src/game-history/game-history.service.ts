@@ -214,26 +214,6 @@ export class GameHistoryService {
       },
       orderBy: { createdAt: 'desc' },
       take: limit,
-      include: {
-        whitePlayer: {
-          select: {
-            id: true,
-            nickname: true,
-            firstName: true,
-            photoUrl: true,
-          },
-        },
-        blackPlayer: {
-          select: {
-            id: true,
-            nickname: true,
-            firstName: true,
-            photoUrl: true,
-          },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-      take: limit,
     });
   }
 
