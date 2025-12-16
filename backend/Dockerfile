@@ -23,14 +23,8 @@ RUN npm ci --legacy-peer-deps --no-audit --ignore-scripts || \
     (echo "⚠️ npm ci failed, using npm install..." && npm install --legacy-peer-deps --no-audit --ignore-scripts)
 
 # Генерируем Prisma клиент (нужны все зависимости)
-# Устанавливаем переменные окружения для Prisma OpenSSL перед генерацией
-RUN SSL_PATH=$(find /usr/lib /lib -name "libssl.so.1.1" -o -name "libssl.so.3" 2>/dev/null | head -1) && \
-    CRYPTO_PATH=$(find /usr/lib /lib -name "libcrypto.so.1.1" -o -name "libcrypto.so.3" 2>/dev/null | head -1) && \
-    export PRISMA_OPENSSL_LIBRARY=${SSL_PATH:-/usr/lib/libssl.so.1.1} && \
-    export PRISMA_OPENSSL_LIBRARY_CRYPTO=${CRYPTO_PATH:-/usr/lib/libcrypto.so.1.1} && \
-    echo "Using OpenSSL: $PRISMA_OPENSSL_LIBRARY" && \
-    echo "Using Crypto: $PRISMA_OPENSSL_LIBRARY_CRYPTO" && \
-    npx prisma generate
+# Используем npm скрипт который правильно найдет OpenSSL в /lib/x86_64-linux-gnu/
+RUN npm run prisma:generate
 
 # Копируем исходный код
 COPY . .
