@@ -39,13 +39,13 @@ FROM node:18-alpine AS production
 
 WORKDIR /app
 
-# Копируем OpenSSL 1.1.x из alpine:3.16 для runtime
-# Создаем папку libssl/openssl где Prisma ищет библиотеки
-RUN mkdir -p /libssl/openssl
-COPY --from=alpine:3.16 /usr/lib/libssl.so.1.1 /libssl/openssl/libssl.so.1.1
-COPY --from=alpine:3.16 /usr/lib/libcrypto.so.1.1 /libssl/openssl/libcrypto.so.1.1
-COPY --from=alpine:3.16 /usr/lib/libssl.so.1.1 /usr/lib/libssl.so.1.1
-COPY --from=alpine:3.16 /usr/lib/libcrypto.so.1.1 /usr/lib/libcrypto.so.1.1
+# Устанавливаем OpenSSL 1.1.x для runtime
+RUN echo "http://dl-cdn.alpinelinux.org/alpine/v3.16/main" >> /etc/apk/repositories && \
+    apk add --no-cache libssl1.1 libcrypto1.1 || \
+    (apk add --no-cache --allow-untrusted libssl1.1 libcrypto1.1 || true)
+
+# Устанавливаем LD_LIBRARY_PATH для runtime
+ENV LD_LIBRARY_PATH=/usr/lib:/lib:${LD_LIBRARY_PATH:-}
 
 
 # Копируем только package.json для production зависимостей
