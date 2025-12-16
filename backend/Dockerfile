@@ -22,9 +22,10 @@ ENV npm_config_fetch_retries=3
 # --ignore-scripts пропускает postinstall скрипты которые могут зависать
 RUN npm install --legacy-peer-deps --no-audit --ignore-scripts
 
-# Устанавливаем бинарники Prisma отдельно (БЕЗ --ignore-scripts, с таймаутом)
-RUN timeout 300 npm install prisma@5.20.0 --save-dev --legacy-peer-deps --no-audit || \
-    echo "Prisma install timeout, binaries will be downloaded during generate"
+# Prisma уже установлен через npm install выше
+# Устанавливаем бинарники Prisma через @prisma/engines (с таймаутом)
+RUN timeout 300 npm install @prisma/engines@5.20.0 --no-save --legacy-peer-deps --no-audit || \
+    echo "Prisma engines install timeout, will download during generate"
 
 # Устанавливаем LD_LIBRARY_PATH для поиска OpenSSL ДО генерации
 ENV LD_LIBRARY_PATH=/usr/lib:/lib:${LD_LIBRARY_PATH:-}
