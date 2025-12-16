@@ -75,9 +75,10 @@ export const Academy = () => {
                 </span>
               </div>
             </Card>
-          )) : (
-            <Card>Нет доступных статей</Card>
-          )}
+          ))
+        ) : (
+          <Card>Нет доступных статей</Card>
+        )}
       </div>
       {selectedArticle && (
         <Modal

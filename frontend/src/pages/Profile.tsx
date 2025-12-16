@@ -278,7 +278,7 @@ const DevelopmentBranch = ({
   upgradeCost, 
   userBalance 
 }: { 
-  label: string; 
+  label: string | React.ReactNode; 
   currentLevel: number; 
   maxLevel: number; 
   onUpgrade: () => void; 

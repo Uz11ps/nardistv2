@@ -501,6 +501,7 @@ export const BotGame = ({ mode, onGameEnd, onExit }: BotGameProps) => {
 
       {notification && (
         <NotificationModal
+          isOpen={!!notification}
           title={notification.title}
           message={notification.message}
           type={notification.type}

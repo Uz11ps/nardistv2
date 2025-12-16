@@ -54,7 +54,7 @@ export const Market = () => {
       (item.user?.firstName || '').toLowerCase().includes(searchQuery.toLowerCase());
     const matchesRarity = filterRarity === 'ALL' || (item.inventoryItem?.rarity || item.skin?.rarity) === filterRarity;
     return matchesSearch && matchesRarity;
-  });
+  }) : [];
 
   const tabs = [
     {

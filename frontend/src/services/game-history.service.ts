@@ -25,8 +25,12 @@ export interface GameHistory {
 }
 
 export const gameHistoryService = {
-  async getMyHistory(limit: number = 50): Promise<GameHistory[]> {
-    const response = await api.get<GameHistory[]>(`/game-history?limit=${limit}`);
+  async getMyHistory(params?: { limit?: number; mode?: 'SHORT' | 'LONG'; result?: 'win' | 'loss' | 'draw' }): Promise<GameHistory[]> {
+    const limit = params?.limit || 50;
+    const queryParams = new URLSearchParams({ limit: limit.toString() });
+    if (params?.mode) queryParams.append('mode', params.mode);
+    if (params?.result) queryParams.append('result', params.result);
+    const response = await api.get<GameHistory[]>(`/game-history?${queryParams.toString()}`);
     return response.data;
   },
 

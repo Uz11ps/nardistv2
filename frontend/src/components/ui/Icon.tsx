@@ -52,6 +52,7 @@ interface IconProps {
   size?: number | string;
   className?: string;
   color?: string;
+  style?: React.CSSProperties;
 }
 
 const iconPaths: Record<IconName, string> = {
@@ -105,7 +106,8 @@ export const Icon: React.FC<IconProps> = ({
   name, 
   size = 24, 
   className = '', 
-  color = 'currentColor' 
+  color = 'currentColor',
+  style
 }) => {
   const path = iconPaths[name];
   
@@ -122,6 +124,7 @@ export const Icon: React.FC<IconProps> = ({
       viewBox="0 0 24 24"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
+      style={style}
     >
       <path
         d={path}

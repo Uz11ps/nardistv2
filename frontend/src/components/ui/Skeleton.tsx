@@ -8,6 +8,7 @@ interface SkeletonProps {
   className?: string;
   count?: number;
   animation?: 'pulse' | 'wave' | 'none';
+  style?: React.CSSProperties;
 }
 
 export const Skeleton = ({
@@ -17,10 +18,12 @@ export const Skeleton = ({
   className = '',
   count = 1,
   animation = 'wave',
+  style: externalStyle,
 }: SkeletonProps) => {
   const style: React.CSSProperties = {
     width: width || (variant === 'circular' ? height : '100%'),
     height: height || (variant === 'text' ? '1em' : '1rem'),
+    ...externalStyle,
   };
 
   const classes = [

@@ -6,9 +6,10 @@ interface CardProps {
   className?: string;
   onClick?: (e: React.MouseEvent<HTMLDivElement>) => void;
   hover?: boolean;
+  style?: React.CSSProperties;
 }
 
-export const Card = ({ children, className = '', onClick, hover = false }: CardProps) => {
+export const Card = ({ children, className = '', onClick, hover = false, style }: CardProps) => {
   const classes = ['card', hover && 'card--hover', onClick && 'card--clickable', className]
     .filter(Boolean)
     .join(' ');
@@ -27,7 +28,7 @@ export const Card = ({ children, className = '', onClick, hover = false }: CardP
   }, [onClick]);
 
   return (
-    <div className={classes} onClick={onClick ? handleClick : undefined}>
+    <div className={classes} onClick={onClick ? handleClick : undefined} style={style}>
       {children}
     </div>
   );

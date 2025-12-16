@@ -277,7 +277,7 @@ export const ClanDetail = () => {
             <h3 className="clan-detail__section-title">Районы города</h3>
             {clan.districts && clan.districts.length > 0 ? (
               <div className="clan-detail__districts">
-                {Array.isArray(clan.districts) ? clan.districts.map((district) => {
+                {Array.isArray(clan.districts) ? clan.districts.map((district: any) => {
                   const safeDistrictFunds = Array.isArray(districtFunds) ? districtFunds : [];
                   const fund = safeDistrictFunds.find((f) => f.district.id === district.id);
                   const fundBalance = fund?.fund?.balance || 0;
