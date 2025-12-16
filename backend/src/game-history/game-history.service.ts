@@ -144,11 +144,75 @@ export class GameHistoryService {
     });
   }
 
-  async getUserHistory(userId: number, limit: number = 50) {
+  async getUserHistory(
+    userId: number,
+    filters?: {
+      limit?: number;
+      mode?: 'SHORT' | 'LONG';
+      result?: 'win' | 'loss' | 'draw';
+      opponentId?: number;
+      startDate?: Date;
+      endDate?: Date;
+    },
+  ) {
+    const limit = filters?.limit || 50;
+    const where: any = {
+      OR: [{ whitePlayerId: userId }, { blackPlayerId: userId }],
+    };
+
+    if (filters?.mode) {
+      where.mode = filters.mode;
+    }
+
+    if (filters?.opponentId) {
+      where.OR = [
+        { whitePlayerId: userId, blackPlayerId: filters.opponentId },
+        { blackPlayerId: userId, whitePlayerId: filters.opponentId },
+      ];
+    }
+
+    if (filters?.result) {
+      if (filters.result === 'win') {
+        where.winnerId = userId;
+      } else if (filters.result === 'loss') {
+        where.winnerId = { not: userId, not: null };
+      } else if (filters.result === 'draw') {
+        where.winnerId = null;
+      }
+    }
+
+    if (filters?.startDate || filters?.endDate) {
+      where.createdAt = {};
+      if (filters.startDate) {
+        where.createdAt.gte = filters.startDate;
+      }
+      if (filters.endDate) {
+        where.createdAt.lte = filters.endDate;
+      }
+    }
+
     return this.prisma.gameHistory.findMany({
-      where: {
-        OR: [{ whitePlayerId: userId }, { blackPlayerId: userId }],
+      where,
+      include: {
+        whitePlayer: {
+          select: {
+            id: true,
+            nickname: true,
+            firstName: true,
+            photoUrl: true,
+          },
+        },
+        blackPlayer: {
+          select: {
+            id: true,
+            nickname: true,
+            firstName: true,
+            photoUrl: true,
+          },
+        },
       },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
       include: {
         whitePlayer: {
           select: {

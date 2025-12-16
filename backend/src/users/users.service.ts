@@ -70,7 +70,7 @@ export class UsersService {
       throw new Error('User not found');
     }
 
-    return {
+    const profile = {
       id: user.id,
       telegramId: user.telegramId,
       firstName: user.firstName,

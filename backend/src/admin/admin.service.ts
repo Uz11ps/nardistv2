@@ -89,6 +89,12 @@ export class AdminService {
     });
   }
 
+  async getArticleById(id: number) {
+    return this.prisma.academyArticle.findUnique({
+      where: { id },
+    });
+  }
+
   async createArticle(data: {
     title: string;
     content: string;
@@ -117,6 +123,20 @@ export class AdminService {
     });
   }
 
+  async publishArticle(id: number) {
+    return this.prisma.academyArticle.update({
+      where: { id },
+      data: { isPublished: true },
+    });
+  }
+
+  async unpublishArticle(id: number) {
+    return this.prisma.academyArticle.update({
+      where: { id },
+      data: { isPublished: false },
+    });
+  }
+
   async getSkins() {
     return this.prisma.skin.findMany({
       include: {
@@ -130,7 +150,7 @@ export class AdminService {
           select: {
             id: true,
             price: true,
-            isActive: true,
+            status: true,
           },
         },
       },
@@ -155,7 +175,7 @@ export class AdminService {
         },
         marketListings: {
           include: {
-            seller: {
+            user: {
               select: {
                 id: true,
                 nickname: true,
@@ -209,7 +229,6 @@ export class AdminService {
       where: { id },
       data: {
         ...data,
-        updatedAt: new Date(),
       },
     });
   }
@@ -560,15 +579,18 @@ export class AdminService {
     }
 
     // Возвращаем детальную информацию о игре, включая все ходы и броски
+    const moves = Array.isArray(game.moves) ? game.moves : [];
+    const gameState = game.gameState as any || {};
+    
     return {
       game,
-      moves: game.moves || [],
-      gameState: game.gameState || {},
-      rngSeed: game.rngSeed,
-      rngHash: game.rngHash,
+      moves,
+      gameState,
+      rngSeed: gameState.seed || null,
+      rngHash: gameState.seedHash || null,
       duration: game.duration,
       // Дополнительная информация о бросках кубиков
-      diceRolls: this.extractDiceRolls(game.moves || []),
+      diceRolls: this.extractDiceRolls(moves),
     };
   }
 

@@ -42,7 +42,7 @@ export class BotService {
 
     const scoredMoves = possibleMoves.map(move => ({
       ...move,
-      score: this.evaluateMoveAdvanced(state, move),
+      score: this.evaluateMove(state, move),
     }));
 
     // Сортируем по очкам и берем лучший
