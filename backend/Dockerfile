@@ -3,6 +3,10 @@ FROM node:18-alpine AS builder
 WORKDIR /app
 
 # Скачиваем готовые бинарники OpenSSL 1.1.x из другого образа
+# Создаем папку libssl/openssl где Prisma ищет библиотеки
+RUN mkdir -p /libssl/openssl
+COPY --from=alpine:3.16 /usr/lib/libssl.so.1.1 /libssl/openssl/libssl.so.1.1
+COPY --from=alpine:3.16 /usr/lib/libcrypto.so.1.1 /libssl/openssl/libcrypto.so.1.1
 COPY --from=alpine:3.16 /usr/lib/libssl.so.1.1 /usr/lib/libssl.so.1.1
 COPY --from=alpine:3.16 /usr/lib/libcrypto.so.1.1 /usr/lib/libcrypto.so.1.1
 
@@ -37,6 +41,10 @@ FROM node:18-alpine AS production
 WORKDIR /app
 
 # Скачиваем готовые бинарники OpenSSL 1.1.x из другого образа
+# Создаем папку libssl/openssl где Prisma ищет библиотеки
+RUN mkdir -p /libssl/openssl
+COPY --from=alpine:3.16 /usr/lib/libssl.so.1.1 /libssl/openssl/libssl.so.1.1
+COPY --from=alpine:3.16 /usr/lib/libcrypto.so.1.1 /libssl/openssl/libcrypto.so.1.1
 COPY --from=alpine:3.16 /usr/lib/libssl.so.1.1 /usr/lib/libssl.so.1.1
 COPY --from=alpine:3.16 /usr/lib/libcrypto.so.1.1 /usr/lib/libcrypto.so.1.1
 
