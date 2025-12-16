@@ -2,15 +2,9 @@ FROM node:18-alpine AS builder
 
 WORKDIR /app
 
-# Устанавливаем OpenSSL 1.1.x из репозитория Alpine 3.16
-RUN echo "http://dl-cdn.alpinelinux.org/alpine/v3.16/main" >> /etc/apk/repositories && \
-    apk add --no-cache libssl1.1 libcrypto1.1 || \
-    (apk add --no-cache --allow-untrusted libssl1.1 libcrypto1.1 || true)
-
-# Проверяем что OpenSSL установлен
-RUN ls -la /usr/lib/libssl.so.1.1 /usr/lib/libcrypto.so.1.1 || \
-    ls -la /lib/libssl.so.1.1 /lib/libcrypto.so.1.1 || \
-    find /usr/lib /lib -name "libssl.so.1.1" -o -name "libcrypto.so.1.1"
+# Копируем OpenSSL 1.1.x из alpine:3.16 образа
+COPY --from=alpine:3.16 /usr/lib/libssl.so.1.1 /usr/lib/libssl.so.1.1
+COPY --from=alpine:3.16 /usr/lib/libcrypto.so.1.1 /usr/lib/libcrypto.so.1.1
 
 # Устанавливаем зависимости для кэширования
 COPY package*.json ./
@@ -39,10 +33,9 @@ FROM node:18-alpine AS production
 
 WORKDIR /app
 
-# Устанавливаем OpenSSL 1.1.x для runtime
-RUN echo "http://dl-cdn.alpinelinux.org/alpine/v3.16/main" >> /etc/apk/repositories && \
-    apk add --no-cache libssl1.1 libcrypto1.1 || \
-    (apk add --no-cache --allow-untrusted libssl1.1 libcrypto1.1 || true)
+# Копируем OpenSSL 1.1.x из alpine:3.16 для runtime
+COPY --from=alpine:3.16 /usr/lib/libssl.so.1.1 /usr/lib/libssl.so.1.1
+COPY --from=alpine:3.16 /usr/lib/libcrypto.so.1.1 /usr/lib/libcrypto.so.1.1
 
 # Устанавливаем LD_LIBRARY_PATH для runtime
 ENV LD_LIBRARY_PATH=/usr/lib:/lib:${LD_LIBRARY_PATH:-}
