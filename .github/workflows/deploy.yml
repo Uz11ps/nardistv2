@@ -175,34 +175,48 @@ jobs:
             sudo $DOCKER_COMPOSE -f docker-compose.prod.yml down --remove-orphans 2>/dev/null || \
             $DOCKER_COMPOSE -f docker-compose.prod.yml down --remove-orphans 2>/dev/null || true
             
-            # Принудительно останавливаем и удаляем контейнеры по имени (на случай если они запущены не через compose)
+            # Сначала получаем полные ID всех контейнеров проекта
+            echo "🧹 Collecting container IDs..."
+            CONTAINER_IDS=$(sudo docker ps -a --no-trunc --filter "name=nardist_" --format "{{.ID}}" 2>/dev/null || docker ps -a --no-trunc --filter "name=nardist_" --format "{{.ID}}" 2>/dev/null || echo "")
+            
+            # Принудительно останавливаем и удаляем контейнеры по имени
             echo "🧹 Force removing old containers by name..."
             for container in nardist_nginx_prod nardist_postgres_prod nardist_redis_prod nardist_backend_prod nardist_frontend_prod nardist_certbot; do
-              # Принудительно удаляем (останавливает и удаляет одновременно)
+              # Сначала останавливаем
+              sudo docker stop $container 2>/dev/null || docker stop $container 2>/dev/null || true
+              # Затем принудительно удаляем
               sudo docker rm -f $container 2>/dev/null || docker rm -f $container 2>/dev/null || true
             done
             
-            # Удаляем все контейнеры проекта по префиксу (включая те что имеют ID в имени)
-            echo "🧹 Removing containers by prefix..."
-            sudo docker ps -a --filter "name=nardist_" --format "{{.ID}}" 2>/dev/null | while read id; do
-              if [ -n "$id" ]; then
-                sudo docker rm -f $id 2>/dev/null || docker rm -f $id 2>/dev/null || true
-              fi
-            done || true
+            # Удаляем все контейнеры по полным ID (включая те что имеют ID в имени)
+            echo "🧹 Removing containers by full ID..."
+            if [ -n "$CONTAINER_IDS" ]; then
+              echo "$CONTAINER_IDS" | while read id; do
+                if [ -n "$id" ]; then
+                  echo "  Removing container: $id"
+                  sudo docker stop $id 2>/dev/null || docker stop $id 2>/dev/null || true
+                  sudo docker rm -f $id 2>/dev/null || docker rm -f $id 2>/dev/null || true
+                fi
+              done
+            fi
             
             # Также удаляем через docker ps -a и grep для надежности (используем полные ID)
-            echo "🧹 Removing containers by full ID..."
+            echo "🧹 Removing containers by pattern matching..."
             sudo docker ps -a --no-trunc 2>/dev/null | grep -E "nardist_(nginx|postgres|redis|backend|frontend|certbot)_prod" | awk '{print $1}' | while read id; do
-              if [ -n "$id" ]; then
+              if [ -n "$id" ] && [ ${#id} -gt 10 ]; then
+                echo "  Removing container by pattern: $id"
+                sudo docker stop $id 2>/dev/null || docker stop $id 2>/dev/null || true
                 sudo docker rm -f $id 2>/dev/null || docker rm -f $id 2>/dev/null || true
               fi
             done || true
             
             # Удаляем контейнеры по известным полным ID (из ошибок)
-            echo "🧹 Removing containers by known IDs..."
+            echo "🧹 Removing containers by known problematic IDs..."
             for full_id in f5eccecf2cd7dd7fea8871df0f1ed8e30813d9ae4fa88c9b8a61e5dea2f6abf8 \
                             51aaf18379ac9e3855652fceb25feb3a2abc06b1c60fb3ed8d931007527bf520 \
                             8ca4178e6291285c1c056f3b6faaeadffe034f219e727fde8b9e0c582f11a4c4; do
+              echo "  Removing known problematic container: $full_id"
+              sudo docker stop $full_id 2>/dev/null || docker stop $full_id 2>/dev/null || true
               sudo docker rm -f $full_id 2>/dev/null || docker rm -f $full_id 2>/dev/null || true
             done
             
@@ -210,12 +224,40 @@ jobs:
             echo "🧹 Final cleanup of all nardist containers..."
             sudo docker ps -a --format "{{.Names}}" 2>/dev/null | grep "^nardist_" | while read name; do
               if [ -n "$name" ]; then
+                echo "  Final cleanup: $name"
+                sudo docker stop $name 2>/dev/null || docker stop $name 2>/dev/null || true
                 sudo docker rm -f $name 2>/dev/null || docker rm -f $name 2>/dev/null || true
               fi
             done || true
             
+            # Дополнительно: удаляем все контейнеры через docker ps -a с полными ID
+            echo "🧹 Removing all remaining nardist containers..."
+            sudo docker ps -a --no-trunc 2>/dev/null | grep "nardist" | awk '{print $1}' | while read id; do
+              if [ -n "$id" ] && [ ${#id} -eq 64 ]; then
+                echo "  Removing remaining container: $id"
+                sudo docker stop $id 2>/dev/null || docker stop $id 2>/dev/null || true
+                sudo docker rm -f $id 2>/dev/null || docker rm -f $id 2>/dev/null || true
+              fi
+            done || true
+            
+            # Проверяем что все контейнеры удалены
+            echo "🔍 Verifying all containers are removed..."
+            REMAINING=$(sudo docker ps -a --filter "name=nardist_" --format "{{.Names}}" 2>/dev/null | wc -l || echo "0")
+            if [ "$REMAINING" -gt 0 ]; then
+              echo "⚠️  Warning: $REMAINING containers still exist, attempting final cleanup..."
+              sudo docker ps -a --filter "name=nardist_" --format "{{.ID}} {{.Names}}" 2>/dev/null | while read id name; do
+                if [ -n "$id" ]; then
+                  echo "  Force removing: $name ($id)"
+                  sudo docker stop $id 2>/dev/null || true
+                  sudo docker rm -f $id 2>/dev/null || true
+                fi
+              done
+            else
+              echo "✅ All containers removed successfully"
+            fi
+            
             # Ждем немного чтобы система освободила ресурсы
-            sleep 2
+            sleep 3
             
             # Открываем порты в firewall (если используется ufw)
             # ВАЖНО: Сначала ВСЕГДА открываем SSH (22), чтобы не заблокировать соединение!
@@ -280,7 +322,18 @@ jobs:
               $DOCKER_COMPOSE -f docker-compose.prod.yml up -d nginx
             fi
             
+            # Проверяем что backend контейнер запущен перед миграциями
+            echo "🔍 Checking backend container status..."
+            if ! sudo docker ps 2>/dev/null | grep -q nardist_backend_prod && ! docker ps 2>/dev/null | grep -q nardist_backend_prod; then
+              echo "⚠️  Backend container not running, starting it..."
+              sudo $DOCKER_COMPOSE -f docker-compose.prod.yml up -d backend 2>/dev/null || \
+              $DOCKER_COMPOSE -f docker-compose.prod.yml up -d backend
+              echo "⏳ Waiting for backend to be ready..."
+              sleep 10
+            fi
+            
             # Применяем миграции (с таймаутом)
+            echo "🗄️  Running database migrations..."
             timeout 60 sudo $DOCKER_COMPOSE -f docker-compose.prod.yml exec -T backend npx prisma migrate deploy 2>/dev/null || \
             timeout 60 $DOCKER_COMPOSE -f docker-compose.prod.yml exec -T backend npx prisma migrate deploy || echo "⚠️  Migrations failed or not needed"
             
