@@ -82,31 +82,34 @@ jobs:
             
             # Создаем или обновляем .env файл из GitHub Secrets
             echo "📝 Creating/updating .env file from GitHub Secrets..."
-            cat > .env << EOF
-# Database
-POSTGRES_USER=${POSTGRES_USER:-nardist}
-POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
-POSTGRES_DB=${POSTGRES_DB:-nardist_db}
-
-# Backend
-JWT_SECRET=${{ secrets.JWT_SECRET }}
-TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}
-NODE_ENV=production
-PORT=3000
-
-# Frontend
-VITE_API_URL=${VITE_API_URL:-https://nardist.online}
-VITE_WS_URL=${VITE_WS_URL:-https://nardist.online}
-FRONTEND_URL=${FRONTEND_URL:-https://nardist.online}
-
-# Domain
-DOMAIN_NAME=${DOMAIN_NAME:-nardist.online}
-SSL_EMAIL=${{ secrets.SSL_EMAIL }}
-
-# Docker Images
-BACKEND_IMAGE=ghcr.io/uz11ps/nardist-backend:latest
-FRONTEND_IMAGE=ghcr.io/uz11ps/nardist-frontend:latest
-EOF
+            
+            # Используем переменные окружения для безопасной передачи секретов
+            {
+              echo "# Database"
+              echo "POSTGRES_USER=${POSTGRES_USER:-nardist}"
+              echo "POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}"
+              echo "POSTGRES_DB=${POSTGRES_DB:-nardist_db}"
+              echo ""
+              echo "# Backend"
+              echo "JWT_SECRET=${{ secrets.JWT_SECRET }}"
+              echo "TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}"
+              echo "NODE_ENV=production"
+              echo "PORT=3000"
+              echo ""
+              echo "# Frontend"
+              echo "VITE_API_URL=${VITE_API_URL:-https://nardist.online}"
+              echo "VITE_WS_URL=${VITE_WS_URL:-https://nardist.online}"
+              echo "FRONTEND_URL=${FRONTEND_URL:-https://nardist.online}"
+              echo ""
+              echo "# Domain"
+              echo "DOMAIN_NAME=${DOMAIN_NAME:-nardist.online}"
+              echo "SSL_EMAIL=${{ secrets.SSL_EMAIL }}"
+              echo ""
+              echo "# Docker Images"
+              echo "BACKEND_IMAGE=ghcr.io/uz11ps/nardist-backend:latest"
+              echo "FRONTEND_IMAGE=ghcr.io/uz11ps/nardist-frontend:latest"
+            } > .env
+            
             echo "✅ .env file created/updated"
             
             # Проверяем что критичные переменные установлены (проверяем в созданном файле)
