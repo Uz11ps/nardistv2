@@ -67,7 +67,7 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: 22
           timeout: 60s
-          command_timeout: 900s
+          command_timeout: 1800s
           envs: POSTGRES_PASSWORD,JWT_SECRET,TELEGRAM_BOT_TOKEN,SSL_EMAIL
           script: |
             cd /opt/Nardist
@@ -175,83 +175,36 @@ jobs:
             sudo $DOCKER_COMPOSE -f docker-compose.prod.yml down --remove-orphans 2>/dev/null || \
             $DOCKER_COMPOSE -f docker-compose.prod.yml down --remove-orphans 2>/dev/null || true
             
-            # Сначала получаем полные ID всех контейнеров проекта
-            echo "🧹 Collecting container IDs..."
-            CONTAINER_IDS=$(sudo docker ps -a --no-trunc --filter "name=nardist_" --format "{{.ID}}" 2>/dev/null || docker ps -a --no-trunc --filter "name=nardist_" --format "{{.ID}}" 2>/dev/null || echo "")
+            # Оптимизированное удаление: собираем все ID один раз и удаляем
+            echo "🧹 Collecting and removing all nardist containers..."
+            # Получаем все контейнеры с префиксом nardist (имена и ID)
+            CONTAINERS=$(sudo docker ps -a --no-trunc --filter "name=nardist_" --format "{{.ID}}|{{.Names}}" 2>/dev/null || \
+                        docker ps -a --no-trunc --filter "name=nardist_" --format "{{.ID}}|{{.Names}}" 2>/dev/null || echo "")
             
-            # Принудительно останавливаем и удаляем контейнеры по имени
-            echo "🧹 Force removing old containers by name..."
-            for container in nardist_nginx_prod nardist_postgres_prod nardist_redis_prod nardist_backend_prod nardist_frontend_prod nardist_certbot; do
-              # Сначала останавливаем
-              sudo docker stop $container 2>/dev/null || docker stop $container 2>/dev/null || true
-              # Затем принудительно удаляем
-              sudo docker rm -f $container 2>/dev/null || docker rm -f $container 2>/dev/null || true
-            done
-            
-            # Удаляем все контейнеры по полным ID (включая те что имеют ID в имени)
-            echo "🧹 Removing containers by full ID..."
-            if [ -n "$CONTAINER_IDS" ]; then
-              echo "$CONTAINER_IDS" | while read id; do
+            # Удаляем все найденные контейнеры
+            if [ -n "$CONTAINERS" ]; then
+              echo "$CONTAINERS" | while IFS='|' read -r id name; do
                 if [ -n "$id" ]; then
-                  echo "  Removing container: $id"
-                  sudo docker stop $id 2>/dev/null || docker stop $id 2>/dev/null || true
-                  sudo docker rm -f $id 2>/dev/null || docker rm -f $id 2>/dev/null || true
+                  echo "  Removing: $name ($id)"
+                  # Останавливаем и удаляем с таймаутом
+                  timeout 5 sudo docker stop $id 2>/dev/null || timeout 5 docker stop $id 2>/dev/null || true
+                  timeout 5 sudo docker rm -f $id 2>/dev/null || timeout 5 docker rm -f $id 2>/dev/null || true
                 fi
               done
             fi
             
-            # Также удаляем через docker ps -a и grep для надежности (используем полные ID)
-            echo "🧹 Removing containers by pattern matching..."
-            sudo docker ps -a --no-trunc 2>/dev/null | grep -E "nardist_(nginx|postgres|redis|backend|frontend|certbot)_prod" | awk '{print $1}' | while read id; do
-              if [ -n "$id" ] && [ ${#id} -gt 10 ]; then
-                echo "  Removing container by pattern: $id"
-                sudo docker stop $id 2>/dev/null || docker stop $id 2>/dev/null || true
-                sudo docker rm -f $id 2>/dev/null || docker rm -f $id 2>/dev/null || true
-              fi
-            done || true
-            
-            # Удаляем контейнеры по известным полным ID (из ошибок)
-            echo "🧹 Removing containers by known problematic IDs..."
-            for full_id in f5eccecf2cd7dd7fea8871df0f1ed8e30813d9ae4fa88c9b8a61e5dea2f6abf8 \
-                            51aaf18379ac9e3855652fceb25feb3a2abc06b1c60fb3ed8d931007527bf520 \
-                            8ca4178e6291285c1c056f3b6faaeadffe034f219e727fde8b9e0c582f11a4c4; do
-              echo "  Removing known problematic container: $full_id"
-              sudo docker stop $full_id 2>/dev/null || docker stop $full_id 2>/dev/null || true
-              sudo docker rm -f $full_id 2>/dev/null || docker rm -f $full_id 2>/dev/null || true
+            # Дополнительная очистка: удаляем по именам (на случай если ID не сработали)
+            echo "🧹 Removing containers by name..."
+            for container in nardist_nginx_prod nardist_postgres_prod nardist_redis_prod nardist_backend_prod nardist_frontend_prod nardist_certbot; do
+              timeout 5 sudo docker stop $container 2>/dev/null || timeout 5 docker stop $container 2>/dev/null || true
+              timeout 5 sudo docker rm -f $container 2>/dev/null || timeout 5 docker rm -f $container 2>/dev/null || true
             done
             
-            # Финальная проверка и удаление всех контейнеров с префиксом nardist
-            echo "🧹 Final cleanup of all nardist containers..."
-            sudo docker ps -a --format "{{.Names}}" 2>/dev/null | grep "^nardist_" | while read name; do
-              if [ -n "$name" ]; then
-                echo "  Final cleanup: $name"
-                sudo docker stop $name 2>/dev/null || docker stop $name 2>/dev/null || true
-                sudo docker rm -f $name 2>/dev/null || docker rm -f $name 2>/dev/null || true
-              fi
-            done || true
-            
-            # Дополнительно: удаляем все контейнеры через docker ps -a с полными ID
-            echo "🧹 Removing all remaining nardist containers..."
-            sudo docker ps -a --no-trunc 2>/dev/null | grep "nardist" | awk '{print $1}' | while read id; do
-              if [ -n "$id" ] && [ ${#id} -eq 64 ]; then
-                echo "  Removing remaining container: $id"
-                sudo docker stop $id 2>/dev/null || docker stop $id 2>/dev/null || true
-                sudo docker rm -f $id 2>/dev/null || docker rm -f $id 2>/dev/null || true
-              fi
-            done || true
-            
-            # Проверяем что все контейнеры удалены
-            echo "🔍 Verifying all containers are removed..."
+            # Финальная проверка
             REMAINING=$(sudo docker ps -a --filter "name=nardist_" --format "{{.Names}}" 2>/dev/null | wc -l || echo "0")
             if [ "$REMAINING" -gt 0 ]; then
-              echo "⚠️  Warning: $REMAINING containers still exist, attempting final cleanup..."
-              sudo docker ps -a --filter "name=nardist_" --format "{{.ID}} {{.Names}}" 2>/dev/null | while read id name; do
-                if [ -n "$id" ]; then
-                  echo "  Force removing: $name ($id)"
-                  sudo docker stop $id 2>/dev/null || true
-                  sudo docker rm -f $id 2>/dev/null || true
-                fi
-              done
+              echo "⚠️  Warning: $REMAINING containers still exist"
+              sudo docker ps -a --filter "name=nardist_" --format "{{.Names}}" 2>/dev/null || true
             else
               echo "✅ All containers removed successfully"
             fi
