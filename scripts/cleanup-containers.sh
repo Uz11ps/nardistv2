@@ -50,6 +50,19 @@ sudo docker ps -a --filter "name=_old_" --format "{{.ID}}" | while read id; do
   fi
 done || true
 
+# Если контейнеры все еще не удаляются, переименовываем их чтобы освободить имена
+REMAINING_OLD=$(sudo docker ps -a --filter "name=_old_" --format "{{.Names}}" 2>/dev/null | wc -l || echo "0")
+if [ "$REMAINING_OLD" -gt 0 ]; then
+  echo "⚠️  Renaming remaining old containers to free names..."
+  sudo docker ps -a --filter "name=_old_" --format "{{.ID}}|{{.Names}}" 2>/dev/null | while IFS='|' read -r id name; do
+    if [ -n "$id" ] && [ -n "$name" ]; then
+      NEW_NAME="${name}_backup_$(date +%s)"
+      echo "  Renaming: $name -> $NEW_NAME"
+      sudo docker rename $name $NEW_NAME 2>/dev/null || true
+    fi
+  done || true
+fi
+
 # Проверяем что порты свободны
 echo "🔍 Checking ports..."
 if lsof -i :80 2>/dev/null | grep -v docker; then

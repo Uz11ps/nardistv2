@@ -260,16 +260,31 @@ jobs:
               fi
             fi
             
+            # Переименовываем оставшиеся старые контейнеры чтобы освободить имена
+            echo "🔄 Renaming remaining old containers to free names..."
+            sudo docker ps -a --filter "name=nardist_" --format "{{.ID}}|{{.Names}}" 2>/dev/null | while IFS='|' read -r id name; do
+              if [ -n "$id" ] && [ -n "$name" ] && echo "$name" | grep -q "_old_\|_backup_"; then
+                # Уже переименован, пропускаем
+                continue
+              elif [ -n "$id" ] && [ -n "$name" ] && ! echo "$name" | grep -qE "^(nardist_nginx_prod|nardist_postgres_prod|nardist_redis_prod|nardist_backend_prod|nardist_frontend_prod|nardist_certbot)$"; then
+                # Это старый контейнер с неправильным именем, переименовываем
+                NEW_NAME="${name}_backup_$(date +%s)"
+                echo "  Renaming: $name -> $NEW_NAME"
+                sudo docker rename $name $NEW_NAME 2>/dev/null || true
+              fi
+            done || true
+            sleep 2
+            
             # Запускаем контейнеры (только build если образы не скачаны)
             # Используем sudo если нужно, иначе обычную команду
             if [ "$BACKEND_PULLED" = true ] && [ "$FRONTEND_PULLED" = true ]; then
               echo "🚀 Using pre-built images, skipping build"
-              sudo $DOCKER_COMPOSE -f docker-compose.prod.yml up -d --force-recreate --no-build --pull never 2>/dev/null || \
-              $DOCKER_COMPOSE -f docker-compose.prod.yml up -d --force-recreate --no-build --pull never
+              sudo $DOCKER_COMPOSE -f docker-compose.prod.yml up -d --force-recreate --no-build --pull never --remove-orphans 2>/dev/null || \
+              $DOCKER_COMPOSE -f docker-compose.prod.yml up -d --force-recreate --no-build --pull never --remove-orphans
             else
               echo "🔨 Building missing images..."
-              sudo $DOCKER_COMPOSE -f docker-compose.prod.yml up -d --force-recreate --build 2>/dev/null || \
-              $DOCKER_COMPOSE -f docker-compose.prod.yml up -d --force-recreate --build
+              sudo $DOCKER_COMPOSE -f docker-compose.prod.yml up -d --force-recreate --build --remove-orphans 2>/dev/null || \
+              $DOCKER_COMPOSE -f docker-compose.prod.yml up -d --force-recreate --build --remove-orphans
             fi
             
             # Ждем готовности сервисов
