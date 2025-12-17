@@ -272,14 +272,31 @@ jobs:
             sudo $DOCKER_COMPOSE -f docker-compose.prod.yml ps 2>/dev/null || \
             $DOCKER_COMPOSE -f docker-compose.prod.yml ps || true
             
+            # Проверяем какие контейнеры созданы но не запущены
+            echo "🔍 Checking stopped containers..."
+            sudo docker ps -a --filter "name=nardist_" --format "{{.Names}}|{{.Status}}" 2>/dev/null | grep -v "_old_" | while IFS='|' read -r name status; do
+              if [ -n "$name" ] && echo "$status" | grep -q "Exited\|Created\|Dead"; then
+                echo "  ⚠️  Container $name is not running: $status"
+                echo "  📋 Logs for $name:"
+                sudo docker logs $name --tail 20 2>/dev/null || docker logs $name --tail 20 2>/dev/null || true
+              fi
+            done || true
+            
             # Явно запускаем все сервисы если они не запущены
             echo "🚀 Ensuring all services are running..."
             for service in nginx backend frontend postgres redis; do
               CONTAINER_NAME="nardist_${service}_prod"
               if ! sudo docker ps 2>/dev/null | grep -q "$CONTAINER_NAME" && ! docker ps 2>/dev/null | grep -q "$CONTAINER_NAME"; then
                 echo "  Starting $service..."
+                # Пробуем запустить через compose
                 sudo $DOCKER_COMPOSE -f docker-compose.prod.yml up -d $service 2>/dev/null || \
                 $DOCKER_COMPOSE -f docker-compose.prod.yml up -d $service || true
+                # Если не запустился, проверяем логи
+                sleep 2
+                if ! sudo docker ps 2>/dev/null | grep -q "$CONTAINER_NAME" && ! docker ps 2>/dev/null | grep -q "$CONTAINER_NAME"; then
+                  echo "  ⚠️  $service failed to start, checking logs..."
+                  sudo docker logs $CONTAINER_NAME --tail 30 2>/dev/null || docker logs $CONTAINER_NAME --tail 30 2>/dev/null || true
+                fi
               fi
             done
             sleep 5
