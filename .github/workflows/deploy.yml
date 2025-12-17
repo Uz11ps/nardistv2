@@ -68,6 +68,7 @@ jobs:
           port: 22
           timeout: 60s
           command_timeout: 900s
+          envs: POSTGRES_PASSWORD,JWT_SECRET,TELEGRAM_BOT_TOKEN,SSL_EMAIL
           script: |
             cd /opt/Nardist
             
