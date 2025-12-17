@@ -204,21 +204,23 @@ jobs:
               timeout 3 sudo docker rm -f $container 2>/dev/null || timeout 3 docker rm -f $container 2>/dev/null || true
             done
             
-            # Если контейнеры все еще существуют, пробуем через systemd (если доступно)
+            # Если контейнеры все еще существуют, переименовываем их чтобы освободить имена
             REMAINING=$(sudo docker ps -a --filter "name=nardist_" --format "{{.Names}}" 2>/dev/null | wc -l || echo "0")
             if [ "$REMAINING" -gt 0 ]; then
-              echo "⚠️  Warning: $REMAINING containers still exist, trying system-level cleanup..."
-              # Пробуем перезапустить Docker daemon для освобождения заблокированных контейнеров
-              sudo systemctl restart docker 2>/dev/null || true
-              sleep 2
-              # Повторная попытка удаления
+              echo "⚠️  Warning: $REMAINING containers still exist, renaming them to free names..."
+              # Переименовываем старые контейнеры чтобы освободить имена для новых
               sudo docker ps -a --filter "name=nardist_" --format "{{.ID}}|{{.Names}}" 2>/dev/null | while IFS='|' read -r id name; do
-                if [ -n "$id" ]; then
-                  echo "  Final attempt: $name ($id)"
-                  sudo docker kill $id 2>/dev/null || true
-                  sudo docker rm -f $id 2>/dev/null || true
+                if [ -n "$id" ] && [ -n "$name" ]; then
+                  OLD_NAME="$name"
+                  NEW_NAME="${name}_old_$(date +%s)"
+                  echo "  Renaming: $OLD_NAME -> $NEW_NAME"
+                  # Пробуем переименовать (работает даже если контейнер запущен)
+                  sudo docker rename $OLD_NAME $NEW_NAME 2>/dev/null || \
+                  docker rename $OLD_NAME $NEW_NAME 2>/dev/null || true
                 fi
               done || true
+              sleep 1
+              echo "✅ Old containers renamed, names are now free"
             else
               echo "✅ All containers removed successfully"
             fi
