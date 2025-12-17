@@ -221,6 +221,17 @@ jobs:
               done || true
               sleep 1
               echo "✅ Old containers renamed, names are now free"
+              
+              # Останавливаем переименованные контейнеры чтобы освободить порты
+              echo "🛑 Stopping renamed old containers to free ports..."
+              sudo docker ps --filter "name=_old_" --format "{{.Names}}" 2>/dev/null | while read name; do
+                if [ -n "$name" ]; then
+                  echo "  Stopping old container: $name"
+                  # Используем kill для принудительной остановки
+                  timeout 3 sudo docker kill $name 2>/dev/null || timeout 3 docker kill $name 2>/dev/null || true
+                fi
+              done || true
+              sleep 2
             else
               echo "✅ All containers removed successfully"
             fi
