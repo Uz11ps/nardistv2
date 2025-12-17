@@ -165,14 +165,29 @@ jobs:
             
             # Безопасная остановка через docker compose (останавливает все контейнеры проекта)
             echo "🛑 Stopping existing containers..."
-            sudo $DOCKER_COMPOSE -f docker-compose.prod.yml down 2>/dev/null || \
-            $DOCKER_COMPOSE -f docker-compose.prod.yml down 2>/dev/null || true
+            sudo $DOCKER_COMPOSE -f docker-compose.prod.yml down --remove-orphans 2>/dev/null || \
+            $DOCKER_COMPOSE -f docker-compose.prod.yml down --remove-orphans 2>/dev/null || true
             
-            # Дополнительно останавливаем контейнеры по имени (на случай если они запущены не через compose)
-            for container in nardist_nginx_prod nardist_postgres_prod nardist_redis_prod nardist_backend_prod nardist_frontend_prod; do
-              sudo docker stop $container 2>/dev/null || docker stop $container 2>/dev/null || true
-              sudo docker rm $container 2>/dev/null || docker rm $container 2>/dev/null || true
+            # Принудительно останавливаем и удаляем контейнеры по имени (на случай если они запущены не через compose)
+            echo "🧹 Force removing old containers by name..."
+            for container in nardist_nginx_prod nardist_postgres_prod nardist_redis_prod nardist_backend_prod nardist_frontend_prod nardist_certbot; do
+              # Принудительно удаляем (останавливает и удаляет одновременно)
+              sudo docker rm -f $container 2>/dev/null || docker rm -f $container 2>/dev/null || true
             done
+            
+            # Удаляем все контейнеры проекта по префиксу (включая те что имеют ID в имени)
+            echo "🧹 Removing containers by prefix..."
+            sudo docker ps -a --filter "name=nardist_" --format "{{.ID}}" 2>/dev/null | while read id; do
+              sudo docker rm -f $id 2>/dev/null || docker rm -f $id 2>/dev/null || true
+            done || true
+            
+            # Также удаляем через docker ps -a и grep для надежности
+            sudo docker ps -a 2>/dev/null | grep -E "nardist_(nginx|postgres|redis|backend|frontend|certbot)_prod" | awk '{print $1}' | while read id; do
+              sudo docker rm -f $id 2>/dev/null || docker rm -f $id 2>/dev/null || true
+            done || true
+            
+            # Ждем немного чтобы система освободила ресурсы
+            sleep 2
             
             # Открываем порты в firewall (если используется ufw)
             # ВАЖНО: Сначала ВСЕГДА открываем SSH (22), чтобы не заблокировать соединение!
