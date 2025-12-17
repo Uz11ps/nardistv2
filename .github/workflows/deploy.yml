@@ -56,6 +56,11 @@ jobs:
 
       - name: Deploy to server
         uses: appleboy/ssh-action@v1.0.0
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          SSL_EMAIL: ${{ secrets.SSL_EMAIL }}
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
@@ -84,15 +89,16 @@ jobs:
             echo "📝 Creating/updating .env file from GitHub Secrets..."
             
             # Используем переменные окружения для безопасной передачи секретов
+            # Переменные передаются через env секцию SSH action
             {
               echo "# Database"
               echo "POSTGRES_USER=${POSTGRES_USER:-nardist}"
-              echo "POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}"
+              echo "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}"
               echo "POSTGRES_DB=${POSTGRES_DB:-nardist_db}"
               echo ""
               echo "# Backend"
-              echo "JWT_SECRET=${{ secrets.JWT_SECRET }}"
-              echo "TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}"
+              echo "JWT_SECRET=${JWT_SECRET}"
+              echo "TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}"
               echo "NODE_ENV=production"
               echo "PORT=3000"
               echo ""
@@ -103,7 +109,7 @@ jobs:
               echo ""
               echo "# Domain"
               echo "DOMAIN_NAME=${DOMAIN_NAME:-nardist.online}"
-              echo "SSL_EMAIL=${{ secrets.SSL_EMAIL }}"
+              echo "SSL_EMAIL=${SSL_EMAIL}"
               echo ""
               echo "# Docker Images"
               echo "BACKEND_IMAGE=ghcr.io/uz11ps/nardist-backend:latest"
@@ -178,12 +184,33 @@ jobs:
             # Удаляем все контейнеры проекта по префиксу (включая те что имеют ID в имени)
             echo "🧹 Removing containers by prefix..."
             sudo docker ps -a --filter "name=nardist_" --format "{{.ID}}" 2>/dev/null | while read id; do
-              sudo docker rm -f $id 2>/dev/null || docker rm -f $id 2>/dev/null || true
+              if [ -n "$id" ]; then
+                sudo docker rm -f $id 2>/dev/null || docker rm -f $id 2>/dev/null || true
+              fi
             done || true
             
-            # Также удаляем через docker ps -a и grep для надежности
-            sudo docker ps -a 2>/dev/null | grep -E "nardist_(nginx|postgres|redis|backend|frontend|certbot)_prod" | awk '{print $1}' | while read id; do
-              sudo docker rm -f $id 2>/dev/null || docker rm -f $id 2>/dev/null || true
+            # Также удаляем через docker ps -a и grep для надежности (используем полные ID)
+            echo "🧹 Removing containers by full ID..."
+            sudo docker ps -a --no-trunc 2>/dev/null | grep -E "nardist_(nginx|postgres|redis|backend|frontend|certbot)_prod" | awk '{print $1}' | while read id; do
+              if [ -n "$id" ]; then
+                sudo docker rm -f $id 2>/dev/null || docker rm -f $id 2>/dev/null || true
+              fi
+            done || true
+            
+            # Удаляем контейнеры по известным полным ID (из ошибок)
+            echo "🧹 Removing containers by known IDs..."
+            for full_id in f5eccecf2cd7dd7fea8871df0f1ed8e30813d9ae4fa88c9b8a61e5dea2f6abf8 \
+                            51aaf18379ac9e3855652fceb25feb3a2abc06b1c60fb3ed8d931007527bf520 \
+                            8ca4178e6291285c1c056f3b6faaeadffe034f219e727fde8b9e0c582f11a4c4; do
+              sudo docker rm -f $full_id 2>/dev/null || docker rm -f $full_id 2>/dev/null || true
+            done
+            
+            # Финальная проверка и удаление всех контейнеров с префиксом nardist
+            echo "🧹 Final cleanup of all nardist containers..."
+            sudo docker ps -a --format "{{.Names}}" 2>/dev/null | grep "^nardist_" | while read name; do
+              if [ -n "$name" ]; then
+                sudo docker rm -f $name 2>/dev/null || docker rm -f $name 2>/dev/null || true
+              fi
             done || true
             
             # Ждем немного чтобы система освободила ресурсы
