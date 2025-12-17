@@ -21,43 +21,74 @@ cd "$(dirname "$0")/.." || exit 1
 echo "🛑 Остановка всех контейнеров через docker-compose..."
 sudo $DOCKER_COMPOSE -f docker-compose.prod.yml down --remove-orphans 2>/dev/null || true
 
-# Шаг 2: Получаем все контейнеры с префиксом nardist и удаляем их принудительно
-echo "🔍 Поиск всех контейнеров nardist_*..."
-CONTAINERS=$(sudo docker ps -a --no-trunc --filter "name=nardist_" --format "{{.ID}}" 2>/dev/null || echo "")
-
-if [ -n "$CONTAINERS" ]; then
-    echo "$CONTAINERS" | while read -r id; do
-        if [ -n "$id" ]; then
-            echo "  Удаление контейнера: $id"
-            # Принудительная остановка и удаление
-            sudo docker kill "$id" 2>/dev/null || true
-            sudo docker stop "$id" 2>/dev/null || true
-            sudo docker rm -f "$id" 2>/dev/null || true
-        fi
-    done
-fi
-
-# Шаг 3: Удаляем контейнеры по именам (на случай если ID не сработали)
-echo "🧹 Принудительное удаление контейнеров по именам..."
-for container in nardist_nginx_prod nardist_postgres_prod nardist_redis_prod nardist_backend_prod nardist_frontend_prod nardist_certbot; do
-    echo "  Попытка удаления: $container"
-    sudo docker kill "$container" 2>/dev/null || true
-    sudo docker stop "$container" 2>/dev/null || true
-    sudo docker rm -f "$container" 2>/dev/null || true
-done
-
-# Шаг 4: Удаляем все контейнеры с _old_ или _backup_ в имени
-echo "🧹 Удаление старых контейнеров (_old_, _backup_)..."
-sudo docker ps -a --format "{{.ID}}|{{.Names}}" 2>/dev/null | while IFS='|' read -r id name; do
-    if [ -n "$id" ] && [ -n "$name" ]; then
-        if echo "$name" | grep -qE "(nardist_.*_old_|nardist_.*_backup_)"; then
-            echo "  Удаление старого контейнера: $name ($id)"
-            sudo docker kill "$id" 2>/dev/null || true
-            sudo docker stop "$id" 2>/dev/null || true
-            sudo docker rm -f "$id" 2>/dev/null || true
-        fi
+# Шаг 2: Принудительно убиваем все контейнеры nardist_*
+echo "🔍 Принудительная остановка всех контейнеров nardist_*..."
+sudo docker ps -a --filter "name=nardist_" --format "{{.ID}}" 2>/dev/null | while read -r id; do
+    if [ -n "$id" ]; then
+        echo "  Kill контейнера: $id"
+        sudo docker kill "$id" 2>/dev/null || true
     fi
 done || true
+
+sleep 2
+
+# Шаг 3: Удаляем все контейнеры nardist_* принудительно
+echo "🧹 Принудительное удаление всех контейнеров nardist_*..."
+sudo docker ps -a --filter "name=nardist_" --format "{{.ID}}" 2>/dev/null | while read -r id; do
+    if [ -n "$id" ]; then
+        echo "  Удаление контейнера: $id"
+        sudo docker rm -f "$id" 2>/dev/null || true
+    fi
+done || true
+
+# Шаг 4: Если контейнеры все еще не удаляются, останавливаем Docker daemon
+REMAINING=$(sudo docker ps -a --filter "name=nardist_" --format "{{.Names}}" 2>/dev/null | wc -l || echo "0")
+if [ "$REMAINING" -gt 0 ]; then
+    echo "⚠️  Осталось $REMAINING контейнеров, останавливаем Docker daemon для принудительной очистки..."
+    
+    # Сохраняем список ID контейнеров ДО остановки Docker
+    echo "📋 Сохранение списка контейнеров для удаления..."
+    CONTAINER_IDS=$(sudo docker ps -a --filter "name=nardist_" --format "{{.ID}}" 2>/dev/null || echo "")
+    CONTAINER_NAMES=$(sudo docker ps -a --filter "name=nardist_" --format "{{.Names}}" 2>/dev/null || echo "")
+    
+    echo "Контейнеры для удаления:"
+    echo "$CONTAINER_NAMES"
+    
+    sudo systemctl stop docker 2>/dev/null || true
+    sleep 5
+    
+    # Удаляем контейнеры напрямую из файловой системы Docker
+    if [ -d "/var/lib/docker/containers" ]; then
+        echo "🧹 Удаление контейнеров из файловой системы..."
+        if [ -n "$CONTAINER_IDS" ]; then
+            echo "$CONTAINER_IDS" | while read -r id; do
+                if [ -n "$id" ] && [ -d "/var/lib/docker/containers/$id" ]; then
+                    echo "  Удаление директории контейнера: $id"
+                    sudo rm -rf "/var/lib/docker/containers/$id" 2>/dev/null || true
+                fi
+            done || true
+        fi
+        
+        # Удаляем все контейнеры nardist_* из файловой системы (на случай если ID не совпадают)
+        echo "🧹 Поиск и удаление всех контейнеров nardist_*..."
+        sudo find /var/lib/docker/containers -maxdepth 1 -type d 2>/dev/null | while read -r dir; do
+            if [ -n "$dir" ] && [ "$dir" != "/var/lib/docker/containers" ]; then
+                CONTAINER_ID=$(basename "$dir")
+                # Проверяем метаданные контейнера на наличие имени nardist_
+                if [ -f "$dir/config.v2.json" ]; then
+                    if sudo grep -q "nardist_" "$dir/config.v2.json" 2>/dev/null; then
+                        echo "  Удаление контейнера nardist_*: $CONTAINER_ID"
+                        sudo rm -rf "$dir" 2>/dev/null || true
+                    fi
+                fi
+            fi
+        done || true
+    fi
+    
+    echo "🚀 Запуск Docker daemon..."
+    sudo systemctl start docker
+    sleep 10
+fi
 
 # Шаг 5: Проверяем что порты свободны
 echo "🔍 Проверка портов 80 и 443..."
