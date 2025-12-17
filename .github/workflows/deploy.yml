@@ -175,36 +175,50 @@ jobs:
             sudo $DOCKER_COMPOSE -f docker-compose.prod.yml down --remove-orphans 2>/dev/null || \
             $DOCKER_COMPOSE -f docker-compose.prod.yml down --remove-orphans 2>/dev/null || true
             
-            # Оптимизированное удаление: собираем все ID один раз и удаляем
-            echo "🧹 Collecting and removing all nardist containers..."
+            # Агрессивное удаление: используем kill вместо stop для обхода permission denied
+            echo "🧹 Collecting and forcefully removing all nardist containers..."
             # Получаем все контейнеры с префиксом nardist (имена и ID)
             CONTAINERS=$(sudo docker ps -a --no-trunc --filter "name=nardist_" --format "{{.ID}}|{{.Names}}" 2>/dev/null || \
                         docker ps -a --no-trunc --filter "name=nardist_" --format "{{.ID}}|{{.Names}}" 2>/dev/null || echo "")
             
-            # Удаляем все найденные контейнеры
+            # Удаляем все найденные контейнеры (используем kill для принудительной остановки)
             if [ -n "$CONTAINERS" ]; then
               echo "$CONTAINERS" | while IFS='|' read -r id name; do
                 if [ -n "$id" ]; then
-                  echo "  Removing: $name ($id)"
-                  # Останавливаем и удаляем с таймаутом
-                  timeout 5 sudo docker stop $id 2>/dev/null || timeout 5 docker stop $id 2>/dev/null || true
-                  timeout 5 sudo docker rm -f $id 2>/dev/null || timeout 5 docker rm -f $id 2>/dev/null || true
+                  echo "  Force removing: $name ($id)"
+                  # Используем kill вместо stop для обхода permission denied
+                  timeout 3 sudo docker kill $id 2>/dev/null || timeout 3 docker kill $id 2>/dev/null || true
+                  timeout 3 sudo docker stop $id 2>/dev/null || timeout 3 docker stop $id 2>/dev/null || true
+                  # Принудительное удаление
+                  timeout 3 sudo docker rm -f $id 2>/dev/null || timeout 3 docker rm -f $id 2>/dev/null || true
                 fi
               done
             fi
             
-            # Дополнительная очистка: удаляем по именам (на случай если ID не сработали)
-            echo "🧹 Removing containers by name..."
+            # Дополнительная очистка: удаляем по именам с kill
+            echo "🧹 Force removing containers by name..."
             for container in nardist_nginx_prod nardist_postgres_prod nardist_redis_prod nardist_backend_prod nardist_frontend_prod nardist_certbot; do
-              timeout 5 sudo docker stop $container 2>/dev/null || timeout 5 docker stop $container 2>/dev/null || true
-              timeout 5 sudo docker rm -f $container 2>/dev/null || timeout 5 docker rm -f $container 2>/dev/null || true
+              # Используем kill для принудительной остановки
+              timeout 3 sudo docker kill $container 2>/dev/null || timeout 3 docker kill $container 2>/dev/null || true
+              timeout 3 sudo docker stop $container 2>/dev/null || timeout 3 docker stop $container 2>/dev/null || true
+              timeout 3 sudo docker rm -f $container 2>/dev/null || timeout 3 docker rm -f $container 2>/dev/null || true
             done
             
-            # Финальная проверка
+            # Если контейнеры все еще существуют, пробуем через systemd (если доступно)
             REMAINING=$(sudo docker ps -a --filter "name=nardist_" --format "{{.Names}}" 2>/dev/null | wc -l || echo "0")
             if [ "$REMAINING" -gt 0 ]; then
-              echo "⚠️  Warning: $REMAINING containers still exist"
-              sudo docker ps -a --filter "name=nardist_" --format "{{.Names}}" 2>/dev/null || true
+              echo "⚠️  Warning: $REMAINING containers still exist, trying system-level cleanup..."
+              # Пробуем перезапустить Docker daemon для освобождения заблокированных контейнеров
+              sudo systemctl restart docker 2>/dev/null || true
+              sleep 2
+              # Повторная попытка удаления
+              sudo docker ps -a --filter "name=nardist_" --format "{{.ID}}|{{.Names}}" 2>/dev/null | while IFS='|' read -r id name; do
+                if [ -n "$id" ]; then
+                  echo "  Final attempt: $name ($id)"
+                  sudo docker kill $id 2>/dev/null || true
+                  sudo docker rm -f $id 2>/dev/null || true
+                fi
+              done || true
             else
               echo "✅ All containers removed successfully"
             fi
