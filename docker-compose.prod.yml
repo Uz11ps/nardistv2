@@ -82,7 +82,7 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:rocd /opt/Nardist/backend# Создать директории для бинарниковmkdir -p node_modules/@prisma/enginesmkdir -p node_modules/.prisma# Скачать бинарник для debian-openssl-3.0.xcd node_modules/@prisma/engines# Скачать и распаковать бинарник
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
       - certbot_data:/etc/letsencrypt:ro
       - certbot_www:/var/www/certbot:ro

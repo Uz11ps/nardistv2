@@ -160,6 +160,14 @@ jobs:
             # Останавливаем системный nginx (Ispmanager) если он занимает порты 80/443
             systemctl stop nginx 2>/dev/null || true
             systemctl disable nginx 2>/dev/null || true
+            
+            # Перезапускаем Docker daemon для сброса состояния и решения проблем с permission denied
+            echo "🔄 Restarting Docker daemon to reset state..."
+            sudo systemctl stop docker 2>/dev/null || true
+            sleep 3
+            sudo systemctl start docker
+            sleep 10
+            
             # Проверяем что порты свободны
             if lsof -i :80 2>/dev/null | grep -v docker; then
               echo "⚠️  Port 80 is occupied by non-docker process, attempting to free it..."
