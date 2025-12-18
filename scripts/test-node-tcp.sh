@@ -67,7 +67,7 @@ try {
     host: '$POSTGRES_IP',
     port: 5432,
     user: 'nardist',
-    password: '$(grep POSTGRES_PASSWORD .env | sed \"s/^POSTGRES_PASSWORD=//\")',
+    password: '$(grep POSTGRES_PASSWORD .env | sed "s/^POSTGRES_PASSWORD=//")',
     database: 'nardist_db',
     connectionTimeoutMillis: 5000
   });
