@@ -135,51 +135,14 @@ services:
       - migrations
     command: >
       sh -c "
-        echo '🔍 Debug: Checking network connectivity...' &&
-        echo '  Testing hostname resolution for postgres (service name):' &&
-        (nslookup postgres 2>/dev/null || getent hosts postgres 2>/dev/null || echo '  ⚠️  Cannot resolve postgres hostname') &&
-        echo '  Testing hostname resolution for nardist_postgres_prod (container name):' &&
-        (nslookup nardist_postgres_prod 2>/dev/null || getent hosts nardist_postgres_prod 2>/dev/null || echo '  ⚠️  Cannot resolve nardist_postgres_prod hostname') &&
-        echo '⏳ Waiting for PostgreSQL to be ready (max 40 seconds)...' &&
-        attempt=1 &&
-        max_attempts=20 &&
-        postgres_host='' &&
-        while [ $$attempt -le $$max_attempts ]; do
-          # Пробуем сначала имя сервиса, потом имя контейнера
+        echo '⏳ Waiting for PostgreSQL...' &&
+        for i in 1 2 3 4 5 6 7 8 9 10; do
           if nc -z postgres 5432 2>/dev/null; then
-            postgres_host='postgres' &&
-            echo \"✅ PostgreSQL port is reachable via service name 'postgres' (attempt $$attempt/$$max_attempts)\" &&
-            break
-          elif nc -z nardist_postgres_prod 5432 2>/dev/null; then
-            postgres_host='nardist_postgres_prod' &&
-            echo \"✅ PostgreSQL port is reachable via container name 'nardist_postgres_prod' (attempt $$attempt/$$max_attempts)\" &&
+            echo '✅ PostgreSQL is ready' &&
             break
           fi
-          echo \"  Waiting for postgres:5432... (attempt $$attempt/$$max_attempts)\" &&
-          sleep 2 &&
-          attempt=$$((attempt + 1))
+          sleep 2
         done &&
-        if [ -z \"$$postgres_host\" ]; then
-          echo '❌ ERROR: PostgreSQL is not reachable after 40 seconds' &&
-          echo '🔍 Debug info:' &&
-          echo '  Network interfaces:' &&
-          ip addr show 2>/dev/null || ifconfig 2>/dev/null || echo '    (cannot list interfaces)' &&
-          echo '  DNS resolution for postgres:' &&
-          (nslookup postgres 2>/dev/null || getent hosts postgres 2>/dev/null || echo '    Cannot resolve postgres') &&
-          echo '  DNS resolution for nardist_postgres_prod:' &&
-          (nslookup nardist_postgres_prod 2>/dev/null || getent hosts nardist_postgres_prod 2>/dev/null || echo '    Cannot resolve nardist_postgres_prod') &&
-          echo '  Trying direct connection test:' &&
-          (timeout 2 sh -c '</dev/tcp/postgres/5432' 2>/dev/null && echo '    TCP connection to postgres:5432 successful' || echo '    TCP connection to postgres:5432 failed') &&
-          (timeout 2 sh -c '</dev/tcp/nardist_postgres_prod/5432' 2>/dev/null && echo '    TCP connection to nardist_postgres_prod:5432 successful' || echo '    TCP connection to nardist_postgres_prod:5432 failed') &&
-          exit 1
-        fi &&
-        echo '✅ PostgreSQL port is open, verifying database connection...' &&
-        echo '🔍 Debug: Checking DATABASE_URL configuration...' &&
-        echo \"  Database host: postgres (service name)\" &&
-        echo \"  Database port: 5432\" &&
-        echo \"  Database name: \${POSTGRES_DB:-nardist_db}\" &&
-        echo \"  Database user: \${POSTGRES_USER:-nardist}\" &&
-        echo \"  Password set: \$(if [ -n \"\${POSTGRES_PASSWORD}\" ]; then echo 'yes'; else echo 'NO - PASSWORD MISSING!'; fi)\" &&
         echo '🔧 Generating Prisma client...' &&
         npm run prisma:generate &&
         echo '🗄️  Running migrations...' &&
