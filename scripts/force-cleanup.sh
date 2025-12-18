@@ -198,6 +198,39 @@ if command -v ip &> /dev/null; then
     done || true
 fi
 
+# Настраиваем Docker daemon на использование iptables-legacy
+echo "🔧 Настройка Docker daemon на использование iptables-legacy..."
+DOCKER_DAEMON_JSON="/etc/docker/daemon.json"
+if [ ! -f "$DOCKER_DAEMON_JSON" ]; then
+    echo "  Создание $DOCKER_DAEMON_JSON..."
+    sudo mkdir -p /etc/docker
+    echo '{"iptables": true}' | sudo tee "$DOCKER_DAEMON_JSON" > /dev/null
+fi
+
+# Проверяем и обновляем daemon.json для использования iptables-legacy
+if ! sudo grep -q '"iptables":' "$DOCKER_DAEMON_JSON" 2>/dev/null; then
+    echo "  Добавление настройки iptables в $DOCKER_DAEMON_JSON..."
+    sudo python3 -c "
+import json
+import sys
+try:
+    with open('$DOCKER_DAEMON_JSON', 'r') as f:
+        config = json.load(f)
+except:
+    config = {}
+config['iptables'] = True
+with open('$DOCKER_DAEMON_JSON', 'w') as f:
+    json.dump(config, f, indent=2)
+" 2>/dev/null || echo '{"iptables": true}' | sudo tee "$DOCKER_DAEMON_JSON" > /dev/null
+fi
+
+# Устанавливаем альтернативу iptables на legacy если доступно
+if command -v update-alternatives &> /dev/null && command -v iptables-legacy &> /dev/null; then
+    echo "  Настройка альтернативы iptables на legacy..."
+    sudo update-alternatives --set iptables /usr/sbin/iptables-legacy 2>/dev/null || true
+    sudo update-alternatives --set ip6tables /usr/sbin/ip6tables-legacy 2>/dev/null || true
+fi
+
 # Перезапускаем Docker daemon для восстановления iptables правил
 echo "🔄 Запуск Docker daemon для восстановления iptables правил..."
 sudo systemctl start docker 2>/dev/null || true
@@ -223,28 +256,27 @@ while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
     fi
 done
 
-# Проверяем наличие цепочек и создаем их через iptables-legacy если нужно
+# Проверяем наличие цепочек и создаем их через правильный интерфейс
 echo "🔧 Проверка цепочек iptables Docker..."
-if command -v iptables-legacy &> /dev/null; then
-    IPTABLES_CMD="iptables-legacy"
-elif command -v iptables &> /dev/null; then
-    IPTABLES_CMD="iptables"
-else
-    IPTABLES_CMD=""
-fi
-
-if [ -n "$IPTABLES_CMD" ]; then
-    # Проверяем и создаем цепочки через правильный интерфейс
-    if ! sudo $IPTABLES_CMD -t filter -L DOCKER-ISOLATION-STAGE-2 &>/dev/null; then
-        echo "  Создание цепочки DOCKER-ISOLATION-STAGE-2 через $IPTABLES_CMD..."
-        sudo $IPTABLES_CMD -t filter -N DOCKER-ISOLATION-STAGE-2 2>/dev/null || true
-        sudo $IPTABLES_CMD -t filter -A DOCKER-ISOLATION-STAGE-2 -j RETURN 2>/dev/null || true
+# Используем iptables напрямую (Docker должен использовать legacy после настройки)
+if command -v iptables &> /dev/null; then
+    # Проверяем и создаем цепочки через iptables (Docker использует тот же интерфейс)
+    if ! sudo iptables -t filter -L DOCKER-ISOLATION-STAGE-2 &>/dev/null; then
+        echo "  Создание цепочки DOCKER-ISOLATION-STAGE-2..."
+        sudo iptables -t filter -N DOCKER-ISOLATION-STAGE-2 2>/dev/null || true
+        sudo iptables -t filter -A DOCKER-ISOLATION-STAGE-2 -j RETURN 2>/dev/null || true
     fi
     
-    if ! sudo $IPTABLES_CMD -t filter -L DOCKER-ISOLATION-STAGE-1 &>/dev/null; then
-        echo "  Создание цепочки DOCKER-ISOLATION-STAGE-1 через $IPTABLES_CMD..."
-        sudo $IPTABLES_CMD -t filter -N DOCKER-ISOLATION-STAGE-1 2>/dev/null || true
-        sudo $IPTABLES_CMD -t filter -A DOCKER-ISOLATION-STAGE-1 -j RETURN 2>/dev/null || true
+    if ! sudo iptables -t filter -L DOCKER-ISOLATION-STAGE-1 &>/dev/null; then
+        echo "  Создание цепочки DOCKER-ISOLATION-STAGE-1..."
+        sudo iptables -t filter -N DOCKER-ISOLATION-STAGE-1 2>/dev/null || true
+        sudo iptables -t filter -A DOCKER-ISOLATION-STAGE-1 -j RETURN 2>/dev/null || true
+    fi
+    
+    # Добавляем правило в FORWARD для связи цепочек
+    if ! sudo iptables -t filter -C FORWARD -j DOCKER-ISOLATION-STAGE-1 &>/dev/null; then
+        echo "  Добавление правила в FORWARD..."
+        sudo iptables -t filter -I FORWARD -j DOCKER-ISOLATION-STAGE-1 2>/dev/null || true
     fi
 fi
 
