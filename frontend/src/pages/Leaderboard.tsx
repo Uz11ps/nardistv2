@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Card, Tabs } from '../components/ui';
+import { Card, Tabs, Skeleton, Icon } from '../components/ui';
 import { ratingsService } from '../services';
 import { placeholders } from '../utils/placeholders';
 import './Leaderboard.css';
@@ -24,7 +24,10 @@ export const Leaderboard = () => {
   return (
     <div className="leaderboard-page">
       <Link to="/" className="leaderboard-page__back">←</Link>
-      <h1 className="leaderboard-page__title">🏆 Таблица лидеров</h1>
+      <h1 className="leaderboard-page__title">
+        <Icon name="trophy" size={28} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
+        Таблица лидеров
+      </h1>
       <Tabs tabs={tabs} onChange={(id) => setMode(id as 'SHORT' | 'LONG')} />
     </div>
   );
@@ -36,13 +39,24 @@ const LeaderboardTable = ({ mode }: { mode: 'SHORT' | 'LONG' }) => {
 
   useEffect(() => {
     ratingsService.getLeaderboard(mode)
-      .then(setRatings)
-      .catch(console.error)
+      .then((data) => {
+        setRatings(Array.isArray(data) ? data : []);
+      })
+      .catch((error) => {
+        console.error('Failed to load ratings:', error);
+        setRatings([]);
+      })
       .finally(() => setLoading(false));
   }, [mode]);
 
   if (loading) {
-    return <div className="leaderboard-table">Загрузка...</div>;
+    return (
+      <div className="leaderboard-table">
+        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
+          <Skeleton key={i} height={60} style={{ marginBottom: '8px', borderRadius: '6px' }} />
+        ))}
+      </div>
+    );
   }
 
   if (ratings.length === 0) {
@@ -51,7 +65,7 @@ const LeaderboardTable = ({ mode }: { mode: 'SHORT' | 'LONG' }) => {
 
   return (
     <div className="leaderboard-table">
-      {ratings.map((rating, index) => (
+      {Array.isArray(ratings) ? ratings.map((rating, index) => (
         <Card key={rating.id} className="leaderboard-item">
           <div className="leaderboard-item__rank">#{index + 1}</div>
           <div className="leaderboard-item__avatar">
@@ -68,7 +82,9 @@ const LeaderboardTable = ({ mode }: { mode: 'SHORT' | 'LONG' }) => {
           </div>
           <div className="leaderboard-item__rating">{rating.rating}</div>
         </Card>
-      ))}
+      )) : (
+        <div className="leaderboard-table">Нет данных</div>
+      )}
     </div>
   );
 };

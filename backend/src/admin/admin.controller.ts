@@ -47,6 +47,16 @@ export class AdminController {
     return this.adminService.getGames(parseInt(page, 10), parseInt(limit, 10));
   }
 
+  @Get('games/:id')
+  async getGameById(@Param('id') id: string) {
+    return this.adminService.getGameById(parseInt(id, 10));
+  }
+
+  @Get('games/:id/logs')
+  async getGameLogs(@Param('id') id: string) {
+    return this.adminService.getGameLogs(parseInt(id, 10));
+  }
+
   // Турниры
   @Get('tournaments')
   async getTournaments() {
@@ -80,6 +90,11 @@ export class AdminController {
     return this.adminService.getArticles();
   }
 
+  @Get('articles/:id')
+  async getArticleById(@Param('id') id: string) {
+    return this.adminService.getArticleById(parseInt(id, 10));
+  }
+
   @Post('articles')
   async createArticle(@Body() data: any) {
     return this.adminService.createArticle(data);
@@ -88,6 +103,16 @@ export class AdminController {
   @Put('articles/:id')
   async updateArticle(@Param('id') id: string, @Body() data: any) {
     return this.adminService.updateArticle(parseInt(id, 10), data);
+  }
+
+  @Put('articles/:id/publish')
+  async publishArticle(@Param('id') id: string) {
+    return this.adminService.publishArticle(parseInt(id, 10));
+  }
+
+  @Put('articles/:id/unpublish')
+  async unpublishArticle(@Param('id') id: string) {
+    return this.adminService.unpublishArticle(parseInt(id, 10));
   }
 
   @Delete('articles/:id')

@@ -93,6 +93,10 @@ export class AdminService {
     return await this.db.findMany('academy_articles', undefined, { orderBy: '"createdAt" DESC' });
   }
 
+  async getArticleById(id: number) {
+    return await this.db.findOne('academy_articles', { id });
+  }
+
   async createArticle(data: {
     title: string;
     content: string;
@@ -121,16 +125,166 @@ export class AdminService {
     return { success: true };
   }
 
-  async getSkins() {
-    return await this.db.findMany('skins', undefined, { orderBy: '"createdAt" DESC' });
+  async publishArticle(id: number) {
+    return await this.db.update('academy_articles',
+      { id },
+      { isPublished: true, updatedAt: new Date() }
+    );
   }
 
-  async createSkin(data: any) {
+  async unpublishArticle(id: number) {
+    return await this.db.update('academy_articles',
+      { id },
+      { isPublished: false, updatedAt: new Date() }
+    );
+  }
+
+  async getSkins() {
+    const skins = await this.db.findMany('skins', undefined, { orderBy: '"createdAt" DESC' });
+    
+    // Загружаем связанные данные для каждого скина
+    return await Promise.all(skins.map(async (skin) => {
+      const inventoryItems = await this.db.query(
+        'SELECT id, "userId" FROM inventory_items WHERE "skinId" = $1',
+        [skin.id]
+      );
+      
+      const marketListings = await this.db.query(
+        'SELECT id, price, status FROM market_listings WHERE "skinId" = $1',
+        [skin.id]
+      );
+      
+      return {
+        ...skin,
+        inventoryItems: inventoryItems.rows,
+        marketListings: marketListings.rows,
+      };
+    }));
+  }
+
+  async getSkinById(id: number) {
+    const skin = await this.db.findOne('skins', { id });
+    if (!skin) {
+      return null;
+    }
+    
+    const inventoryItems = await this.db.query(
+      `SELECT ii.*, u.id as "userId", u.nickname, u."firstName"
+       FROM inventory_items ii
+       JOIN users u ON ii."userId" = u.id
+       WHERE ii."skinId" = $1`,
+      [id]
+    );
+    
+    const marketListings = await this.db.query(
+      `SELECT ml.*, u.id as "userId", u.nickname, u."firstName"
+       FROM market_listings ml
+       JOIN users u ON ml."userId" = u.id
+       WHERE ml."skinId" = $1`,
+      [id]
+    );
+    
+    return {
+      ...skin,
+      inventoryItems: inventoryItems.rows.map(item => ({
+        ...item,
+        user: {
+          id: item.userId,
+          nickname: item.nickname,
+          firstName: item.firstName,
+        },
+      })),
+      marketListings: marketListings.rows.map(listing => ({
+        ...listing,
+        user: {
+          id: listing.userId,
+          nickname: listing.nickname,
+          firstName: listing.firstName,
+        },
+      })),
+    };
+  }
+
+  async createSkin(data: {
+    name: string;
+    type: string;
+    previewUrl: string;
+    rarity?: string;
+    weight?: number;
+    durabilityMax?: number;
+    priceCoin?: number;
+    isDefault?: boolean;
+    isActive?: boolean;
+  }) {
     return await this.db.create('skins', {
-      ...data,
+      name: data.name,
+      type: data.type,
+      previewUrl: data.previewUrl,
+      rarity: data.rarity || 'COMMON',
+      weight: data.weight || 1,
+      durabilityMax: data.durabilityMax || 100,
+      priceCoin: data.priceCoin || 0,
+      isDefault: data.isDefault || false,
+      isActive: data.isActive !== undefined ? data.isActive : true,
       createdAt: new Date(),
       updatedAt: new Date(),
     });
+  }
+
+  async updateSkin(id: number, data: {
+    name?: string;
+    type?: string;
+    previewUrl?: string;
+    rarity?: string;
+    weight?: number;
+    durabilityMax?: number;
+    priceCoin?: number;
+    isDefault?: boolean;
+    isActive?: boolean;
+  }) {
+    return await this.db.update('skins',
+      { id },
+      { ...data, updatedAt: new Date() }
+    );
+  }
+
+  async activateSkin(id: number) {
+    return await this.db.update('skins',
+      { id },
+      { isActive: true, updatedAt: new Date() }
+    );
+  }
+
+  async deactivateSkin(id: number) {
+    return await this.db.update('skins',
+      { id },
+      { isActive: false, updatedAt: new Date() }
+    );
+  }
+
+  async deleteSkin(id: number) {
+    // Проверяем, используется ли скин
+    const inventoryItems = await this.db.query(
+      'SELECT COUNT(*) as count FROM inventory_items WHERE "skinId" = $1',
+      [id]
+    );
+    
+    const marketListings = await this.db.query(
+      'SELECT COUNT(*) as count FROM market_listings WHERE "skinId" = $1',
+      [id]
+    );
+
+    const skin = await this.db.findOne('skins', { id });
+    if (!skin) {
+      throw new Error('Skin not found');
+    }
+
+    if (parseInt(inventoryItems.rows[0].count) > 0 || parseInt(marketListings.rows[0].count) > 0) {
+      throw new Error('Cannot delete skin that is in use. Deactivate it instead.');
+    }
+
+    await this.db.delete('skins', { id });
+    return { success: true };
   }
 
   async getStats() {
@@ -335,6 +489,79 @@ export class AdminService {
       limit,
       totalPages: Math.ceil(total / limit),
     };
+  }
+
+  async getGameById(id: number) {
+    const game = await this.db.query(
+      `SELECT gh.*, 
+              w.id as "whiteId", w.nickname as "whiteNickname", w."firstName" as "whiteFirstName", w.level as "whiteLevel",
+              b.id as "blackId", b.nickname as "blackNickname", b."firstName" as "blackFirstName", b.level as "blackLevel"
+       FROM game_history gh
+       LEFT JOIN users w ON gh."whitePlayerId" = w.id
+       LEFT JOIN users b ON gh."blackPlayerId" = b.id
+       WHERE gh.id = $1`,
+      [id]
+    ).then(r => r.rows[0]);
+
+    if (!game) {
+      return null;
+    }
+
+    return {
+      ...game,
+      whitePlayer: {
+        id: game.whiteId,
+        nickname: game.whiteNickname,
+        firstName: game.whiteFirstName,
+        level: game.whiteLevel,
+      },
+      blackPlayer: {
+        id: game.blackId,
+        nickname: game.blackNickname,
+        firstName: game.blackFirstName,
+        level: game.blackLevel,
+      },
+      gameState: typeof game.gameState === 'string' ? JSON.parse(game.gameState) : game.gameState,
+      moves: typeof game.moves === 'string' ? JSON.parse(game.moves) : game.moves,
+    };
+  }
+
+  async getGameLogs(gameId: number) {
+    const game = await this.db.findOne('game_history', { id: gameId });
+
+    if (!game) {
+      throw new Error('Game not found');
+    }
+
+    // Возвращаем детальную информацию о игре, включая все ходы и броски
+    const moves = Array.isArray(game.moves) ? game.moves : [];
+    const gameState = game.gameState as any || {};
+    
+    return {
+      game,
+      moves,
+      gameState,
+      rngSeed: gameState.seed || null,
+      rngHash: gameState.seedHash || null,
+      duration: game.duration,
+      // Дополнительная информация о бросках кубиков
+      diceRolls: this.extractDiceRolls(moves),
+    };
+  }
+
+  private extractDiceRolls(moves: any[]): any[] {
+    const diceRolls: any[] = [];
+    moves.forEach((move, index) => {
+      if (move.dice) {
+        diceRolls.push({
+          moveIndex: index,
+          dice: move.dice,
+          player: move.player,
+          timestamp: move.timestamp,
+        });
+      }
+    });
+    return diceRolls;
   }
 
   async addCoins(userId: number, amount: number) {

@@ -20,7 +20,7 @@ export const AdminGames = () => {
       .finally(() => setLoading(false));
   }, [page]);
 
-  const filteredGames = games.filter((game) => {
+  const filteredGames = Array.isArray(games) ? games.filter((game) => {
     const matchesMode = filterMode === 'ALL' || game.mode === filterMode;
     const matchesSearch =
       searchQuery === '' ||
@@ -30,7 +30,7 @@ export const AdminGames = () => {
       game.blackPlayer?.firstName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       game.roomId.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesMode && matchesSearch;
-  });
+  }) : [];
 
   const columns = [
     {
@@ -96,7 +96,7 @@ export const AdminGames = () => {
             onClick={() => {
               const csv = [
                 ['ID', 'Комната', 'Режим', 'Игрок 1', 'Игрок 2', 'Победитель', 'Длительность', 'Дата'].join(','),
-                ...filteredGames.map((g) =>
+                ...(Array.isArray(filteredGames) ? filteredGames.map((g) =>
                   [
                     g.id,
                     g.roomId,
@@ -109,7 +109,7 @@ export const AdminGames = () => {
                     g.duration ? `${Math.floor(g.duration / 60)}:${(g.duration % 60).toString().padStart(2, '0')}` : '-',
                     new Date(g.createdAt).toLocaleString('ru-RU'),
                   ].join(','),
-                ),
+                ) : []),
               ].join('\n');
               const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
               const url = URL.createObjectURL(blob);

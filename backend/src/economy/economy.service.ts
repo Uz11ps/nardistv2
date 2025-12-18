@@ -71,6 +71,13 @@ export class EconomyService {
     const cityTax = winnerCommission.cityTax;
     const districtFee = winnerCommission.districtFee;
 
+    // Налог города: 10% сжигается (удаляется из оборота)
+    // Это дефляционный механизм для контроля инфляции
+    const burnedAmount = Math.floor(cityTax);
+    // Логируем сжигание (в будущем можно добавить таблицу для отслеживания)
+    console.log(`City tax burned: ${burnedAmount} NAR from game ${betAmount} NAR bet`);
+
+    // Комиссия района
     if (districtId) {
       await this.updateDistrictFund(districtId, districtFee);
     }
@@ -159,6 +166,88 @@ export class EconomyService {
     return {
       clanId: district.clanId,
       amount,
+      newClanTreasury: updatedClan.treasury,
+    };
+  }
+
+  /**
+   * Распределение фонда района: часть в казну клана, часть участникам
+   */
+  async distributeDistrictFund(
+    districtId: number,
+    totalAmount: number,
+    clanShare: number = 0.5, // 50% в казну клана по умолчанию
+  ) {
+    const district = await this.db.findOne('districts', { id: districtId });
+    if (!district || !district.clanId) {
+      throw new Error('District has no controlling clan');
+    }
+
+    const clan = await this.db.findOne('clans', { id: district.clanId });
+    if (!clan) {
+      throw new Error('Clan not found');
+    }
+
+    const members = await this.db.query(
+      'SELECT * FROM clan_members WHERE "clanId" = $1 AND role IN ($2, $3, $4)',
+      [district.clanId, 'LEADER', 'OFFICER', 'MEMBER']
+    );
+
+    const fund = await this.db.findOne('district_funds', { districtId });
+    if (!fund || fund.balance < totalAmount) {
+      throw new Error('Insufficient fund balance');
+    }
+
+    const clanAmount = Math.floor(totalAmount * clanShare);
+    const membersAmount = totalAmount - clanAmount;
+
+    await this.db.transaction(async (client) => {
+      // Часть в казну клана
+      if (clanAmount > 0) {
+        await client.query(
+          'UPDATE clans SET treasury = treasury + $1 WHERE id = $2',
+          [clanAmount, district.clanId]
+        );
+      }
+
+      // Часть участникам (равномерно)
+      if (membersAmount > 0 && members.rows.length > 0) {
+        const perMember = Math.floor(membersAmount / members.rows.length);
+        const remainder = membersAmount - (perMember * members.rows.length);
+
+        // Начисляем каждому участнику
+        for (const member of members.rows) {
+          await client.query(
+            'UPDATE users SET "narCoin" = "narCoin" + $1 WHERE id = $2',
+            [perMember, member.userId]
+          );
+        }
+
+        // Остаток (если есть) идет в казну
+        if (remainder > 0) {
+          await client.query(
+            'UPDATE clans SET treasury = treasury + $1 WHERE id = $2',
+            [remainder, district.clanId]
+          );
+        }
+      }
+
+      // Списываем с фонда
+      await client.query(
+        'UPDATE district_funds SET balance = balance - $1 WHERE "districtId" = $2',
+        [totalAmount, districtId]
+      );
+    });
+
+    const updatedClan = await this.db.findOne('clans', { id: district.clanId });
+
+    return {
+      clanId: district.clanId,
+      totalAmount,
+      clanAmount,
+      membersAmount,
+      perMember: members.rows.length > 0 ? Math.floor(membersAmount / members.rows.length) : 0,
+      membersCount: members.rows.length,
       newClanTreasury: updatedClan.treasury,
     };
   }

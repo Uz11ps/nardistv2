@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Card, Button } from '../components/ui';
+import { Card, Button, Icon } from '../components/ui';
 import { subscriptionService } from '../services';
 import './Subscription.css';
 
@@ -49,7 +49,10 @@ export const Subscription = () => {
   return (
     <div className="subscription-page">
       <Link to="/" className="subscription-page__back">←</Link>
-      <h1 className="subscription-page__title">⭐ Подписка</h1>
+      <h1 className="subscription-page__title">
+        <Icon name="star" size={28} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
+        Подписка
+      </h1>
       {hasActiveSubscription ? (
         <Card className="subscription-active">
           <h2>У вас активная подписка!</h2>
@@ -71,9 +74,9 @@ export const Subscription = () => {
                 </div>
                 <div className="subscription-plan__duration">{plan.duration}</div>
                 <ul className="subscription-plan__features">
-                  {plan.features.map((feature, index) => (
+                  {Array.isArray(plan.features) ? plan.features.map((feature, index) => (
                     <li key={index}>✓ {feature}</li>
-                  ))}
+                  )) : null}
                 </ul>
                 <Button
                   variant={plan.popular ? 'primary' : 'outline'}

@@ -1,9 +1,14 @@
 import { Injectable } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { DatabaseService } from '../database/database.service';
+import { InventoryService } from '../inventory/inventory.service';
 
 @Injectable()
 export class TournamentsService {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(
+    private readonly db: DatabaseService,
+    private readonly inventoryService: InventoryService,
+  ) {}
 
   async createTournament(data: {
     name: string;
@@ -140,6 +145,21 @@ export class TournamentsService {
         },
       })),
     };
+  }
+
+  /**
+   * Автоматическое создание Олимпиады Нардиста каждый месяц
+   * Запускается 1-го числа каждого месяца в 00:00
+   */
+  @Cron(CronExpression.EVERY_1ST_DAY_OF_MONTH_AT_MIDNIGHT)
+  async autoCreateOlympiad() {
+    console.log('Auto-creating Olympiad for current month...');
+    try {
+      await this.createOlympiad();
+      console.log('Olympiad created successfully');
+    } catch (error) {
+      console.error('Error auto-creating Olympiad:', error);
+    }
   }
 
   /**
@@ -286,11 +306,15 @@ export class TournamentsService {
   /**
    * Купить Tournament Pass для турнира
    */
-  async purchaseTournamentPass(userId: number, tournamentId: number) {
+  async purchaseTournamentPass(userId: number, tournamentId: number, paymentMethod: 'NAR' | 'TON' | 'USDT' | 'RUBLES' | 'TELEGRAM_STARS' = 'NAR') {
     const tournament = await this.db.findOne('tournaments', { id: tournamentId });
 
     if (!tournament) {
       throw new Error('Tournament not found');
+    }
+
+    if (!tournament.hasTournamentPass) {
+      throw new Error('This tournament does not have a Tournament Pass');
     }
 
     // Проверяем, не куплен ли уже пасс
@@ -301,6 +325,23 @@ export class TournamentsService {
 
     if (existingPass.rows.length > 0) {
       throw new Error('Tournament pass already purchased');
+    }
+
+    // Оплата через NAR
+    if (paymentMethod === 'NAR') {
+      const passPrice = 500; // NAR
+      const user = await this.db.findOne('users', { id: userId });
+      if (!user || user.narCoin < passPrice) {
+        throw new Error('Not enough NAR');
+      }
+      await this.db.query(
+        'UPDATE users SET "narCoin" = "narCoin" - $1 WHERE id = $2',
+        [passPrice, userId]
+      );
+    } else {
+      // TODO: Интеграция с TON/USDT/RUBLES/TELEGRAM_STARS
+      // Пока просто создаем пасс (в реальном приложении здесь будет проверка транзакции)
+      console.log(`Tournament Pass purchase via ${paymentMethod} - payment verification needed`);
     }
 
     return await this.db.create('tournament_passes', {
@@ -371,8 +412,64 @@ export class TournamentsService {
       throw new Error('Reward already claimed');
     }
 
+    // Определяем награды в зависимости от типа
+    const rewards: Record<string, { nar?: number; xp?: number; skinId?: number }> = {
+      'LEVEL_5': { nar: 100, xp: 50 },
+      'LEVEL_10': { nar: 250, xp: 100 },
+      'LEVEL_15': { nar: 500, xp: 200 },
+      'LEVEL_20': { nar: 1000, xp: 500, skinId: null }, // Специальный скин
+      'PARTICIPATION': { nar: 50, xp: 25 },
+      'TOP_10': { nar: 500, xp: 250 },
+      'TOP_5': { nar: 1000, xp: 500 },
+      'TOP_3': { nar: 2000, xp: 1000, skinId: null }, // Редкий скин
+      'WINNER': { nar: 5000, xp: 2000, skinId: null }, // Эпический скин
+    };
+
+    const reward = rewards[rewardType];
+    if (!reward) {
+      throw new Error('Invalid reward type');
+    }
+
+    const user = await this.db.findOne('users', { id: userId });
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Выдаем NAR
+    if (reward.nar) {
+      await this.db.query(
+        'UPDATE users SET "narCoin" = "narCoin" + $1 WHERE id = $2',
+        [reward.nar, userId]
+      );
+    }
+
+    // Выдаем XP
+    if (reward.xp) {
+      const newXp = (user.xp || 0) + reward.xp;
+      const newLevel = Math.floor(newXp / 100) + 1; // 100 XP = 1 уровень
+      await this.db.update('users',
+        { id: userId },
+        {
+          xp: newXp,
+          level: newLevel,
+        }
+      );
+    }
+
+    // Выдаем скин (если указан)
+    if (reward.skinId !== undefined) {
+      // TODO: Создать специальный скин для Tournament Pass или использовать существующий
+      // Пока просто помечаем, что награда выдана
+    }
+
+    // Обновляем информацию о полученных наградах
     rewardsClaimed[rewardType] = {
       claimedAt: new Date().toISOString(),
+      reward: {
+        nar: reward.nar || 0,
+        xp: reward.xp || 0,
+        skinId: reward.skinId,
+      },
     };
 
     await this.db.update('tournament_passes',
@@ -383,6 +480,55 @@ export class TournamentsService {
       }
     );
 
-    return { success: true, rewardType };
+    return {
+      success: true,
+      rewardType,
+      reward: {
+        nar: reward.nar || 0,
+        xp: reward.xp || 0,
+        skinId: reward.skinId,
+      },
+    };
+  }
+
+  /**
+   * Получить доступные награды для Tournament Pass
+   */
+  async getAvailableTournamentPassRewards(userId: number, tournamentId: number) {
+    const pass = await this.getTournamentPass(userId, tournamentId);
+    if (!pass) {
+      return { available: [], claimed: [] };
+    }
+
+    const participantResult = await this.db.query(
+      'SELECT * FROM tournament_participants WHERE "tournamentId" = $1 AND "userId" = $2',
+      [tournamentId, userId]
+    );
+    const participant = participantResult.rows[0] || null;
+
+    const rewardsClaimed = (pass.rewardsClaimed as any) || {};
+    const available = [];
+    const claimed = [];
+
+    // Определяем доступные награды на основе прогресса
+    const rewardLevels = [
+      { type: 'PARTICIPATION', condition: () => participant !== null },
+      { type: 'LEVEL_5', condition: () => participant && participant.wins >= 5 },
+      { type: 'LEVEL_10', condition: () => participant && participant.wins >= 10 },
+      { type: 'LEVEL_15', condition: () => participant && participant.wins >= 15 },
+      { type: 'LEVEL_20', condition: () => participant && participant.wins >= 20 },
+    ];
+
+    for (const rewardLevel of rewardLevels) {
+      if (rewardLevel.condition()) {
+        if (rewardsClaimed[rewardLevel.type]) {
+          claimed.push(rewardLevel.type);
+        } else {
+          available.push(rewardLevel.type);
+        }
+      }
+    }
+
+    return { available, claimed };
   }
 }

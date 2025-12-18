@@ -160,7 +160,7 @@ export const AdminCity = () => {
       content: (
         <div className="admin-city__districts">
           <div className="admin-city__districts-list">
-            {districts.map((district) => (
+            {Array.isArray(districts) ? districts.map((district) => (
               <Card key={district.id} className="admin-city__district-card">
                 <div className="admin-city__district-header">
                   <div className="admin-city__district-info">
@@ -195,7 +195,7 @@ export const AdminCity = () => {
                   <span>Предприятий: {district._count?.businesses || 0}</span>
                 </div>
               </Card>
-            ))}
+            )) : null}
           </div>
         </div>
       ),
@@ -219,7 +219,7 @@ export const AdminCity = () => {
           </div>
           <div className="admin-city__list">
             {businessConfigs.length > 0 ? (
-              businessConfigs.map((config) => (
+              Array.isArray(businessConfigs) ? businessConfigs.map((config) => (
                 <Card key={config.type} className="admin-city__config-card">
                   <div className="admin-city__config-header">
                     <h3>{businessTypeNames[config.type] || config.type}</h3>
@@ -266,7 +266,7 @@ export const AdminCity = () => {
                     </div>
                   </div>
                 </Card>
-              ))
+              )) : null
             ) : (
               <Card>
                 <p>В этом районе нет доступных предприятий</p>

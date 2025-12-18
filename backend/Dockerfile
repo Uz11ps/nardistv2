@@ -6,15 +6,20 @@ WORKDIR /app
 ENV npm_config_loglevel=warn
 ENV npm_config_progress=false
 ENV npm_config_audit=false
+ENV npm_config_fetch_timeout=300000
+ENV npm_config_fetch_retries=5
+ENV npm_config_fetch_retry_factor=10
+ENV npm_config_fetch_retry_mintimeout=10000
+ENV npm_config_fetch_retry_maxtimeout=60000
 
 # Устанавливаем зависимости для кэширования
 COPY package*.json ./
 
-# Используем npm ci с оптимизацией (без --silent для отладки)
+# Устанавливаем зависимости с таймаутами и retry
 RUN echo "📦 Installing dependencies..." && \
-    npm ci --legacy-peer-deps --no-audit --progress=false || \
-    (echo "⚠️ npm ci failed, trying npm install..." && \
-     npm install --legacy-peer-deps --no-audit --progress=false)
+    npm install --legacy-peer-deps --no-audit --progress=false --prefer-offline=false --fetch-timeout=300000 || \
+    (echo "⚠️ First attempt failed, retrying..." && \
+     npm install --legacy-peer-deps --no-audit --progress=false --prefer-offline=false --fetch-timeout=300000)
 
 # Копируем исходный код
 COPY . .
@@ -32,19 +37,20 @@ WORKDIR /app
 ENV npm_config_loglevel=warn
 ENV npm_config_progress=false
 ENV npm_config_audit=false
+ENV npm_config_fetch_timeout=300000
+ENV npm_config_fetch_retries=5
 
-# Копируем только package.json для production зависимостей
+# Копируем package.json и node_modules из builder (быстрее чем переустановка)
 COPY package*.json ./
-
-# Устанавливаем только production зависимости
-RUN echo "📦 Installing production dependencies..." && \
-    npm ci --only=production --legacy-peer-deps --no-audit --progress=false || \
-    (echo "⚠️ npm ci failed, trying npm install..." && \
-     npm install --only=production --legacy-peer-deps --no-audit --progress=false)
+COPY --from=builder /app/node_modules ./node_modules
 
 # Копируем собранное приложение
 COPY --from=builder /app/dist ./dist
 
 EXPOSE 3000
+
+# Добавляем healthcheck для проверки готовности приложения
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD node -e "require('http').get('http://localhost:3000/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})" || exit 1
 
 CMD ["node", "dist/main"]

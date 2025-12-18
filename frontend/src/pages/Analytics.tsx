@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Card, Button } from '../components/ui';
-import { subscriptionService, gameHistoryService } from '../services';
-import { NotificationModal } from '../components/ui';
+import { Card, Button, Icon, NotificationModal } from '../components/ui';
+import { subscriptionService, gameHistoryService, analyticsService } from '../services';
 import { useAuthStore } from '../store/auth.store';
 import './Analytics.css';
 
@@ -19,28 +18,40 @@ export const Analytics = () => {
       subscriptionService.get(),
       gameHistoryService.getMyHistory(100),
     ])
-      .then(([subData, historyData]) => {
+      .then(async ([subData, historyData]) => {
         setSubscription(subData);
         
         if (subData && subData.isActive && new Date(subData.endDate) > new Date() && user) {
-          // Вычисляем статистику
-          const wins = historyData.filter((g: any) => g.winnerId === user.id).length;
-          const losses = historyData.filter((g: any) => 
-            g.winnerId && g.winnerId !== user.id && (g.whitePlayerId === user.id || g.blackPlayerId === user.id)
-          ).length;
-          
-          const stats = {
-            totalGames: historyData.length,
-            wins,
-            losses,
-            winRate: historyData.length > 0 
-              ? ((wins / historyData.length) * 100).toFixed(1)
-              : 0,
-            averageDuration: historyData.length > 0
-              ? Math.round(historyData.reduce((sum: number, g: any) => sum + (g.duration || 0), 0) / historyData.length)
-              : 0,
-          };
-          setGameStats(stats);
+          try {
+            // Пытаемся получить расширенную статистику через API
+            const playerStats = await analyticsService.getPlayerStats();
+            setGameStats({
+              totalGames: playerStats.totalGames,
+              wins: playerStats.wins,
+              losses: playerStats.losses,
+              winRate: playerStats.winRate,
+              averageDuration: playerStats.averageDuration,
+            });
+          } catch (error) {
+            // Fallback на локальный расчет если API недоступен
+            const safeHistoryData = Array.isArray(historyData) ? historyData : [];
+            const wins = safeHistoryData.filter((g: any) => g.winnerId === user.id).length;
+            const losses = safeHistoryData.filter((g: any) => 
+              g.winnerId && g.winnerId !== user.id && (g.whitePlayerId === user.id || g.blackPlayerId === user.id)
+            ).length;
+            
+            setGameStats({
+              totalGames: safeHistoryData.length,
+              wins,
+              losses,
+              winRate: safeHistoryData.length > 0 
+                ? ((wins / safeHistoryData.length) * 100).toFixed(1)
+                : '0',
+              averageDuration: safeHistoryData.length > 0
+                ? Math.round(safeHistoryData.reduce((sum: number, g: any) => sum + (g.duration || 0), 0) / safeHistoryData.length)
+                : 0,
+            });
+          }
         }
       })
       .catch(console.error)
@@ -57,7 +68,10 @@ export const Analytics = () => {
     return (
       <div className="analytics-page">
         <Card className="analytics-locked">
-          <h2>🔒 Премиум-функция</h2>
+          <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Icon name="shield" size={20} />
+            Премиум-функция
+          </h2>
           <p>Аналитика доступна только для пользователей с активной подпиской</p>
           <Button
             variant="primary"
@@ -74,7 +88,10 @@ export const Analytics = () => {
   return (
     <div className="analytics-page">
       <Link to="/" className="analytics-page__back">←</Link>
-      <h1 className="analytics-page__title">📊 Аналитика</h1>
+      <h1 className="analytics-page__title">
+        <Icon name="analytics" size={28} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
+        Аналитика
+      </h1>
       
       {gameStats && (
         <div className="analytics-stats">

@@ -4,6 +4,7 @@
   position: relative;
   max-width: 480px;
   margin: 0 auto;
+  animation: fadeIn 0.4s ease-out;
 }
 
 .profile-page__back {
@@ -15,6 +16,17 @@
   text-decoration: none;
   font-weight: 700;
   z-index: 10;
+  transition: all var(--transition-fast);
+  display: inline-block;
+  padding: var(--spacing-xs);
+  border-radius: var(--border-radius-small);
+  line-height: 1;
+}
+
+.profile-page__back:hover {
+  background: var(--bg-card);
+  transform: translateX(-4px);
+  color: var(--color-primary);
 }
 
 .profile-page__header {
@@ -92,11 +104,77 @@
   gap: var(--spacing-md);
 }
 
+.profile-history__filters {
+  margin-bottom: var(--spacing-md);
+}
+
+.profile-history__filters-row {
+  display: flex;
+  gap: var(--spacing-md);
+  flex-wrap: wrap;
+}
+
+.profile-history__filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  flex: 1;
+  min-width: 150px;
+}
+
+.profile-history__filter-group label {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.profile-history__filter-select {
+  padding: var(--spacing-sm);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-size: var(--font-size-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.profile-history__filter-select:hover {
+  border-color: var(--border-color-light);
+}
+
+.profile-history__filter-select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.2);
+}
+
 .profile-info__item {
   display: flex;
   justify-content: space-between;
   padding: var(--spacing-sm) 0;
   border-bottom: 1px solid var(--border-color);
+}
+
+.profile-info__item--referral {
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.profile-info__referral-link {
+  display: flex;
+  gap: var(--spacing-xs);
+  align-items: center;
+}
+
+.profile-info__referral-input {
+  flex: 1;
+}
+
+.profile-info__referral-hint {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  margin-top: var(--spacing-xs);
 }
 
 .profile-info__item:last-of-type {

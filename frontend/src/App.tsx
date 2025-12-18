@@ -170,9 +170,31 @@ function App() {
   // Показываем загрузку только если действительно загружаемся и не авторизованы
   if (!isAuthenticated && isLoading) {
     return (
-      <div className="app" style={{ padding: '20px', textAlign: 'center' }}>
-        <div>Подключение к серверу...</div>
-        <div style={{ marginTop: '10px', fontSize: '12px', color: '#666' }}>
+      <div className="app-loading" style={{ 
+        padding: '20px', 
+        textAlign: 'center',
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'var(--bg-primary)',
+        animation: 'fadeIn 0.3s ease-out'
+      }}>
+        <div style={{ 
+          fontSize: '18px', 
+          color: 'var(--text-primary)',
+          marginBottom: '12px',
+          animation: 'pulse 2s ease-in-out infinite'
+        }}>
+          Подключение к серверу...
+        </div>
+        <div style={{ 
+          marginTop: '10px', 
+          fontSize: '12px', 
+          color: 'var(--text-secondary)',
+          animation: 'fadeIn 0.5s ease-out 0.2s both'
+        }}>
           Если бекенд недоступен, будет использован режим разработки
         </div>
       </div>

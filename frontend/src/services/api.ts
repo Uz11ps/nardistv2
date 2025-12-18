@@ -17,7 +17,9 @@ const getApiUrl = () => {
                         hostname.endsWith('.nardist.online');
     
     if (isProduction) {
-      const url = window.location.origin;
+      // Используем HTTPS в production
+      const protocol = window.location.protocol === 'https:' ? 'https:' : 'https:';
+      const url = `${protocol}//${window.location.hostname}${window.location.port ? `:${window.location.port}` : ''}`;
       console.log('[API] Production detected, using:', url);
       return url;
     }

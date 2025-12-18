@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Card, Button } from '../components/ui';
+import { Card, Button, Icon } from '../components/ui';
 import { clanService } from '../services';
 import { useAuthStore } from '../store/auth.store';
 import './Clans.css';
@@ -35,7 +35,10 @@ export const Clans = () => {
   return (
     <div className="clans-page">
       <div className="clans-page__header">
-        <h1 className="clans-page__title">👥 Кланы</h1>
+        <h1 className="clans-page__title">
+          <Icon name="users" size={28} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
+          Кланы
+        </h1>
         <Button 
           variant="primary"
           onClick={async () => {
@@ -54,7 +57,8 @@ export const Clans = () => {
             }
           }}
         >
-          ➕ Создать клан
+          <Icon name="plus" size={16} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+          Создать клан
         </Button>
       </div>
 
@@ -69,14 +73,26 @@ export const Clans = () => {
             </Link>
           </div>
           <div className="clans-page__user-clan-info">
-            <div className="clans-page__clan-name">👑 {userClan.name}</div>
+            <div className="clans-page__clan-name">
+              <Icon name="trophy" size={18} style={{ marginRight: '6px', verticalAlign: 'middle' }} />
+              {userClan.name}
+            </div>
             {userClan.description && (
               <p className="clans-page__clan-description">{userClan.description}</p>
             )}
             <div className="clans-page__clan-stats">
-              <span>💰 Казна: {userClan.treasury.toLocaleString()} NAR</span>
-              <span>👥 Участников: {userClan.members.length}</span>
-              <span>🏙️ Районов: {userClan.districts.length}</span>
+              <span>
+                <Icon name="coin" size={16} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+                Казна: {userClan.treasury.toLocaleString()} NAR
+              </span>
+              <span>
+                <Icon name="users" size={16} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+                Участников: {userClan.members.length}
+              </span>
+              <span>
+                <Icon name="city" size={16} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+                Районов: {userClan.districts.length}
+              </span>
             </div>
           </div>
         </Card>
@@ -85,11 +101,14 @@ export const Clans = () => {
       <div className="clans-page__section">
         <h2 className="clans-page__section-title">Все кланы</h2>
         <div className="clans-page__list">
-          {clans.map((clan) => (
+          {Array.isArray(clans) ? clans.map((clan) => (
             <Link key={clan.id} to={`/clans/${clan.id}`}>
               <Card className="clans-page__clan-card">
                 <div className="clans-page__clan-card-header">
-                  <div className="clans-page__clan-card-name">👑 {clan.name}</div>
+                  <div className="clans-page__clan-card-name">
+                    <Icon name="trophy" size={18} style={{ marginRight: '6px', verticalAlign: 'middle' }} />
+                    {clan.name}
+                  </div>
                   {clan.id === userClan?.id && (
                     <span className="clans-page__clan-card-badge">Ваш клан</span>
                   )}
@@ -99,24 +118,26 @@ export const Clans = () => {
                 )}
                 <div className="clans-page__clan-card-stats">
                   <div className="clans-page__clan-card-stat">
-                    <span className="clans-page__clan-card-stat-icon">💰</span>
+                    <Icon name="coin" size={16} className="clans-page__clan-card-stat-icon" />
                     <span className="clans-page__clan-card-stat-value">
                       {(clan.treasury || 0).toLocaleString()} NAR
                     </span>
                   </div>
                   <div className="clans-page__clan-card-stat">
-                    <span className="clans-page__clan-card-stat-icon">👥</span>
+                    <Icon name="users" size={16} className="clans-page__clan-card-stat-icon" />
                     <span className="clans-page__clan-card-stat-value">{clan.members?.length || 0}</span>
                   </div>
                   <div className="clans-page__clan-card-stat">
-                    <span className="clans-page__clan-card-stat-icon">🏙️</span>
+                    <Icon name="city" size={16} className="clans-page__clan-card-stat-icon" />
                     <span className="clans-page__clan-card-stat-value">{clan.districts?.length || 0}</span>
                   </div>
                 </div>
                 <div className="clans-page__clan-card-arrow">→</div>
               </Card>
             </Link>
-          ))}
+          )) : (
+            <div>Нет доступных кланов</div>
+          )}
         </div>
       </div>
     </div>

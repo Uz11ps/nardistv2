@@ -50,6 +50,7 @@ export interface Tournament {
   endDate?: string;
   maxParticipants?: number;
   participants?: TournamentParticipant[];
+  hasTournamentPass?: boolean;
 }
 
 export interface TournamentParticipant {

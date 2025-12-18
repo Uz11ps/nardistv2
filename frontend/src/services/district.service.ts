@@ -21,7 +21,8 @@ export interface District {
 export const districtService = {
   async getAll(): Promise<District[]> {
     const response = await api.get<District[]>('/districts');
-    return response.data;
+    // Гарантируем что возвращается массив
+    return Array.isArray(response.data) ? response.data : [];
   },
 
   async getById(id: number): Promise<District> {

@@ -44,3 +44,4 @@ prisma/migrations/
 # Build artifacts
 *.tsbuildinfo
 
+*.md

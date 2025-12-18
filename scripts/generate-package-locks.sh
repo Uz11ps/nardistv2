@@ -8,12 +8,10 @@ echo "📦 Generating package-lock.json files..."
 if [ -d "backend" ]; then
     echo "📦 Generating backend/package-lock.json..."
     cd backend
-    if [ ! -f "package-lock.json" ]; then
-        npm install --package-lock-only --legacy-peer-deps
-        echo "✅ Created backend/package-lock.json"
-    else
-        echo "✅ backend/package-lock.json already exists"
-    fi
+    # Обновляем package-lock.json если он устарел
+    echo "🔄 Updating backend/package-lock.json..."
+    npm install --package-lock-only --legacy-peer-deps --no-audit
+    echo "✅ Updated backend/package-lock.json"
     cd ..
 fi
 
@@ -21,12 +19,10 @@ fi
 if [ -d "frontend" ]; then
     echo "📦 Generating frontend/package-lock.json..."
     cd frontend
-    if [ ! -f "package-lock.json" ]; then
-        npm install --package-lock-only
-        echo "✅ Created frontend/package-lock.json"
-    else
-        echo "✅ frontend/package-lock.json already exists"
-    fi
+    # Обновляем package-lock.json если он устарел
+    echo "🔄 Updating frontend/package-lock.json..."
+    npm install --package-lock-only --no-audit
+    echo "✅ Updated frontend/package-lock.json"
     cd ..
 fi
 

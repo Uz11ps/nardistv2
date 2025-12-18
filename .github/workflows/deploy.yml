@@ -21,9 +21,12 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        timeout-minutes: 5
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        run: |
+          docker buildx version
+          docker buildx create --use --name builder 2>/dev/null || docker buildx use builder || true
 
       - name: Log in to Container Registry
         uses: docker/login-action@v3
@@ -39,8 +42,6 @@ jobs:
           context: ./backend
           push: true
           tags: ghcr.io/uz11ps/nardist-backend:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
           platforms: linux/amd64
 
       - name: Build and push frontend image
@@ -50,19 +51,23 @@ jobs:
           context: ./frontend
           push: true
           tags: ghcr.io/uz11ps/nardist-frontend:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
           platforms: linux/amd64
 
       - name: Deploy to server
         uses: appleboy/ssh-action@v1.0.0
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          SSL_EMAIL: ${{ secrets.SSL_EMAIL }}
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: 22
           timeout: 60s
-          command_timeout: 900s
+          command_timeout: 1800s
+          envs: POSTGRES_PASSWORD,JWT_SECRET,TELEGRAM_BOT_TOKEN,SSL_EMAIL
           script: |
             cd /opt/Nardist
             
@@ -76,73 +81,334 @@ jobs:
               exit 1
             fi
             
-            # Обновляем код (сохраняем локальные изменения в docker-compose.prod.yml)
-            git stash || true
-            git pull origin main || git pull origin master
-            git stash pop || true
+            # Обновляем код (принудительно берем версию из репозитория, локальные изменения не важны)
+            git fetch origin
+            git reset --hard origin/main || git reset --hard origin/master
+            
+            # Создаем или обновляем .env файл из GitHub Secrets
+            echo "📝 Creating/updating .env file from GitHub Secrets..."
+            
+            # Используем переменные окружения для безопасной передачи секретов
+            # Переменные передаются через env секцию SSH action
+            {
+              echo "# Database"
+              echo "POSTGRES_USER=${POSTGRES_USER:-nardist}"
+              echo "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}"
+              echo "POSTGRES_DB=${POSTGRES_DB:-nardist_db}"
+              echo ""
+              echo "# Backend"
+              echo "JWT_SECRET=${JWT_SECRET}"
+              echo "TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}"
+              echo "NODE_ENV=production"
+              echo "PORT=3000"
+              echo ""
+              echo "# Frontend"
+              echo "VITE_API_URL=${VITE_API_URL:-https://nardist.online}"
+              echo "VITE_WS_URL=${VITE_WS_URL:-https://nardist.online}"
+              echo "FRONTEND_URL=${FRONTEND_URL:-https://nardist.online}"
+              echo ""
+              echo "# Domain"
+              echo "DOMAIN_NAME=${DOMAIN_NAME:-nardist.online}"
+              echo "SSL_EMAIL=${SSL_EMAIL}"
+              echo ""
+              echo "# Docker Images"
+              echo "BACKEND_IMAGE=ghcr.io/uz11ps/nardist-backend:latest"
+              echo "FRONTEND_IMAGE=ghcr.io/uz11ps/nardist-frontend:latest"
+            } > .env
+            
+            echo "✅ .env file created/updated"
+            
+            # Проверяем что критичные переменные установлены (проверяем в созданном файле)
+            if ! grep -q "POSTGRES_PASSWORD=.*[^[:space:]]" .env || ! grep -q "JWT_SECRET=.*[^[:space:]]" .env; then
+              echo "⚠️  WARNING: Some critical secrets may be missing in GitHub Secrets!"
+              echo "⚠️  Please verify that .env file contains: POSTGRES_PASSWORD, JWT_SECRET, TELEGRAM_BOT_TOKEN, SSL_EMAIL"
+            fi
             
             # Загружаем переменные окружения
-            if [ -f .env ]; then
-              set -a
-              source .env
-              set +a
-            fi
+            set -a
+            source .env
+            set +a
             
             # Используем готовые образы из GitHub Container Registry
             export BACKEND_IMAGE=ghcr.io/uz11ps/nardist-backend:latest
             export FRONTEND_IMAGE=ghcr.io/uz11ps/nardist-frontend:latest
             
-            # Скачиваем базовые образы
+            # Скачиваем базовые образы (с sudo если нужно)
+            sudo $DOCKER_COMPOSE -f docker-compose.prod.yml pull postgres redis nginx certbot 2>/dev/null || \
             $DOCKER_COMPOSE -f docker-compose.prod.yml pull postgres redis nginx certbot || true
             
             # Пытаемся скачать готовые образы приложений
             BACKEND_PULLED=false
             FRONTEND_PULLED=false
             
-            if docker pull ${BACKEND_IMAGE} 2>/dev/null; then
+            # Пытаемся скачать образы (с sudo если нужно)
+            if sudo docker pull ${BACKEND_IMAGE} 2>/dev/null || docker pull ${BACKEND_IMAGE} 2>/dev/null; then
               BACKEND_PULLED=true
               echo "✅ Backend image pulled successfully"
             else
               echo "⚠️  Backend image not found, will build"
             fi
             
-            if docker pull ${FRONTEND_IMAGE} 2>/dev/null; then
+            if sudo docker pull ${FRONTEND_IMAGE} 2>/dev/null || docker pull ${FRONTEND_IMAGE} 2>/dev/null; then
               FRONTEND_PULLED=true
               echo "✅ Frontend image pulled successfully"
             else
               echo "⚠️  Frontend image not found, will build"
             fi
             
-            # Останавливаем и удаляем старый nginx контейнер если он существует (может занимать порт 80)
-            docker stop nardist_nginx_prod 2>/dev/null || true
-            docker rm nardist_nginx_prod 2>/dev/null || true
+            # Останавливаем системный nginx (Ispmanager) если он занимает порты 80/443
+            systemctl stop nginx 2>/dev/null || true
+            systemctl disable nginx 2>/dev/null || true
+            
+            # Проверяем что Docker работает (без перезапуска, чтобы не сбрасывать состояние)
+            echo "🔍 Checking Docker status..."
+            sudo docker ps >/dev/null 2>&1 || docker ps >/dev/null 2>&1 || {
+              echo "⚠️  Docker not responding, but continuing..."
+            }
+            
+            # Проверяем что порты свободны
+            if lsof -i :80 2>/dev/null | grep -v docker; then
+              echo "⚠️  Port 80 is occupied by non-docker process, attempting to free it..."
+              lsof -ti :80 | xargs kill -9 2>/dev/null || true
+            fi
+            if lsof -i :443 2>/dev/null | grep -v docker; then
+              echo "⚠️  Port 443 is occupied by non-docker process, attempting to free it..."
+              lsof -ti :443 | xargs kill -9 2>/dev/null || true
+            fi
+            
+            # Безопасная остановка через docker compose (останавливает все контейнеры проекта)
+            echo "🛑 Stopping existing containers..."
+            sudo $DOCKER_COMPOSE -f docker-compose.prod.yml down --remove-orphans 2>/dev/null || \
+            $DOCKER_COMPOSE -f docker-compose.prod.yml down --remove-orphans 2>/dev/null || true
+            
+            # Агрессивное удаление: используем kill вместо stop для обхода permission denied
+            echo "🧹 Collecting and forcefully removing all nardist containers..."
+            # Получаем все контейнеры с префиксом nardist (имена и ID)
+            CONTAINERS=$(sudo docker ps -a --no-trunc --filter "name=nardist_" --format "{{.ID}}|{{.Names}}" 2>/dev/null || \
+                        docker ps -a --no-trunc --filter "name=nardist_" --format "{{.ID}}|{{.Names}}" 2>/dev/null || echo "")
+            
+            # Удаляем все найденные контейнеры (используем kill для принудительной остановки)
+            if [ -n "$CONTAINERS" ]; then
+              echo "$CONTAINERS" | while IFS='|' read -r id name; do
+                if [ -n "$id" ]; then
+                  echo "  Force removing: $name ($id)"
+                  # Используем kill вместо stop для обхода permission denied
+                  timeout 3 sudo docker kill $id 2>/dev/null || timeout 3 docker kill $id 2>/dev/null || true
+                  timeout 3 sudo docker stop $id 2>/dev/null || timeout 3 docker stop $id 2>/dev/null || true
+                  # Принудительное удаление
+                  timeout 3 sudo docker rm -f $id 2>/dev/null || timeout 3 docker rm -f $id 2>/dev/null || true
+                fi
+              done
+            fi
+            
+            # Дополнительная очистка: удаляем по именам с kill
+            echo "🧹 Force removing containers by name..."
+            for container in nardist_nginx_prod nardist_postgres_prod nardist_redis_prod nardist_backend_prod nardist_frontend_prod nardist_certbot; do
+              # Используем kill для принудительной остановки
+              timeout 3 sudo docker kill $container 2>/dev/null || timeout 3 docker kill $container 2>/dev/null || true
+              timeout 3 sudo docker stop $container 2>/dev/null || timeout 3 docker stop $container 2>/dev/null || true
+              timeout 3 sudo docker rm -f $container 2>/dev/null || timeout 3 docker rm -f $container 2>/dev/null || true
+            done
+            
+            # Если контейнеры все еще существуют, переименовываем их чтобы освободить имена
+            REMAINING=$(sudo docker ps -a --filter "name=nardist_" --format "{{.Names}}" 2>/dev/null | wc -l || echo "0")
+            if [ "$REMAINING" -gt 0 ]; then
+              echo "⚠️  Warning: $REMAINING containers still exist, renaming them to free names..."
+              # Переименовываем старые контейнеры чтобы освободить имена для новых
+              sudo docker ps -a --filter "name=nardist_" --format "{{.ID}}|{{.Names}}" 2>/dev/null | while IFS='|' read -r id name; do
+                if [ -n "$id" ] && [ -n "$name" ]; then
+                  OLD_NAME="$name"
+                  NEW_NAME="${name}_old_$(date +%s)"
+                  echo "  Renaming: $OLD_NAME -> $NEW_NAME"
+                  # Пробуем переименовать (работает даже если контейнер запущен)
+                  sudo docker rename $OLD_NAME $NEW_NAME 2>/dev/null || \
+                  docker rename $OLD_NAME $NEW_NAME 2>/dev/null || true
+                fi
+              done || true
+              sleep 1
+              echo "✅ Old containers renamed, names are now free"
+              
+              # Останавливаем переименованные контейнеры чтобы освободить порты
+              echo "🛑 Stopping renamed old containers to free ports..."
+              sudo docker ps --filter "name=_old_" --format "{{.Names}}" 2>/dev/null | while read name; do
+                if [ -n "$name" ]; then
+                  echo "  Stopping old container: $name"
+                  # Используем kill для принудительной остановки
+                  timeout 3 sudo docker kill $name 2>/dev/null || timeout 3 docker kill $name 2>/dev/null || true
+                fi
+              done || true
+              sleep 2
+            else
+              echo "✅ All containers removed successfully"
+            fi
+            
+            # Ждем немного чтобы система освободила ресурсы
+            sleep 3
             
             # Открываем порты в firewall (если используется ufw)
-            ufw allow 80/tcp 2>/dev/null || true
-            ufw allow 443/tcp 2>/dev/null || true
-            ufw --force enable 2>/dev/null || true
+            # ВАЖНО: Сначала ВСЕГДА открываем SSH (22), чтобы не заблокировать соединение!
+            if command -v ufw &> /dev/null; then
+              # Сначала добавляем все правила (особенно SSH!)
+              ufw allow 22/tcp 2>/dev/null || true
+              ufw allow 80/tcp 2>/dev/null || true
+              ufw allow 443/tcp 2>/dev/null || true
+              # Включаем только если еще не включен
+              if ! ufw status | grep -q "Status: active"; then
+                ufw --force enable 2>/dev/null || true
+              fi
+            fi
+            
+            # Переименовываем оставшиеся старые контейнеры чтобы освободить имена
+            echo "🔄 Renaming remaining old containers to free names..."
+            sudo docker ps -a --filter "name=nardist_" --format "{{.ID}}|{{.Names}}" 2>/dev/null | while IFS='|' read -r id name; do
+              if [ -n "$id" ] && [ -n "$name" ] && echo "$name" | grep -q "_old_\|_backup_"; then
+                # Уже переименован, пропускаем
+                continue
+              elif [ -n "$id" ] && [ -n "$name" ] && ! echo "$name" | grep -qE "^(nardist_nginx_prod|nardist_postgres_prod|nardist_redis_prod|nardist_backend_prod|nardist_frontend_prod|nardist_certbot)$"; then
+                # Это старый контейнер с неправильным именем, переименовываем
+                NEW_NAME="${name}_backup_$(date +%s)"
+                echo "  Renaming: $name -> $NEW_NAME"
+                sudo docker rename $name $NEW_NAME 2>/dev/null || true
+              fi
+            done || true
+            sleep 2
             
             # Запускаем контейнеры (только build если образы не скачаны)
+            # Используем sudo если нужно, иначе обычную команду
             if [ "$BACKEND_PULLED" = true ] && [ "$FRONTEND_PULLED" = true ]; then
               echo "🚀 Using pre-built images, skipping build"
-              $DOCKER_COMPOSE -f docker-compose.prod.yml up -d
+              sudo $DOCKER_COMPOSE -f docker-compose.prod.yml up -d --force-recreate --no-build --pull never --remove-orphans 2>/dev/null || \
+              $DOCKER_COMPOSE -f docker-compose.prod.yml up -d --force-recreate --no-build --pull never --remove-orphans
             else
               echo "🔨 Building missing images..."
-              $DOCKER_COMPOSE -f docker-compose.prod.yml up -d --build
+              sudo $DOCKER_COMPOSE -f docker-compose.prod.yml up -d --force-recreate --build --remove-orphans 2>/dev/null || \
+              $DOCKER_COMPOSE -f docker-compose.prod.yml up -d --force-recreate --build --remove-orphans
             fi
             
             # Ждем готовности сервисов
             sleep 10
             
+            # Проверяем статус всех контейнеров проекта
+            echo "🔍 Checking container status after startup..."
+            sudo $DOCKER_COMPOSE -f docker-compose.prod.yml ps 2>/dev/null || \
+            $DOCKER_COMPOSE -f docker-compose.prod.yml ps || true
+            
+            # Проверяем какие контейнеры созданы но не запущены
+            echo "🔍 Checking stopped containers..."
+            sudo docker ps -a --filter "name=nardist_" --format "{{.Names}}|{{.Status}}" 2>/dev/null | grep -v "_old_" | while IFS='|' read -r name status; do
+              if [ -n "$name" ] && echo "$status" | grep -q "Exited\|Created\|Dead"; then
+                echo "  ⚠️  Container $name is not running: $status"
+                echo "  📋 Logs for $name:"
+                sudo docker logs $name --tail 20 2>/dev/null || docker logs $name --tail 20 2>/dev/null || true
+              fi
+            done || true
+            
+            # Явно запускаем все сервисы если они не запущены
+            echo "🚀 Ensuring all services are running..."
+            for service in nginx backend frontend postgres redis; do
+              CONTAINER_NAME="nardist_${service}_prod"
+              if ! sudo docker ps 2>/dev/null | grep -q "$CONTAINER_NAME" && ! docker ps 2>/dev/null | grep -q "$CONTAINER_NAME"; then
+                echo "  Starting $service..."
+                # Пробуем запустить через compose
+                sudo $DOCKER_COMPOSE -f docker-compose.prod.yml up -d $service 2>/dev/null || \
+                $DOCKER_COMPOSE -f docker-compose.prod.yml up -d $service || true
+                # Если не запустился, проверяем логи
+                sleep 2
+                if ! sudo docker ps 2>/dev/null | grep -q "$CONTAINER_NAME" && ! docker ps 2>/dev/null | grep -q "$CONTAINER_NAME"; then
+                  echo "  ⚠️  $service failed to start, checking logs..."
+                  sudo docker logs $CONTAINER_NAME --tail 30 2>/dev/null || docker logs $CONTAINER_NAME --tail 30 2>/dev/null || true
+                fi
+              fi
+            done
+            sleep 5
+            
+            # Явно запускаем nginx если он не запущен
+            if ! sudo docker ps 2>/dev/null | grep -q nardist_nginx_prod && ! docker ps 2>/dev/null | grep -q nardist_nginx_prod; then
+              echo "⚠️  Nginx not running, starting it..."
+              sudo $DOCKER_COMPOSE -f docker-compose.prod.yml up -d nginx 2>/dev/null || \
+              $DOCKER_COMPOSE -f docker-compose.prod.yml up -d nginx
+              sleep 5
+            fi
+            
+            # Проверяем статус nginx (используем sudo если нужно)
+            if sudo docker ps 2>/dev/null | grep -q nardist_nginx_prod || docker ps 2>/dev/null | grep -q nardist_nginx_prod; then
+              echo "✅ Nginx container is running"
+              # Проверяем что nginx действительно слушает на портах
+              if sudo docker exec nardist_nginx_prod nginx -t 2>/dev/null || docker exec nardist_nginx_prod nginx -t 2>/dev/null; then
+                echo "✅ Nginx configuration is valid"
+              else
+                echo "⚠️  Nginx configuration has errors, checking logs..."
+                sudo docker logs nardist_nginx_prod --tail 50 2>/dev/null || docker logs nardist_nginx_prod --tail 50 2>/dev/null || true
+              fi
+              # Проверяем что порты заняты docker контейнером
+              if lsof -i :80 2>/dev/null | grep -q docker || ss -tlnp | grep :80 | grep -q docker; then
+                echo "✅ Port 80 is bound to docker nginx"
+              else
+                echo "❌ Port 80 is NOT bound to docker nginx! Checking what's using it..."
+                lsof -i :80 2>/dev/null || ss -tlnp | grep :80 || true
+              fi
+            else
+              echo "❌ Nginx failed to start, checking logs..."
+              sudo docker logs nardist_nginx_prod --tail 50 2>/dev/null || docker logs nardist_nginx_prod --tail 50 2>/dev/null || true
+              echo "🔄 Attempting to restart nginx..."
+              sudo $DOCKER_COMPOSE -f docker-compose.prod.yml restart nginx 2>/dev/null || \
+              $DOCKER_COMPOSE -f docker-compose.prod.yml restart nginx || \
+              sudo $DOCKER_COMPOSE -f docker-compose.prod.yml up -d nginx 2>/dev/null || \
+              $DOCKER_COMPOSE -f docker-compose.prod.yml up -d nginx
+            fi
+            
+            # Проверяем что backend контейнер запущен перед миграциями
+            echo "🔍 Checking backend container status..."
+            if ! sudo docker ps 2>/dev/null | grep -q nardist_backend_prod && ! docker ps 2>/dev/null | grep -q nardist_backend_prod; then
+              echo "⚠️  Backend container not running, starting it..."
+              sudo $DOCKER_COMPOSE -f docker-compose.prod.yml up -d backend 2>/dev/null || \
+              $DOCKER_COMPOSE -f docker-compose.prod.yml up -d backend
+              echo "⏳ Waiting for backend to be ready..."
+              sleep 10
+            fi
+            
+            # Убеждаемся что postgres запущен и здоров перед миграциями
+            echo "🔍 Ensuring PostgreSQL is running and healthy..."
+            sudo $DOCKER_COMPOSE -f docker-compose.prod.yml up -d postgres 2>/dev/null || \
+            $DOCKER_COMPOSE -f docker-compose.prod.yml up -d postgres
+            
+            # Ждем пока postgres станет healthy
+            echo "⏳ Waiting for PostgreSQL to be healthy..."
+            for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+              HEALTH=$(sudo $DOCKER_COMPOSE -f docker-compose.prod.yml ps postgres 2>/dev/null | grep -o "healthy" || \
+                      $DOCKER_COMPOSE -f docker-compose.prod.yml ps postgres 2>/dev/null | grep -o "healthy" || echo "")
+              if [ "$HEALTH" = "healthy" ]; then
+                echo "✅ PostgreSQL is healthy"
+                break
+              fi
+              echo "  Waiting... ($i/15)"
+              sleep 2
+            done
+            
             # Применяем миграции (с таймаутом)
-            timeout 60 $DOCKER_COMPOSE -f docker-compose.prod.yml exec -T backend npx prisma migrate deploy || echo "⚠️  Migrations failed or not needed"
+            echo "🗄️  Running database migrations..."
+            # Пробуем через exec (если backend контейнер запущен)
+            if sudo docker ps 2>/dev/null | grep -q nardist_backend_prod || docker ps 2>/dev/null | grep -q nardist_backend_prod; then
+              timeout 60 sudo $DOCKER_COMPOSE -f docker-compose.prod.yml exec -T backend npx prisma migrate deploy 2>/dev/null || \
+              timeout 60 $DOCKER_COMPOSE -f docker-compose.prod.yml exec -T backend npx prisma migrate deploy || {
+                echo "⚠️  Migrations via exec failed, trying with migrations service..."
+                timeout 60 sudo $DOCKER_COMPOSE -f docker-compose.prod.yml --profile migrations run --rm migrations 2>/dev/null || \
+                timeout 60 $DOCKER_COMPOSE -f docker-compose.prod.yml --profile migrations run --rm migrations || echo "⚠️  Migrations failed or not needed"
+              }
+            else
+              # Если backend не запущен, используем сервис миграций
+              echo "⚠️  Backend container not running, using migrations service..."
+              timeout 60 sudo $DOCKER_COMPOSE -f docker-compose.prod.yml --profile migrations run --rm migrations 2>/dev/null || \
+              timeout 60 $DOCKER_COMPOSE -f docker-compose.prod.yml --profile migrations run --rm migrations || echo "⚠️  Migrations failed or not needed"
+            fi
             
             # Проверяем статус контейнеров
             echo "📊 Container status:"
+            sudo $DOCKER_COMPOSE -f docker-compose.prod.yml ps 2>/dev/null || \
             $DOCKER_COMPOSE -f docker-compose.prod.yml ps || true
             
             # Очистка (не блокируем если долго)
-            timeout 30 docker system prune -f || true
+            timeout 30 sudo docker system prune -f 2>/dev/null || timeout 30 docker system prune -f || true
             
             echo "✅ Deployment completed successfully!"
 

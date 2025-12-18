@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Card, Button, Tabs, Input } from '../components/ui';
+import { Card, Button, Tabs, Input, Skeleton, Icon } from '../components/ui';
 import { marketService, inventoryService } from '../services';
 import type { InventoryItem } from '../types';
 import { placeholders } from '../utils/placeholders';
@@ -47,14 +47,14 @@ export const Market = () => {
       .finally(() => setLoading(false));
   }, []);
 
-  const filteredItems = listings.filter((item) => {
+  const filteredItems = Array.isArray(listings) ? listings.filter((item) => {
     const matchesSearch =
       searchQuery === '' ||
       (item.inventoryItem?.skin?.name || item.skin?.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       (item.user?.firstName || '').toLowerCase().includes(searchQuery.toLowerCase());
     const matchesRarity = filterRarity === 'ALL' || (item.inventoryItem?.rarity || item.skin?.rarity) === filterRarity;
     return matchesSearch && matchesRarity;
-  });
+  }) : [];
 
   const tabs = [
     {
@@ -72,7 +72,10 @@ export const Market = () => {
   return (
     <div className="market-page">
       <Link to="/" className="market-page__back">←</Link>
-      <h1 className="market-page__title">🏪 Рынок скинов</h1>
+      <h1 className="market-page__title">
+        <Icon name="market" size={28} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
+        Рынок скинов
+      </h1>
 
       <div className="market-page__filters">
         <Input
@@ -136,14 +139,22 @@ const MarketBuy = ({ items, loading }: { items: any[]; loading: boolean }) => {
   };
 
   if (loading) {
-    return <div className="market-buy">Загрузка...</div>;
+    return (
+      <div className="market-buy">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} height={200} style={{ borderRadius: '6px' }} />
+          ))}
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="market-buy">
       {items.length > 0 ? (
         <div className="market-buy__grid">
-          {items.map((listing) => {
+          {Array.isArray(items) ? items.map((listing) => {
             const item = listing.inventoryItem || listing;
             const skin = item.skin || listing.skin;
             const rarity = item.rarity || skin?.rarity || 'COMMON';
@@ -187,7 +198,8 @@ const MarketBuy = ({ items, loading }: { items: any[]; loading: boolean }) => {
                   {weight > 0 && <div className="market-item__weight">Вес: {weight}</div>}
                 </div>
                 <div className="market-item__price">
-                  💰 {listing.price.toLocaleString()} NAR
+                  <Icon name="coin" size={16} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+                  {listing.price.toLocaleString()} NAR
                 </div>
                 <Button 
                   variant="primary" 
@@ -203,7 +215,9 @@ const MarketBuy = ({ items, loading }: { items: any[]; loading: boolean }) => {
                 </Button>
               </Card>
             );
-          })}
+          }) : (
+            <div>Нет доступных предметов</div>
+          )}
         </div>
       ) : (
         <Card className="market-buy__empty">
@@ -215,7 +229,7 @@ const MarketBuy = ({ items, loading }: { items: any[]; loading: boolean }) => {
 };
 
 const MarketSell = ({ inventory, loading }: { inventory: InventoryItem[]; loading: boolean }) => {
-  const userItems = inventory.filter((item) => !item.isEquipped);
+  const userItems = Array.isArray(inventory) ? inventory.filter((item) => !item.isEquipped) : [];
 
   const handleSell = async (item: InventoryItem, price: number) => {
     if (!price || price <= 0) {
@@ -231,13 +245,22 @@ const MarketSell = ({ inventory, loading }: { inventory: InventoryItem[]; loadin
   };
 
   if (loading) {
-    return <div className="market-sell">Загрузка...</div>;
+    return (
+      <div className="market-sell">
+        <Skeleton width="100%" height={24} style={{ marginBottom: '16px', borderRadius: '6px' }} />
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} height={200} style={{ borderRadius: '6px' }} />
+          ))}
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="market-sell">
       <h3 className="market-sell__title">Ваши предметы для продажи</h3>
-      {userItems.length > 0 ? (
+      {Array.isArray(userItems) && userItems.length > 0 ? (
         <div className="market-sell__list">
           {userItems.map((item) => (
             <Card key={item.id} className="market-sell-item">

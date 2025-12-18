@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Card, Button, Tabs } from '../components/ui';
+import { Card, Button, Tabs, Icon } from '../components/ui';
 import { questsService } from '../services';
 import './Quests.css';
 
@@ -10,13 +10,19 @@ export const Quests = () => {
 
   useEffect(() => {
     questsService.getActive()
-      .then(setQuests)
-      .catch(console.error)
+      .then((data) => {
+        // Гарантируем что это массив
+        setQuests(Array.isArray(data) ? data : []);
+      })
+      .catch((error) => {
+        console.error('Failed to load quests:', error);
+        setQuests([]);
+      })
       .finally(() => setLoading(false));
   }, []);
 
-  const dailyQuests = quests.filter((q) => q.type === 'DAILY');
-  const weeklyQuests = quests.filter((q) => q.type === 'WEEKLY');
+  const dailyQuests = Array.isArray(quests) ? quests.filter((q) => q.type === 'DAILY') : [];
+  const weeklyQuests = Array.isArray(quests) ? quests.filter((q) => q.type === 'WEEKLY') : [];
 
   const tabs = [
     {
@@ -34,7 +40,10 @@ export const Quests = () => {
   return (
     <div className="quests-page">
       <Link to="/" className="quests-page__back">←</Link>
-      <h1 className="quests-page__title">📋 Квесты</h1>
+      <h1 className="quests-page__title">
+        <Icon name="book" size={28} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
+        Квесты
+      </h1>
       <Tabs tabs={tabs} />
     </div>
   );
@@ -51,7 +60,7 @@ const QuestsList = ({ quests, loading }: { quests: any[]; loading: boolean }) =>
 
   return (
     <div className="quests-list">
-      {quests.map((quest) => (
+      {Array.isArray(quests) ? quests.map((quest) => (
         <Card key={quest.id} className="quest-card">
           <div className="quest-card__header">
             <h3 className="quest-card__title">{quest.title}</h3>
@@ -72,12 +81,25 @@ const QuestsList = ({ quests, loading }: { quests: any[]; loading: boolean }) =>
             </span>
           </div>
           <div className="quest-card__rewards">
-            <span>💰 {quest.rewardCoin} NAR</span>
-            <span>⭐ {quest.rewardXp} XP</span>
-            {quest.rewardSkin && <span>🎨 Скин</span>}
+            <span>
+              <Icon name="coin" size={14} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+              {quest.rewardCoin} NAR
+            </span>
+            <span>
+              <Icon name="star" size={14} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+              {quest.rewardXp} XP
+            </span>
+            {quest.rewardSkin && (
+              <span>
+                <Icon name="skins" size={14} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+                Скин
+              </span>
+            )}
           </div>
         </Card>
-      ))}
+      )) : (
+        <div className="quests-list">Нет доступных квестов</div>
+      )}
     </div>
   );
 };

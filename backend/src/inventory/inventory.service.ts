@@ -18,21 +18,28 @@ export class InventoryService {
       [userId]
     );
 
-    return items.rows.map(item => ({
-      ...item,
-      skin: {
-        id: item.skinId,
-        name: item.name,
-        type: item.type,
-        previewUrl: item.previewUrl,
-        rarity: item.rarity,
-        weight: item.weight,
-        durabilityMax: item.durabilityMax,
-        isDefault: item.isDefault,
-        priceCoin: item.priceCoin,
-        isActive: item.isActive,
-      },
-    }));
+    // Добавляем вычисленные previewUrl для каждого предмета на основе состояния износа
+    return items.rows.map(item => {
+      const visualState = this.getVisualState(item.durability, item.durabilityMax);
+      const previewUrl = this.getPreviewUrlForState(item.previewUrl, visualState);
+      return {
+        ...item,
+        skin: {
+          id: item.skinId,
+          name: item.name,
+          type: item.type,
+          previewUrl: item.previewUrl,
+          rarity: item.rarity,
+          weight: item.weight,
+          durabilityMax: item.durabilityMax,
+          isDefault: item.isDefault,
+          priceCoin: item.priceCoin,
+          isActive: item.isActive,
+        },
+        previewUrl, // Добавляем вычисленный previewUrl
+        visualState, // Добавляем состояние износа
+      };
+    });
   }
 
   /**
@@ -194,10 +201,32 @@ export class InventoryService {
 
       if (wearAmount > 0) {
         const newDurability = Math.max(0, item.durability - wearAmount);
+        const visualState = this.getVisualState(newDurability, item.durabilityMax);
+        
+        // Проверяем падение редкости при критическом износе
+        let newRarity = item.rarity;
+        if (visualState === 'BROKEN' && item.rarity !== 'COMMON') {
+          const rarityOrder = ['COMMON', 'UNCOMMON', 'RARE', 'EPIC', 'LEGENDARY', 'MYTHIC'];
+          const currentIndex = rarityOrder.indexOf(item.rarity);
+          if (currentIndex > 0) {
+            newRarity = rarityOrder[currentIndex - 1];
+          }
+        }
+        
+        const updateData: any = {
+          durability: newDurability,
+          updatedAt: new Date(),
+        };
+        
+        // Обновляем редкость только если упала
+        if (newRarity !== item.rarity) {
+          updateData.rarity = newRarity;
+        }
+        
         updates.push(
           this.db.update('inventory_items',
             { id: item.id },
-            { durability: newDurability, updatedAt: new Date() }
+            updateData
           )
         );
       }
@@ -226,6 +255,45 @@ export class InventoryService {
   }
 
   /**
+   * Получить previewUrl для состояния износа
+   * Можно добавить суффиксы к URL или использовать разные изображения
+   */
+  private getPreviewUrlForState(baseUrl: string, state: 'NEW' | 'USED' | 'WORN' | 'BROKEN'): string {
+    if (!baseUrl) {
+      return baseUrl;
+    }
+
+    // Если URL уже содержит состояние, заменяем его
+    const stateSuffixes = {
+      NEW: '',
+      USED: '_used',
+      WORN: '_worn',
+      BROKEN: '_broken',
+    };
+
+    // Удаляем старые суффиксы
+    let cleanUrl = baseUrl.replace(/_(used|worn|broken)(\.\w+)?$/, '');
+    
+    // Добавляем расширение обратно, если оно было
+    const extensionMatch = baseUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i);
+    const extension = extensionMatch ? extensionMatch[0] : '';
+    
+    // Если состояние не NEW, добавляем суффикс
+    if (state !== 'NEW' && stateSuffixes[state]) {
+      // Вставляем суффикс перед расширением
+      if (extension) {
+        cleanUrl = cleanUrl.replace(extension, '') + stateSuffixes[state] + extension;
+      } else {
+        cleanUrl = cleanUrl + stateSuffixes[state];
+      }
+    } else {
+      cleanUrl = cleanUrl + extension;
+    }
+
+    return cleanUrl;
+  }
+
+  /**
    * Получить информацию о визуальном состоянии предмета
    */
   async getItemVisualInfo(itemId: number) {
@@ -243,9 +311,14 @@ export class InventoryService {
     }
 
     const visualState = this.getVisualState(item.durability, item.durabilityMax);
+    // Вычисляем previewUrl на основе состояния износа
+    const previewUrl = this.getPreviewUrlForState(item.skin.previewUrl, visualState);
     
     return {
-      item,
+      item: {
+        ...item,
+        previewUrl, // Добавляем вычисленный previewUrl
+      },
       visualState,
       durabilityPercentage: (item.durability / item.durabilityMax) * 100,
     };

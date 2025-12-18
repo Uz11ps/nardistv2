@@ -280,11 +280,15 @@ export class ClansService {
     }));
   }
 
+  /**
+   * Распределить фонд района: часть в казну клана, часть участникам
+   */
   async distributeDistrictFund(
     leaderId: number,
     clanId: number,
     districtId: number,
     amount: number,
+    clanShare?: number, // Доля для казны клана (0-1), по умолчанию 0.5
   ) {
     const leader = await this.db.query(
       'SELECT * FROM clan_members WHERE "clanId" = $1 AND "userId" = $2 LIMIT 1',
@@ -300,7 +304,8 @@ export class ClansService {
       throw new Error('District is not controlled by this clan');
     }
 
-    return await this.economyService.distributeDistrictFundToClan(districtId, amount);
+    // Используем метод из EconomyService с распределением
+    return this.economyService.distributeDistrictFund(districtId, amount, clanShare);
   }
 
   async updateClan(leaderId: number, clanId: number, data: { name?: string; description?: string }) {

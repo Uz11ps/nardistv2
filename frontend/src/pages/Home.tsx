@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Card, Button } from '../components/ui';
+import { Card, Button, Skeleton, Icon } from '../components/ui';
 import { useAuthStore } from '../store/auth.store';
 import { userService } from '../services';
 import { placeholders } from '../utils/placeholders';
@@ -47,23 +47,40 @@ export const Home = () => {
   }, [authUser]);
 
   if (loading || !user) {
-    return <div className="home">Загрузка...</div>;
+    return (
+      <div className="home">
+        <div className="home__profile">
+          <Skeleton variant="circular" width={80} height={80} className="home__avatar-large" />
+          <Skeleton width={120} height={24} style={{ marginBottom: '8px' }} />
+          <Skeleton width={80} height={16} />
+          <div className="home__top-stats">
+            <Skeleton width={60} height={20} />
+            <Skeleton width={60} height={20} />
+          </div>
+        </div>
+        <div className="home__menu">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <Skeleton key={i} height={56} style={{ borderRadius: '6px', marginBottom: '12px' }} />
+          ))}
+        </div>
+      </div>
+    );
   }
 
-  const shortRating = stats?.ratings?.find((r: any) => r.mode === 'SHORT');
-  const longRating = stats?.ratings?.find((r: any) => r.mode === 'LONG');
+  const shortRating = Array.isArray(stats?.ratings) ? stats.ratings.find((r: any) => r.mode === 'SHORT') : undefined;
+  const longRating = Array.isArray(stats?.ratings) ? stats.ratings.find((r: any) => r.mode === 'LONG') : undefined;
 
   const xpPercent = user.xp ? Math.min((user.xp % 1000) / 10, 100) : 0;
   const currentXp = user.xp ? (user.xp % 1000) : 0;
   const xpForNextLevel = 100;
 
   const menuItems = [
-    { path: '/game', icon: '🎲', label: 'Играть', iconColor: 'red' },
-    { path: '/profile', icon: '👤', label: 'Профиль', iconColor: 'grey' },
-    { path: '/city', icon: '🏙️', label: 'Город', iconColor: 'gold' },
-    { path: '/tournaments', icon: '🏆', label: 'Турниры', iconColor: 'gold' },
-    { path: '/clans', icon: '⚔️', label: 'Кланы', iconColor: 'gold' },
-    { path: '/trainer', icon: '🎓', label: 'Обучение', iconColor: 'white' },
+    { path: '/game', icon: 'dice', label: 'Играть', iconColor: 'red' },
+    { path: '/profile', icon: 'user', label: 'Профиль', iconColor: 'grey' },
+    { path: '/city', icon: 'city', label: 'Город', iconColor: 'gold' },
+    { path: '/tournaments', icon: 'trophy', label: 'Турниры', iconColor: 'gold' },
+    { path: '/clans', icon: 'sword', label: 'Кланы', iconColor: 'gold' },
+    { path: '/trainer', icon: 'book', label: 'Обучение', iconColor: 'white' },
   ];
 
   return (
@@ -79,7 +96,7 @@ export const Home = () => {
         {/* Валюта и Энергия справа вверху */}
         <div className="home__top-stats">
           <div className="home__top-stat">
-            <span className="home__top-stat-icon">🔥</span>
+            <Icon name="coin" size={20} className="home__top-stat-icon" />
             <span className="home__top-stat-value">{(user.narCoin || 0).toLocaleString()}</span>
           </div>
           <div className="home__top-stat">
@@ -99,7 +116,7 @@ export const Home = () => {
         {menuItems.map((item) => (
           <Link key={item.path} to={item.path} className="home__menu-item">
             <span className={`home__menu-icon home__menu-icon--${item.iconColor}`}>
-              {item.icon}
+              <Icon name={item.icon as any} size={24} />
             </span>
             <span className="home__menu-label">{item.label}</span>
           </Link>

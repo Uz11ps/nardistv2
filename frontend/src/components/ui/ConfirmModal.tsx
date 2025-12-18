@@ -45,8 +45,14 @@ export const ConfirmModal = ({
     }
   }, [onClose, loading]);
 
+  const handleModalClose = React.useCallback(() => {
+    if (!loading) {
+      onClose();
+    }
+  }, [onClose, loading]);
+
   return (
-    <Modal isOpen={isOpen} onClose={handleCancel} title={title} size="sm" closeOnOverlayClick={!loading}>
+    <Modal isOpen={isOpen} onClose={handleModalClose} title={title} size="sm" closeOnOverlayClick={!loading}>
       <div className="confirm-modal">
         <p className="confirm-modal__message">{message}</p>
         

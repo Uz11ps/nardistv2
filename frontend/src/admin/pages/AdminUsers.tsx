@@ -19,13 +19,13 @@ export const AdminUsers = () => {
       .finally(() => setLoading(false));
   }, [page]);
 
-  const filteredUsers = users.filter(
+  const filteredUsers = Array.isArray(users) ? users.filter(
     (user) =>
       searchQuery === '' ||
       user.nickname?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.firstName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.telegramId.toString().includes(searchQuery),
-  );
+  ) : [];
 
   const columns = [
     {
@@ -130,7 +130,7 @@ export const AdminUsers = () => {
             onClick={() => {
               const csv = [
                 ['ID', 'Никнейм', 'Имя', 'Уровень', 'Монеты', 'Энергия', 'Жизни', 'Premium'].join(','),
-                ...users.map((u) =>
+                ...(Array.isArray(users) ? users.map((u) =>
                   [
                     u.id,
                     u.nickname || '',
@@ -141,7 +141,7 @@ export const AdminUsers = () => {
                     `${u.lives}/${u.livesMax}`,
                     u.isPremium ? 'Да' : 'Нет',
                   ].join(','),
-                ),
+                ) : []),
               ].join('\n');
               const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
               const url = URL.createObjectURL(blob);

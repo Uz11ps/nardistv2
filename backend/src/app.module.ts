@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { DatabaseModule } from './database/database.module';
 import { RedisModule } from './redis/redis.module';
 import { ConfigModule } from './config/config.module';
@@ -25,6 +25,11 @@ import { MarketModule } from './market/market.module';
 import { SiegesModule } from './sieges/sieges.module';
 import { HealthModule } from './health/health.module';
 import { LoggerModule } from './common/logger/logger.module';
+import { OnboardingModule } from './onboarding/onboarding.module';
+import { AnalyticsModule } from './analytics/analytics.module';
+import { TrainerModule } from './trainer/trainer.module';
+import { MetricsModule } from './metrics/metrics.module';
+import { MetricsInterceptor } from './common/interceptors/metrics.interceptor';
 import { ThrottleGuard } from './common/guards/throttle.guard';
 
 @Module({
@@ -54,12 +59,20 @@ import { ThrottleGuard } from './common/guards/throttle.guard';
     MarketModule,
     SiegesModule,
     HealthModule,
+    OnboardingModule,
+    AnalyticsModule,
+    TrainerModule,
+    MetricsModule,
   ],
   controllers: [],
   providers: [
     {
       provide: APP_GUARD,
       useClass: ThrottleGuard,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: MetricsInterceptor,
     },
   ],
 })

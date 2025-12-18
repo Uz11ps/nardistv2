@@ -65,5 +65,9 @@ export class SubscriptionService {
   async getSubscription(userId: number) {
     return await this.db.findOne('subscriptions', { userId });
   }
+
+  async hasActiveSubscription(userId: number): Promise<boolean> {
+    return this.checkSubscription(userId);
+  }
 }
 

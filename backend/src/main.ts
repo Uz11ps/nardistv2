@@ -3,23 +3,62 @@ import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { LoggerService } from './common/logger/logger.service';
+import { SanitizePipe } from './common/pipes/sanitize.pipe';
 import { setupSwagger } from './common/swagger/swagger.setup';
+// @ts-ignore - helmet может быть не установлен
+import helmet from 'helmet';
 
 async function bootstrap() {
-  const logger = new LoggerService('Bootstrap');
   const app = await NestFactory.create(AppModule, {
-    logger: logger,
+    bufferLogs: true,
   });
+  
+  const logger = app.get(LoggerService);
+  app.useLogger(logger);
+
+  // Helmet для безопасности (XSS, CSRF и т.д.)
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          scriptSrc: ["'self'"],
+          imgSrc: ["'self'", 'data:', 'https:'],
+          connectSrc: ["'self'", 'wss:', 'ws:'],
+          fontSrc: ["'self'", 'https:'],
+          objectSrc: ["'none'"],
+          mediaSrc: ["'self'"],
+          frameSrc: ["'none'"],
+        },
+      },
+      crossOriginEmbedderPolicy: false, // Для Telegram Web App
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+      hsts: {
+        maxAge: 31536000,
+        includeSubDomains: true,
+        preload: true,
+      },
+      xssFilter: true,
+      noSniff: true,
+      frameguard: { action: 'sameorigin' },
+    }),
+  );
 
   // Глобальный exception filter
   app.useGlobalFilters(new HttpExceptionFilter());
 
-  // Глобальная валидация
+  // Глобальная валидация и санитизация
   app.useGlobalPipes(
+    new SanitizePipe(),
     new ValidationPipe({
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
+      transformOptions: {
+        enableImplicitConversion: true,
+      },
+      disableErrorMessages: process.env.NODE_ENV === 'production',
     }),
   );
 

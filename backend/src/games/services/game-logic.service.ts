@@ -25,7 +25,7 @@ export class GameLogicService {
       dice: null,
       moves: [],
       turnStartTime: Date.now(),
-      turnTimeLimit: 60, // 60 секунд на ход
+      turnTimeLimit: 60, // 60 секунд на ход по умолчанию
       players: {
         white: whitePlayerId,
         black: blackPlayerId,
@@ -64,9 +64,11 @@ export class GameLogicService {
   }
 
   /**
-   * Бросок кубиков
+   * Бросок кубиков (deprecated - используйте RngService)
+   * Оставлено для обратной совместимости
    */
   rollDice(): DiceRoll {
+    // Используем Math.random как fallback, но в production должен использоваться RngService
     return {
       die1: Math.floor(Math.random() * 6) + 1,
       die2: Math.floor(Math.random() * 6) + 1,

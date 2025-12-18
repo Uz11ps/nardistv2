@@ -4,6 +4,7 @@
   background: var(--bg-primary);
   max-width: 480px;
   margin: 0 auto;
+  animation: fadeIn 0.4s ease-out;
 }
 
 .home__profile {
@@ -14,6 +15,7 @@
   padding: var(--spacing-md) 0;
   position: relative;
   margin-bottom: var(--spacing-lg);
+  animation: fadeInUp 0.5s ease-out;
 }
 
 .home__avatar-large {
@@ -25,6 +27,13 @@
   background: var(--bg-card);
   border: 2px solid var(--color-primary);
   box-shadow: 0 0 10px rgba(220, 38, 38, 0.3);
+  transition: all var(--transition-normal);
+  animation: scaleIn 0.5s ease-out;
+}
+
+.home__avatar-large:hover {
+  transform: scale(1.1);
+  box-shadow: 0 0 20px rgba(220, 38, 38, 0.5);
 }
 
 .home__avatar-large img {
@@ -66,8 +75,9 @@
 }
 
 .home__top-stat-icon {
-  font-size: 20px;
   color: var(--color-primary);
+  display: inline-flex;
+  align-items: center;
 }
 
 .home__top-stat-value {
@@ -94,6 +104,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--spacing-md);
+  animation: fadeInUp 0.6s ease-out 0.2s both;
 }
 
 .home__menu-item {
@@ -105,14 +116,37 @@
   border-radius: var(--border-radius);
   text-decoration: none;
   color: var(--text-primary);
-  transition: all var(--transition-fast);
+  transition: all var(--transition-normal);
   border: 1px solid rgba(220, 38, 38, 0.3);
+  position: relative;
+  overflow: hidden;
+  transform: translateZ(0);
+}
+
+.home__menu-item::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  transition: left 0.5s;
 }
 
 .home__menu-item:hover {
   background: linear-gradient(135deg, rgba(220, 38, 38, 0.2) 0%, rgba(220, 38, 38, 0.1) 100%);
   border-color: var(--color-primary);
-  transform: translateX(4px);
+  transform: translateX(6px) translateY(-2px);
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+}
+
+.home__menu-item:hover::before {
+  left: 100%;
+}
+
+.home__menu-item:active {
+  transform: translateX(4px) scale(0.98);
 }
 
 .home__menu-item:first-child {
@@ -130,6 +164,11 @@
   align-items: center;
   justify-content: center;
   line-height: 1;
+  transition: transform var(--transition-normal);
+}
+
+.home__menu-item:hover .home__menu-icon {
+  transform: scale(1.2) rotate(5deg);
 }
 
 .home__menu-icon--red {

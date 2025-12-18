@@ -43,8 +43,13 @@ export class TournamentsController {
   async purchaseTournamentPass(
     @Param('id') id: string,
     @CurrentUser() user: UserDto,
+    @Body() data?: { paymentMethod?: 'NAR' | 'TON' | 'USDT' | 'RUBLES' | 'TELEGRAM_STARS' },
   ) {
-    return this.tournamentsService.purchaseTournamentPass(user.id, parseInt(id, 10));
+    return this.tournamentsService.purchaseTournamentPass(
+      user.id,
+      parseInt(id, 10),
+      data?.paymentMethod || 'NAR',
+    );
   }
 
   @Get(':id/pass')
@@ -70,6 +75,15 @@ export class TournamentsController {
     @CurrentUser() user: UserDto,
   ) {
     return this.tournamentsService.claimTournamentPassRewards(user.id, parseInt(id, 10), rewardType);
+  }
+
+  @Get(':id/pass/rewards/available')
+  @UseGuards(JwtAuthGuard)
+  async getAvailableTournamentPassRewards(
+    @Param('id') id: string,
+    @CurrentUser() user: UserDto,
+  ) {
+    return this.tournamentsService.getAvailableTournamentPassRewards(user.id, parseInt(id, 10));
   }
 }
 

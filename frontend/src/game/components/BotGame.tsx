@@ -474,8 +474,10 @@ export const BotGame = ({ mode, onGameEnd, onExit }: BotGameProps) => {
                   variant="primary"
                   fullWidth
                   disabled={isRolling}
+                  icon="dice"
+                  loading={isRolling}
                 >
-                  {isRolling ? '🎲 Бросаем...' : '🎲 Бросить кубики'}
+                  {isRolling ? 'Бросаем...' : 'Бросить кубики'}
                 </Button>
               ) : (
                 <div className="waiting-message">
@@ -499,6 +501,7 @@ export const BotGame = ({ mode, onGameEnd, onExit }: BotGameProps) => {
 
       {notification && (
         <NotificationModal
+          isOpen={!!notification}
           title={notification.title}
           message={notification.message}
           type={notification.type}

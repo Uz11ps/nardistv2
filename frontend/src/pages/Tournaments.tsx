@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Card, Button, NotificationModal, ConfirmModal } from '../components/ui';
+import { Card, Button, NotificationModal, ConfirmModal, Icon } from '../components/ui';
 import { tournamentsService, userService } from '../services';
 import { useAuthStore } from '../store/auth.store';
 import './Tournaments.css';
@@ -29,13 +29,15 @@ export const Tournaments = () => {
         
         // Создаем мапу пассов по tournamentId
         const passesMap: Record<number, any> = {};
-        passesData.forEach((pass: any) => {
+        const safePassesData = Array.isArray(passesData) ? passesData : [];
+        safePassesData.forEach((pass: any) => {
           passesMap[pass.tournamentId] = pass;
         });
         setTournamentPasses(passesMap);
 
         // Загружаем пассы для каждого турнира
-        tournamentsData.forEach(async (tournament: any) => {
+        const safeTournamentsData = Array.isArray(tournamentsData) ? tournamentsData : [];
+        safeTournamentsData.forEach(async (tournament: any) => {
           try {
             const pass = await tournamentsService.getTournamentPass(tournament.id);
             if (pass) {
@@ -100,21 +102,36 @@ export const Tournaments = () => {
   return (
     <div className="tournaments-page">
       <Link to="/" className="tournaments-page__back">←</Link>
-      <h1 className="tournaments-page__title">🏆 Турниры</h1>
+      <h1 className="tournaments-page__title">
+        <Icon name="trophy" size={28} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
+        Турниры
+      </h1>
 
       {olympiad && (
         <Card className="tournament-card tournament-card--olympiad" style={{ marginBottom: '1.5rem', border: '2px solid #ffd700', backgroundColor: '#1a1a1a' }}>
           <div className="tournament-card__header">
-            <h3 className="tournament-card__title">🏅 {olympiad.name}</h3>
+            <h3 className="tournament-card__title">
+              <Icon name="medal" size={20} style={{ marginRight: '6px', verticalAlign: 'middle' }} />
+              {olympiad.name}
+            </h3>
             <span className="tournament-card__badge" style={{ backgroundColor: '#ffd700', color: '#000', padding: '0.25rem 0.5rem', borderRadius: '4px', fontSize: '0.85rem' }}>
               ОЛИМПИАДА
             </span>
           </div>
           {olympiad.description && <p className="tournament-card__description">{olympiad.description}</p>}
           <div className="tournament-card__info">
-            <span>🎲 {olympiad.mode === 'SHORT' ? 'Короткие' : 'Длинные'} нарды</span>
-            <span>👥 {olympiad.participants?.length || 0}/{olympiad.maxParticipants || '∞'}</span>
-            <span style={{ color: '#ffd700', fontWeight: 'bold' }}>🏆 Награда: Mythic-скины 1/1</span>
+            <span>
+              <Icon name="dice" size={16} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+              {olympiad.mode === 'SHORT' ? 'Короткие' : 'Длинные'} нарды
+            </span>
+            <span>
+              <Icon name="users" size={16} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+              {olympiad.participants?.length || 0}/{olympiad.maxParticipants || '∞'}
+            </span>
+            <span style={{ color: '#ffd700', fontWeight: 'bold' }}>
+              <Icon name="trophy" size={16} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+              Награда: Mythic-скины 1/1
+            </span>
           </div>
           <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
             <Button
@@ -132,7 +149,7 @@ export const Tournaments = () => {
       <div className="tournaments-list">
         {tournaments.length === 0 ? (
           <Card>Нет доступных турниров</Card>
-        ) : (
+        ) : Array.isArray(tournaments) ? (
           tournaments
             .filter(t => !isOlympiad(t)) // Олимпиада показывается отдельно
             .map((tournament) => {
@@ -144,12 +161,14 @@ export const Tournaments = () => {
                     <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                       {isSponsored(tournament) && (
                         <span className="tournament-card__badge" style={{ backgroundColor: '#2196f3', color: '#fff', padding: '0.25rem 0.5rem', borderRadius: '4px', fontSize: '0.85rem' }}>
-                          📢 СПОНСОРСКИЙ
+                          <Icon name="bell" size={14} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+                          СПОНСОРСКИЙ
                         </span>
                       )}
                       {hasPass && (
                         <span className="tournament-card__badge" style={{ backgroundColor: '#9c27b0', color: '#fff', padding: '0.25rem 0.5rem', borderRadius: '4px', fontSize: '0.85rem' }}>
-                          🎫 PASS
+                          <Icon name="gift" size={14} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+                          PASS
                         </span>
                       )}
                       <span className={`tournament-card__status tournament-card__status--${tournament.status.toLowerCase()}`}>
@@ -161,8 +180,14 @@ export const Tournaments = () => {
                   </div>
                   {tournament.description && <p className="tournament-card__description">{tournament.description}</p>}
                   <div className="tournament-card__info">
-                    <span>🎲 {tournament.mode === 'SHORT' ? 'Короткие' : 'Длинные'} нарды</span>
-                    <span>👥 {tournament.participants?.length || 0}/{tournament.maxParticipants || '∞'}</span>
+                    <span>
+                      <Icon name="dice" size={16} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+                      {tournament.mode === 'SHORT' ? 'Короткие' : 'Длинные'} нарды
+                    </span>
+                    <span>
+                      <Icon name="users" size={16} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+                      {tournament.participants?.length || 0}/{tournament.maxParticipants || '∞'}
+                    </span>
                   </div>
                   <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
                     <Button
@@ -179,13 +204,16 @@ export const Tournaments = () => {
                         onClick={() => setConfirmPass({ tournament })}
                         style={{ whiteSpace: 'nowrap' }}
                       >
-                        🎫 Купить Pass
+                        <Icon name="gift" size={16} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+                        Купить Pass
                       </Button>
                     )}
                   </div>
                 </Card>
               );
             })
+        ) : (
+          <Card>Нет доступных турниров</Card>
         )}
       </div>
 

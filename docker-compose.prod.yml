@@ -6,11 +6,17 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-nardist}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB:-nardist_db}
+      # Заставляем PostgreSQL слушать на всех интерфейсах, а не только на localhost
+      POSTGRES_HOST_AUTH_METHOD: md5
+    command: >
+      postgres
+      -c listen_addresses='*'
+      -c max_connections=200
     volumes:
       - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-nardist}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-nardist} -h localhost"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -55,6 +61,12 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     networks:
       - nardist_network
 
@@ -104,6 +116,39 @@ services:
     networks:
       - nardist_network
 
+  # Сервис для выполнения миграций Prisma
+  # Используется через: docker compose -f docker-compose.prod.yml run --rm migrations
+  migrations:
+    image: ${BACKEND_IMAGE:-nardist-backend:latest}
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-nardist}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-nardist_db}
+      NODE_ENV: production
+      POSTGRES_USER: ${POSTGRES_USER:-nardist}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-nardist_db}
+    volumes:
+      # Монтируем prisma директорию для доступа к миграциям
+      - ./backend/prisma:/app/prisma:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - nardist_network
+    profiles:
+      - migrations
+    command: >
+      sh -c "
+        echo '⏳ Waiting a bit for PostgreSQL to be ready...' &&
+        sleep 10 &&
+        echo '🔧 Generating Prisma client...' &&
+        npm run prisma:generate &&
+        echo '🗄️  Running migrations (Prisma will retry on connection errors)...' &&
+        npx prisma migrate deploy
+      "
+
 volumes:
   postgres_data:
   redis_data:
@@ -112,5 +157,8 @@ volumes:
 
 networks:
   nardist_network:
+    name: nardist_network
     driver: bridge
-
+    external: false
+    ipam:
+      driver: default

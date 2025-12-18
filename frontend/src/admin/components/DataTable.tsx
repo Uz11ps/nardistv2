@@ -13,6 +13,7 @@ interface DataTableProps<T> {
   data: T[];
   onRowClick?: (item: T) => void;
   emptyMessage?: string;
+  actions?: (item: T) => ReactNode;
 }
 
 export function DataTable<T extends { id: number | string }>({
@@ -20,6 +21,7 @@ export function DataTable<T extends { id: number | string }>({
   data,
   onRowClick,
   emptyMessage = 'Нет данных',
+  actions,
 }: DataTableProps<T>) {
   return (
     <div className="data-table-wrapper">
@@ -31,6 +33,7 @@ export function DataTable<T extends { id: number | string }>({
                 {column.header}
               </th>
             ))}
+            {actions && <th className="data-table__header">Действия</th>}
           </tr>
         </thead>
         <tbody>
@@ -52,6 +55,11 @@ export function DataTable<T extends { id: number | string }>({
                     {column.render ? column.render(item) : (item as any)[column.key]}
                   </td>
                 ))}
+                {actions && (
+                  <td key="actions" className="data-table__cell" onClick={(e) => e.stopPropagation()}>
+                    {actions(item)}
+                  </td>
+                )}
               </tr>
             ))
           )}

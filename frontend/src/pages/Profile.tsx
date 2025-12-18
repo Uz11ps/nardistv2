@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Card, Button, Tabs, ConfirmModal, NotificationModal, Modal, Input } from '../components/ui';
+import { Card, Button, Tabs, ConfirmModal, NotificationModal, Modal, Input, Skeleton, Icon, type IconName } from '../components/ui';
 import { RepairModal } from '../components/inventory';
-import { userService, gameHistoryService, inventoryService, resourceService, businessService } from '../services';
+import { userService, gameHistoryService, inventoryService, resourceService, businessService, referralsService } from '../services';
 import { useAuthStore } from '../store/auth.store';
 import type { InventoryItem } from '../types';
 import { placeholders } from '../utils/placeholders';
@@ -32,7 +32,12 @@ export const Profile = () => {
   }, [authUser]);
 
   if (loading || !user) {
-    return <div className="profile-page">Загрузка...</div>;
+    return (
+      <div className="profile-page">
+        <Skeleton width="100%" height={200} style={{ marginBottom: '16px', borderRadius: '8px' }} />
+        <Skeleton width="100%" height={400} style={{ borderRadius: '8px' }} />
+      </div>
+    );
   }
 
   const refreshProfile = () => {
@@ -97,6 +102,26 @@ const ProfileInfo = ({ user, onUpdate }: { user: any; onUpdate: () => void }) =>
     avatar: user.avatar || '',
   });
   const [notification, setNotification] = useState<{ title: string; message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [referralLink, setReferralLink] = useState<{ telegram: string; web: string; code: string } | null>(null);
+  const [referralStats, setReferralStats] = useState<{ totalReferrals: number } | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    // Загружаем реферальную ссылку и статистику
+    referralsService.getStats()
+      .then((stats) => {
+        setReferralStats({ totalReferrals: stats.totalReferrals });
+        if (stats.referralLink) {
+          setReferralLink(stats.referralLink);
+        } else if (stats.referralCode) {
+          // Если ссылка не пришла, получаем её отдельно
+          referralsService.getLink()
+            .then(setReferralLink)
+            .catch(console.error);
+        }
+      })
+      .catch(console.error);
+  }, []);
 
   const handleSave = async () => {
     try {
@@ -137,22 +162,58 @@ const ProfileInfo = ({ user, onUpdate }: { user: any; onUpdate: () => void }) =>
           <span className="profile-info__label">Реферальный код:</span>
           <span className="profile-info__value">{user.referralCode || 'N/A'}</span>
         </div>
+        {referralStats && (
+          <div className="profile-info__item">
+            <span className="profile-info__label">Приглашено друзей:</span>
+            <span className="profile-info__value">{referralStats.totalReferrals}</span>
+          </div>
+        )}
+        {referralLink && (
+          <div className="profile-info__item profile-info__item--referral">
+            <span className="profile-info__label">Реферальная ссылка:</span>
+            <div className="profile-info__referral-link">
+              <Input
+                value={referralLink.telegram}
+                readOnly
+                className="profile-info__referral-input"
+              />
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(referralLink.telegram);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  } catch (err) {
+                    console.error('Failed to copy:', err);
+                  }
+                }}
+              >
+                {copied ? <Icon name="check" size={16} /> : <Icon name="copy" size={16} />}
+              </Button>
+            </div>
+            <div className="profile-info__referral-hint">
+              Поделитесь этой ссылкой с друзьями и получайте награды за каждого приглашенного!
+            </div>
+          </div>
+        )}
         <Button variant="outline" fullWidth onClick={() => setIsEditModalOpen(true)}>
           Редактировать профиль
         </Button>
       </Card>
       <div className="profile-info__links">
         <Link to="/city">
-          <Button variant="ghost" fullWidth>🏙️ Город</Button>
+          <Button variant="ghost" fullWidth icon="city">Город</Button>
         </Link>
         <Link to="/quests">
-          <Button variant="ghost" fullWidth>📋 Квесты</Button>
+          <Button variant="ghost" fullWidth icon="book">Квесты</Button>
         </Link>
         <Link to="/subscription">
-          <Button variant="ghost" fullWidth>⭐ Подписка</Button>
+          <Button variant="ghost" fullWidth icon="star">Подписка</Button>
         </Link>
         <Link to="/skins">
-          <Button variant="ghost" fullWidth>🎨 Скины</Button>
+          <Button variant="ghost" fullWidth icon="skins">Скины</Button>
         </Link>
       </div>
 
@@ -217,7 +278,7 @@ const DevelopmentBranch = ({
   upgradeCost, 
   userBalance 
 }: { 
-  label: string; 
+  label: string | React.ReactNode; 
   currentLevel: number; 
   maxLevel: number; 
   onUpgrade: () => void; 
@@ -297,8 +358,8 @@ const ProfileStats = ({ user }: { user: any }) => {
     return <div>Загрузка статистики...</div>;
   }
 
-  const shortRating = stats.ratings?.find((r: any) => r.mode === 'SHORT');
-  const longRating = stats.ratings?.find((r: any) => r.mode === 'LONG');
+  const shortRating = Array.isArray(stats.ratings) ? stats.ratings.find((r: any) => r.mode === 'SHORT') : undefined;
+  const longRating = Array.isArray(stats.ratings) ? stats.ratings.find((r: any) => r.mode === 'LONG') : undefined;
 
   return (
     <div className="profile-stats">
@@ -338,9 +399,15 @@ const ProfileStats = ({ user }: { user: any }) => {
       <Card>
         <h3>Ресурсы</h3>
         <div className="profile-stats__resources">
-          <div>💰 {user.narCoin} NAR-coin</div>
+          <div>
+            <Icon name="coin" size={18} style={{ marginRight: '6px', verticalAlign: 'middle' }} />
+            {user.narCoin} NAR-coin
+          </div>
           <div className="profile-stats__resource-item">
-            <span>⚡ {user.energy}/{user.energyMax} Энергия</span>
+            <span>
+              <Icon name="energy" size={18} style={{ marginRight: '6px', verticalAlign: 'middle' }} />
+              {user.energy}/{user.energyMax} Энергия
+            </span>
             {user.energy < user.energyMax && (
               <Button
                 variant="outline"
@@ -356,7 +423,10 @@ const ProfileStats = ({ user }: { user: any }) => {
             )}
           </div>
           <div className="profile-stats__resource-item">
-            <span>❤️ {user.lives}/{user.livesMax} Жизни</span>
+            <span>
+              <Icon name="shield" size={18} style={{ marginRight: '6px', verticalAlign: 'middle' }} />
+              {user.lives}/{user.livesMax} Жизни
+            </span>
             {user.lives < user.livesMax && (
               <Button
                 variant="outline"
@@ -371,36 +441,47 @@ const ProfileStats = ({ user }: { user: any }) => {
               </Button>
             )}
           </div>
-          <div>💪 {user.power}/{user.powerMax} Сила</div>
+          <div>
+            <Icon name="sword" size={18} style={{ marginRight: '6px', verticalAlign: 'middle' }} />
+            {user.power}/{user.powerMax} Сила
+          </div>
         </div>
       </Card>
 
       {/* Премиум функции */}
       {subscription && subscription.isActive && new Date(subscription.endDate) > new Date() ? (
         <Card style={{ marginTop: '1rem', backgroundColor: '#1a1a1a', border: '1px solid #ffd700' }}>
-          <h3 style={{ color: '#ffd700', marginBottom: '1rem' }}>⭐ Премиум функции</h3>
+          <h3 style={{ color: '#ffd700', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Icon name="star" size={20} color="#ffd700" />
+            Премиум функции
+          </h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
             <Button
               variant="outline"
               fullWidth
               onClick={() => navigate('/analytics')}
               style={{ borderColor: '#ffd700', color: '#ffd700' }}
+              icon="analytics"
             >
-              📊 Аналитика партий
+              Аналитика партий
             </Button>
             <Button
               variant="outline"
               fullWidth
               onClick={() => navigate('/trainer')}
               style={{ borderColor: '#ffd700', color: '#ffd700' }}
+              icon="trainer"
             >
-              🎯 Тренажер позиций
+              Тренажер позиций
             </Button>
           </div>
         </Card>
       ) : (
         <Card style={{ marginTop: '1rem', backgroundColor: '#1a1a1a', border: '1px solid #666' }}>
-          <h3 style={{ marginBottom: '1rem' }}>🔒 Премиум функции</h3>
+          <h3 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Icon name="shield" size={20} />
+            Премиум функции
+          </h3>
           <p style={{ fontSize: '0.9rem', color: '#999', marginBottom: '1rem' }}>
             Получите доступ к расширенной аналитике и тренажеру позиций с подпиской
           </p>
@@ -418,7 +499,12 @@ const ProfileStats = ({ user }: { user: any }) => {
         <h3>Ветки развития</h3>
         <div className="profile-stats__development">
           <DevelopmentBranch
-            label="💰 Экономика"
+            label={
+              <>
+                <Icon name="coin" size={16} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+                Экономика
+              </>
+            }
             currentLevel={user.statsEconomy || 0}
             maxLevel={10}
             onUpgrade={async () => {
@@ -442,7 +528,12 @@ const ProfileStats = ({ user }: { user: any }) => {
             userBalance={user.narCoin}
           />
           <DevelopmentBranch
-            label="⚡ Энергия"
+            label={
+              <>
+                <Icon name="energy" size={16} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+                Энергия
+              </>
+            }
             currentLevel={user.statsEnergy || 0}
             maxLevel={10}
             onUpgrade={async () => {
@@ -466,7 +557,12 @@ const ProfileStats = ({ user }: { user: any }) => {
             userBalance={user.narCoin}
           />
           <DevelopmentBranch
-            label="❤️ Жизни"
+            label={
+              <>
+                <Icon name="shield" size={16} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+                Жизни
+              </>
+            }
             currentLevel={user.statsLives || 0}
             maxLevel={10}
             onUpgrade={async () => {
@@ -490,7 +586,12 @@ const ProfileStats = ({ user }: { user: any }) => {
             userBalance={user.narCoin}
           />
           <DevelopmentBranch
-            label="💪 Сила"
+            label={
+              <>
+                <Icon name="sword" size={16} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+                Сила
+              </>
+            }
             currentLevel={user.statsPower || 0}
             maxLevel={10}
             onUpgrade={async () => {
@@ -680,23 +781,23 @@ const ProfileInventory = () => {
     BROKEN: '#f44336',
   };
 
-  const resourceIcons: Record<string, string> = {
-    WOOD: '🪵',
-    STONE: '🪨',
-    MARBLE: '⚪',
-    BONE: '🦴',
-    PLASTIC: '🔵',
-    METAL: '⚙️',
-    LEATHER: '🧵',
-    FABRIC: '🧶',
+  const resourceIcons: Record<string, IconName> = {
+    WOOD: 'wood',
+    STONE: 'stone',
+    MARBLE: 'marble',
+    BONE: 'bone',
+    PLASTIC: 'plastic',
+    METAL: 'metal',
+    LEATHER: 'leather',
+    FABRIC: 'fabric',
   };
 
   if (loading) {
     return <div>Загрузка инвентаря...</div>;
   }
 
-  const equippedItems = inventory.filter(item => item.isEquipped);
-  const unequippedItems = inventory.filter(item => !item.isEquipped);
+  const equippedItems = Array.isArray(inventory) ? inventory.filter(item => item.isEquipped) : [];
+  const unequippedItems = Array.isArray(inventory) ? inventory.filter(item => !item.isEquipped) : [];
 
   return (
     <div className="profile-inventory">
@@ -766,7 +867,8 @@ const ProfileInventory = () => {
                       size="sm"
                       onClick={() => setRepairItem(item)}
                     >
-                      🔧 Ремонт
+                      <Icon name="repair" size={16} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+                      Ремонт
                     </Button>
                   )}
                 </div>
@@ -844,7 +946,8 @@ const ProfileInventory = () => {
                       size="sm"
                       onClick={() => setRepairItem(item)}
                     >
-                      🔧 Ремонт
+                      <Icon name="repair" size={16} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+                      Ремонт
                     </Button>
                   )}
                 </div>
@@ -859,9 +962,11 @@ const ProfileInventory = () => {
       <div className="profile-inventory__section">
         <h3 className="profile-inventory__title">Ресурсы</h3>
         <div className="profile-inventory__resources">
-          {resources.map((resource) => (
+          {Array.isArray(resources) ? resources.map((resource) => (
             <Card key={resource.id} className="profile-inventory__resource">
-              <div className="profile-inventory__resource-icon">{resourceIcons[resource.type] || '📦'}</div>
+              <div className="profile-inventory__resource-icon">
+                <Icon name={resourceIcons[resource.type] || 'gift'} size={20} />
+              </div>
               <div className="profile-inventory__resource-info">
                 <span className="profile-inventory__resource-name">
                   {resource.type === 'WOOD'
@@ -877,7 +982,9 @@ const ProfileInventory = () => {
                 <span className="profile-inventory__resource-amount">{resource.amount}</span>
               </div>
             </Card>
-          ))}
+          )) : (
+            <div>Нет ресурсов</div>
+          )}
         </div>
       </div>
 
@@ -939,13 +1046,30 @@ const ProfileHistory = () => {
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuthStore();
+  const [filters, setFilters] = useState({
+    mode: '' as 'SHORT' | 'LONG' | '',
+    result: '' as 'win' | 'loss' | 'draw' | '',
+    limit: 50,
+  });
 
   useEffect(() => {
-    gameHistoryService.getMyHistory(50)
-      .then(setHistory)
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
+    const loadHistory = async () => {
+      setLoading(true);
+      try {
+        const data = await gameHistoryService.getMyHistory({
+          limit: filters.limit,
+          mode: filters.mode || undefined,
+          result: filters.result || undefined,
+        });
+        setHistory(data);
+      } catch (error) {
+        console.error('Failed to load history:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadHistory();
+  }, [filters]);
 
   if (loading) {
     return <div>Загрузка истории...</div>;
@@ -957,7 +1081,7 @@ const ProfileHistory = () => {
 
   return (
     <div className="profile-history">
-      {history.map((game) => {
+      {Array.isArray(history) ? history.map((game) => {
         const isWinner = game.winnerId === user?.id;
         const opponent = game.whitePlayerId === user?.id ? game.blackPlayer : game.whitePlayer;
         return (
@@ -973,22 +1097,36 @@ const ProfileHistory = () => {
             </div>
             <div className="profile-history__meta">
               {game.duration && (
-                <span>⏱️ {Math.floor(game.duration / 60)}:{(game.duration % 60).toString().padStart(2, '0')}</span>
+                <span>
+                  <Icon name="settings" size={14} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+                  {Math.floor(game.duration / 60)}:{(game.duration % 60).toString().padStart(2, '0')}
+                </span>
               )}
               {game.betAmount && game.betAmount > 0 && (
-                <span>💰 Ставка: {game.betAmount} NAR</span>
+                <span>
+                  <Icon name="coin" size={14} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+                  Ставка: {game.betAmount} NAR
+                </span>
               )}
               {game.commission && game.commission > 0 && (
-                <span>📊 Комиссия: {game.commission} NAR</span>
+                <span>
+                  <Icon name="analytics" size={14} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+                  Комиссия: {game.commission} NAR
+                </span>
               )}
               {game.districtId && (
-                <span>🏙️ Район: {game.districtId}</span>
+                <span>
+                  <Icon name="city" size={14} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+                  Район: {game.districtId}
+                </span>
               )}
               <span>{new Date(game.createdAt).toLocaleDateString('ru-RU')}</span>
             </div>
           </Card>
         );
-      })}
+      }) : (
+        <div>Нет истории игр</div>
+      )}
     </div>
   );
 };

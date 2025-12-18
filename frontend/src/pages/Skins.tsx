@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Card, Button, Tabs } from '../components/ui';
+import { Card, Button, Tabs, Icon } from '../components/ui';
 import { inventoryService } from '../services';
 import { placeholders } from '../utils/placeholders';
 import './Skins.css';
@@ -11,14 +11,20 @@ export const Skins = () => {
 
   useEffect(() => {
     inventoryService.getMyInventory()
-      .then(setInventory)
-      .catch(console.error)
+      .then((data) => {
+        // Гарантируем что это массив
+        setInventory(Array.isArray(data) ? data : []);
+      })
+      .catch((error) => {
+        console.error('Failed to load inventory:', error);
+        setInventory([]);
+      })
       .finally(() => setLoading(false));
   }, []);
 
   // Группируем по типам скинов
-  const boardSkins = inventory.filter((item) => item.skin?.type === 'BOARD');
-  const diceSkins = inventory.filter((item) => item.skin?.type === 'DICE');
+  const boardSkins = Array.isArray(inventory) ? inventory.filter((item) => item.skin?.type === 'BOARD') : [];
+  const diceSkins = Array.isArray(inventory) ? inventory.filter((item) => item.skin?.type === 'DICE') : [];
 
   const tabs = [
     {
@@ -36,7 +42,10 @@ export const Skins = () => {
   return (
     <div className="skins-page">
       <Link to="/" className="skins-page__back">←</Link>
-      <h1 className="skins-page__title">🎨 Скины</h1>
+      <h1 className="skins-page__title">
+        <Icon name="skins" size={28} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
+        Скины
+      </h1>
       <Tabs tabs={tabs} />
     </div>
   );
@@ -55,7 +64,7 @@ const SkinsGrid = ({ skins, loading }: { skins: any[]; loading: boolean }) => {
 
   return (
     <div className="skins-grid">
-      {skins.map((item) => (
+      {Array.isArray(skins) ? skins.map((item) => (
         <Card key={item.id} className="skin-card">
           <div className="skin-card__preview">
             <img src={item.skin?.previewUrl || placeholders.itemMedium} alt={item.skin?.name} />
@@ -83,7 +92,9 @@ const SkinsGrid = ({ skins, loading }: { skins: any[]; loading: boolean }) => {
             {item.isEquipped ? 'Снять' : 'Экипировать'}
           </Button>
         </Card>
-      ))}
+      )) : (
+        <div className="skins-grid">Нет доступных скинов</div>
+      )}
     </div>
   );
 };

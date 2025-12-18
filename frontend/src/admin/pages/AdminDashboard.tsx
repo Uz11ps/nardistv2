@@ -72,9 +72,9 @@ export const AdminDashboard = () => {
 
   // Нормализация данных активности для графика (максимальная высота 100%)
   const maxActivity = Math.max(...(stats.userActivity || [1]), 1);
-  const normalizedActivity = (stats.userActivity || []).map(count => 
+  const normalizedActivity = Array.isArray(stats.userActivity) ? stats.userActivity.map(count => 
     Math.round((count / maxActivity) * 100)
-  );
+  ) : [];
 
   return (
     <div className="admin-dashboard">
@@ -119,14 +119,14 @@ export const AdminDashboard = () => {
           <div className="admin-dashboard__chart-placeholder">
             <p>График активности (за последние 7 дней)</p>
             <div className="admin-dashboard__chart-bars">
-              {normalizedActivity.map((height, index) => (
+              {Array.isArray(normalizedActivity) ? normalizedActivity.map((height, index) => (
                 <div
                   key={index}
                   className="admin-dashboard__chart-bar"
                   style={{ height: `${height}%` }}
                   title={`День ${index + 1}: ${stats.userActivity?.[index] || 0} пользователей`}
                 />
-              ))}
+              )) : null}
             </div>
             <div className="admin-dashboard__chart-labels">
               {Array.from({ length: 7 }, (_, i) => {
@@ -188,7 +188,7 @@ export const AdminDashboard = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {recentGames.map((game) => {
+                  {Array.isArray(recentGames) ? recentGames.map((game) => {
                     const whitePlayerName = game.whitePlayer.nickname || game.whitePlayer.firstName;
                     const blackPlayerName = game.blackPlayer.nickname || game.blackPlayer.firstName;
                     const winner = game.winnerId === game.whitePlayer.id ? whitePlayerName : blackPlayerName;
@@ -233,7 +233,7 @@ export const AdminDashboard = () => {
                         </td>
                       </tr>
                     );
-                  })}
+                  }) : null}
                 </tbody>
               </table>
             ) : (

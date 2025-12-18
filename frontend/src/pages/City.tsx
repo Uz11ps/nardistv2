@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Card, Button } from '../components/ui';
-import { districtService, businessService } from '../services';
+import { Card, Button, Icon } from '../components/ui';
+import { districtService, businessService, onboardingService } from '../services';
 import { useAuthStore } from '../store/auth.store';
 import './City.css';
 
@@ -31,8 +31,9 @@ export const City = () => {
       businessService.getMyBusinesses().catch(() => []),
     ])
       .then(([dists, bus]) => {
-        setDistricts(dists);
-        setBusinesses(bus);
+        // Гарантируем что это массивы
+        setDistricts(Array.isArray(dists) ? dists : []);
+        setBusinesses(Array.isArray(bus) ? bus : []);
       })
       .catch((error) => {
         console.warn('Failed to load city data:', error);
@@ -41,6 +42,11 @@ export const City = () => {
         setBusinesses([]);
       })
       .finally(() => setLoading(false));
+
+    // Отмечаем просмотр города для онбординга
+    onboardingService.markCityViewed().catch(err => {
+      console.warn('Failed to mark city viewed:', err);
+    });
   }, []);
 
 
@@ -51,14 +57,17 @@ export const City = () => {
   return (
     <div className="city-page">
       <div className="city-page__header">
-        <h1 className="city-page__title">🏙️ Город Нард</h1>
+        <h1 className="city-page__title">
+          <Icon name="city" size={28} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
+          Город Нард
+        </h1>
       </div>
 
       <div className="city-districts">
         <h2 className="city-section__title">Районы города</h2>
         <div className="city-districts__grid">
-          {districts.map((district) => {
-            const userDistrictBusinesses = businesses.filter((b) => b.districtId === district.id);
+          {Array.isArray(districts) ? districts.map((district) => {
+            const userDistrictBusinesses = Array.isArray(businesses) ? businesses.filter((b) => b.districtId === district.id) : [];
             return (
               <Link key={district.id} to={`/city/district/${district.id}`}>
                 <Card className="city-district">
@@ -81,7 +90,9 @@ export const City = () => {
                 </Card>
               </Link>
             );
-          })}
+          }) : (
+            <div className="city-districts__empty">Нет доступных районов</div>
+          )}
         </div>
       </div>
 

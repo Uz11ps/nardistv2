@@ -8,9 +8,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: var(--z-modal-backdrop);
   padding: var(--spacing-md);
-  animation: fadeIn var(--transition-normal);
+  animation: fadeIn 0.3s ease-out;
+  backdrop-filter: blur(4px);
   /* Предотвращаем скролл фона */
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
@@ -27,15 +28,17 @@
 
 .modal {
   background-color: var(--bg-card);
-  border-radius: var(--border-radius);
-  box-shadow: var(--shadow-lg);
+  border-radius: var(--border-radius-large);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
   max-height: 90vh;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  animation: slideUp var(--transition-normal);
+  animation: scaleIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   width: 100%;
   max-width: 480px;
+  border: 1px solid var(--border-color);
+  transform: translateZ(0);
 }
 
 .modal--sm {
@@ -71,7 +74,7 @@
 .modal__close {
   background: none;
   border: none;
-  font-size: 32px;
+  font-size: 28px;
   line-height: 1;
   color: var(--text-secondary);
   cursor: pointer;
@@ -83,11 +86,27 @@
   justify-content: center;
   border-radius: var(--border-radius-small);
   transition: all var(--transition-fast);
+  position: relative;
+}
+
+.modal__close::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--border-radius-small);
+  background: var(--color-primary);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
 }
 
 .modal__close:hover {
   background-color: var(--bg-card-hover);
   color: var(--text-primary);
+  transform: rotate(90deg) scale(1.1);
+}
+
+.modal__close:active {
+  transform: rotate(90deg) scale(0.95);
 }
 
 .modal__content {

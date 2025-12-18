@@ -4,7 +4,7 @@ export interface InventoryItem {
   id: number;
   userId: number;
   skinId: number;
-  rarity: string;
+  rarity: 'COMMON' | 'RARE' | 'EPIC' | 'LEGENDARY' | 'MYTHIC' | string;
   durability: number;
   durabilityMax: number;
   weight: number;
@@ -20,7 +20,8 @@ export interface InventoryItem {
 export const inventoryService = {
   async getMyInventory(): Promise<InventoryItem[]> {
     const response = await api.get<InventoryItem[]>('/inventory');
-    return response.data;
+    // Гарантируем что возвращается массив
+    return Array.isArray(response.data) ? response.data : [];
   },
 
   async toggleEquip(itemId: number): Promise<InventoryItem> {

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Card, Button, Modal, Input, NotificationModal, ConfirmModal } from '../components/ui';
+import { Card, Button, Modal, Input, NotificationModal, ConfirmModal, Icon } from '../components/ui';
 import { clanService } from '../services';
 import { useAuthStore } from '../store/auth.store';
 import { placeholders } from '../utils/placeholders';
@@ -56,7 +56,7 @@ export const ClanDetail = () => {
     );
   }
 
-  const isMember = clan?.members?.some((m: any) => m.userId === authUser?.id);
+  const isMember = Array.isArray(clan?.members) ? clan.members.some((m: any) => m.userId === authUser?.id) : false;
   const isLeader = clan?.leaderId === authUser?.id;
 
          return (
@@ -64,7 +64,9 @@ export const ClanDetail = () => {
              <Link to="/clans" className="clan-detail__back">←</Link>
              <div className="clan-detail__header">
                <div className="clan-detail__clan-hero">
-                 <div className="clan-detail__clan-icon-large">🛡️</div>
+                 <div className="clan-detail__clan-icon-large">
+                  <Icon name="shield" size={48} />
+                </div>
                  <div className="clan-detail__clan-details">
                    <h1 className="clan-detail__title">{clan.name}</h1>
                    <div className="clan-detail__clan-meta">
@@ -110,7 +112,9 @@ export const ClanDetail = () => {
               Общий фонд клана. Средства поступают из налогов и вкладов участников
             </p>
             <div className="clan-detail__treasury-balance">
-              <div className="clan-detail__treasury-icon">💰</div>
+              <div className="clan-detail__treasury-icon">
+                <Icon name="coin" size={32} />
+              </div>
               <div className="clan-detail__treasury-amount">{(clan.treasury || 0).toLocaleString()} NAR</div>
               <div className="clan-detail__treasury-income">+3 200 NAR / неделя (поступления)</div>
             </div>
@@ -175,7 +179,7 @@ export const ClanDetail = () => {
               style={{ marginBottom: '1rem' }}
             />
             <div className="clan-detail__members">
-              {clan.members?.map((member: any) => (
+              {Array.isArray(clan.members) ? clan.members.map((member: any) => (
             <div key={member.id} className="clan-detail__member">
               <div className="clan-detail__member-info">
                 <div className="clan-detail__member-avatar">
@@ -223,7 +227,8 @@ export const ClanDetail = () => {
                         }
                       }}
                     >
-                      ⭐ Офицер
+                      <Icon name="star" size={16} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+                      Офицер
                     </Button>
                   )}
                   {member.role === 'OFFICER' && (
@@ -262,7 +267,7 @@ export const ClanDetail = () => {
                 </div>
               )}
             </div>
-          ))}
+          )) : null}
             </div>
           </Card>
         )}
@@ -272,8 +277,9 @@ export const ClanDetail = () => {
             <h3 className="clan-detail__section-title">Районы города</h3>
             {clan.districts && clan.districts.length > 0 ? (
               <div className="clan-detail__districts">
-                {clan.districts.map((district) => {
-                  const fund = districtFunds.find((f) => f.district.id === district.id);
+                {Array.isArray(clan.districts) ? clan.districts.map((district: any) => {
+                  const safeDistrictFunds = Array.isArray(districtFunds) ? districtFunds : [];
+                  const fund = safeDistrictFunds.find((f) => f.district.id === district.id);
                   const fundBalance = fund?.fund?.balance || 0;
                   return (
                     <Card key={district.id} className="clan-detail__district-card">
@@ -290,7 +296,9 @@ export const ClanDetail = () => {
                       </Link>
                     </Card>
                   );
-                })}
+                }) : (
+                  <div>Нет районов</div>
+                )}
               </div>
             ) : (
               <p>Клан не владеет районами</p>
@@ -353,14 +361,16 @@ export const ClanDetail = () => {
               fullWidth
               onClick={() => setTreasuryModal(true)}
             >
-              💰 Управление казной ({clan.treasury.toLocaleString()} NAR)
+              <Icon name="coin" size={16} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+              Управление казной ({clan.treasury.toLocaleString()} NAR)
             </Button>
             <Button
               variant="outline"
               fullWidth
               onClick={() => setSettingsModal(true)}
             >
-              ⚙️ Настройки клана
+              <Icon name="settings" size={16} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+              Настройки клана
             </Button>
           </div>
         </Card>
@@ -467,11 +477,11 @@ export const ClanDetail = () => {
                 style={{ width: '100%', padding: '0.5rem', backgroundColor: '#1a1a1a', border: '1px solid #333', borderRadius: '4px', color: '#fff' }}
               >
                 <option value="">Выберите участника</option>
-                {clan.members?.map((member: any) => (
+                {Array.isArray(clan.members) ? clan.members.map((member: any) => (
                   <option key={member.userId} value={member.userId}>
                     {member.user?.nickname || member.user?.firstName || `Игрок #${member.userId}`}
                   </option>
-                ))}
+                )) : null}
               </select>
             </div>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
