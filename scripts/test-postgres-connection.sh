@@ -3,6 +3,25 @@
 echo "🔍 Testing PostgreSQL connection from backend container..."
 echo ""
 
+echo "0️⃣ Checking container status..."
+if ! docker ps | grep -q nardist_backend_prod; then
+  echo "⚠️  Backend container is not running, starting it..."
+  docker compose -f docker-compose.prod.yml up -d backend
+  echo "⏳ Waiting for backend to start..."
+  sleep 5
+fi
+
+if ! docker ps | grep -q nardist_postgres_prod; then
+  echo "⚠️  Postgres container is not running, starting it..."
+  docker compose -f docker-compose.prod.yml up -d postgres
+  echo "⏳ Waiting for postgres to start..."
+  sleep 5
+fi
+
+echo "✅ Containers status:"
+docker ps --filter "name=nardist_" --format "table {{.Names}}\t{{.Status}}"
+echo ""
+
 echo "1️⃣ Testing ping to postgres IP (172.18.0.4)..."
 docker exec nardist_backend_prod ping -c 2 172.18.0.4 2>&1 | head -5
 
