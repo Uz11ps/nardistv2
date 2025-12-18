@@ -203,43 +203,50 @@ echo "🔄 Запуск Docker daemon для восстановления iptabl
 sudo systemctl start docker 2>/dev/null || true
 sleep 10
 
-# Создаем цепочки iptables Docker вручную если они не существуют
-echo "🔧 Создание цепочек iptables Docker..."
-if command -v iptables &> /dev/null; then
-    # Проверяем и создаем цепочки если их нет
-    if ! sudo iptables -t filter -L DOCKER-ISOLATION-STAGE-1 &>/dev/null; then
-        echo "  Создание цепочки DOCKER-ISOLATION-STAGE-1..."
-        sudo iptables -t filter -N DOCKER-ISOLATION-STAGE-1 2>/dev/null || true
-        sudo iptables -t filter -A DOCKER-ISOLATION-STAGE-1 -j RETURN 2>/dev/null || true
+# Инициализируем Docker сетевые правила через создание и удаление тестовой сети
+# Это должно создать все необходимые цепочки iptables
+echo "🔧 Инициализация Docker сетевых правил через тестовую сеть..."
+MAX_RETRIES=3
+RETRY_COUNT=0
+while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+    if sudo docker network create --driver bridge test_docker_init_$(date +%s) 2>/dev/null; then
+        TEST_NET=$(sudo docker network ls --filter "name=test_docker_init" --format "{{.ID}}" | head -n1)
+        if [ -n "$TEST_NET" ]; then
+            sudo docker network rm "$TEST_NET" 2>/dev/null || true
+        fi
+        echo "  ✅ Docker сетевые правила инициализированы"
+        break
+    else
+        RETRY_COUNT=$((RETRY_COUNT + 1))
+        echo "  ⚠️  Попытка $RETRY_COUNT из $MAX_RETRIES..."
+        sleep 2
     fi
-    
-    if ! sudo iptables -t filter -L DOCKER-ISOLATION-STAGE-2 &>/dev/null; then
-        echo "  Создание цепочки DOCKER-ISOLATION-STAGE-2..."
-        sudo iptables -t filter -N DOCKER-ISOLATION-STAGE-2 2>/dev/null || true
-        sudo iptables -t filter -A DOCKER-ISOLATION-STAGE-2 -j RETURN 2>/dev/null || true
-    fi
-    
-    if ! sudo iptables -t filter -L DOCKER &>/dev/null; then
-        echo "  Создание цепочки DOCKER..."
-        sudo iptables -t filter -N DOCKER 2>/dev/null || true
-    fi
-    
-    if ! sudo iptables -t nat -L DOCKER &>/dev/null; then
-        echo "  Создание цепочки DOCKER (nat)..."
-        sudo iptables -t nat -N DOCKER 2>/dev/null || true
-    fi
-    
-    # Добавляем правила в FORWARD цепочку для связи с Docker цепочками
-    if ! sudo iptables -t filter -C FORWARD -j DOCKER-ISOLATION-STAGE-1 &>/dev/null; then
-        echo "  Добавление правила в FORWARD..."
-        sudo iptables -t filter -I FORWARD -j DOCKER-ISOLATION-STAGE-1 2>/dev/null || true
-    fi
+done
+
+# Проверяем наличие цепочек и создаем их через iptables-legacy если нужно
+echo "🔧 Проверка цепочек iptables Docker..."
+if command -v iptables-legacy &> /dev/null; then
+    IPTABLES_CMD="iptables-legacy"
+elif command -v iptables &> /dev/null; then
+    IPTABLES_CMD="iptables"
+else
+    IPTABLES_CMD=""
 fi
 
-# Пробуем создать тестовую сеть для инициализации Docker сетевых правил
-echo "🔧 Инициализация Docker сетевых правил..."
-sudo docker network create --driver bridge test_docker_init 2>/dev/null && \
-    sudo docker network rm test_docker_init 2>/dev/null || true
+if [ -n "$IPTABLES_CMD" ]; then
+    # Проверяем и создаем цепочки через правильный интерфейс
+    if ! sudo $IPTABLES_CMD -t filter -L DOCKER-ISOLATION-STAGE-2 &>/dev/null; then
+        echo "  Создание цепочки DOCKER-ISOLATION-STAGE-2 через $IPTABLES_CMD..."
+        sudo $IPTABLES_CMD -t filter -N DOCKER-ISOLATION-STAGE-2 2>/dev/null || true
+        sudo $IPTABLES_CMD -t filter -A DOCKER-ISOLATION-STAGE-2 -j RETURN 2>/dev/null || true
+    fi
+    
+    if ! sudo $IPTABLES_CMD -t filter -L DOCKER-ISOLATION-STAGE-1 &>/dev/null; then
+        echo "  Создание цепочки DOCKER-ISOLATION-STAGE-1 через $IPTABLES_CMD..."
+        sudo $IPTABLES_CMD -t filter -N DOCKER-ISOLATION-STAGE-1 2>/dev/null || true
+        sudo $IPTABLES_CMD -t filter -A DOCKER-ISOLATION-STAGE-1 -j RETURN 2>/dev/null || true
+    fi
+fi
 
 sleep 2
 
