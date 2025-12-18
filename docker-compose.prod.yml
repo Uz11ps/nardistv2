@@ -135,17 +135,8 @@ services:
       - migrations
     command: >
       sh -c "
-        echo '⏳ Waiting for PostgreSQL to be reachable...' &&
-        i=1 &&
-        while [ $$i -le 10 ]; do
-          if echo '' | nc -w 2 postgres 5432 2>/dev/null; then
-            echo \"✅ PostgreSQL is reachable (attempt $$i/10)\" &&
-            break
-          fi
-          echo \"  Waiting... ($$i/10)\" &&
-          sleep 2 &&
-          i=$$((i + 1))
-        done &&
+        echo '⏳ Waiting a bit for PostgreSQL to be ready...' &&
+        sleep 5 &&
         echo '🔧 Generating Prisma client...' &&
         npm run prisma:generate &&
         echo '🗄️  Running migrations (Prisma will retry on connection errors)...' &&
