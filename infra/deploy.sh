@@ -15,10 +15,13 @@ echo "Checking dependencies..."
 # Проверяем Docker
 if ! command -v docker &> /dev/null; then
     echo "Installing Docker..."
-    apt-get install -y docker.io || {
-        echo "Docker installation failed, trying alternative method..."
-        curl -fsSL https://get.docker.com -o get-docker.sh
-        sh get-docker.sh || true
+    # Пробуем установить docker.io, но игнорируем ошибки конфликтов
+    apt-get install -y docker.io 2>&1 | grep -v "Conflicts:" || {
+        echo "Docker installation skipped due to conflicts (Docker may already be installed via other method)"
+        # Проверяем еще раз
+        if command -v docker &> /dev/null; then
+            echo "Docker is available: $(docker --version)"
+        fi
     }
 else
     echo "Docker already installed: $(docker --version)"
