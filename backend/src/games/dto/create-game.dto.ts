@@ -1,5 +1,9 @@
 import { IsEnum, IsOptional, IsString } from 'class-validator';
-import { GameType } from '@prisma/client';
+
+export enum GameType {
+  SHORT_BACKGAMMON = 'SHORT_BACKGAMMON',
+  LONG_BACKGAMMON = 'LONG_BACKGAMMON',
+}
 
 export class CreateGameDto {
   @IsEnum(GameType)
