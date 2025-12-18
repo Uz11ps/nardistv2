@@ -26,7 +26,12 @@ npm install --legacy-peer-deps --no-audit --progress=false --prefer-offline=fals
 echo "🏗️ Собираем приложение на сервере..."
 npm run build
 
-# 4. Создаем минималистичный Dockerfile
+# 4. Временно переименовываем .dockerignore (он игнорирует node_modules)
+if [ -f .dockerignore ]; then
+    mv .dockerignore .dockerignore.backup
+fi
+
+# 5. Создаем минималистичный Dockerfile
 cat > Dockerfile.fast << 'EOF'
 FROM node:18-slim
 
@@ -45,16 +50,23 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
 CMD ["node", "dist/main"]
 EOF
 
-# 5. Собираем Docker образ (очень быстро, так как все уже готово)
+# 6. Собираем Docker образ (очень быстро, так как все уже готово)
 echo "🐳 Собираем Docker образ (быстро, так как зависимости уже установлены)..."
 cd ..
 docker build -f backend/Dockerfile.fast -t nardist-backend:latest backend/
 
-# 6. Останавливаем старые контейнеры
+# 7. Восстанавливаем .dockerignore
+cd backend
+if [ -f .dockerignore.backup ]; then
+    mv .dockerignore.backup .dockerignore
+fi
+cd ..
+
+# 8. Останавливаем старые контейнеры
 echo "🛑 Останавливаем старые контейнеры..."
 docker compose -f docker-compose.prod.yml down
 
-# 7. Запускаем новые
+# 9. Запускаем новые
 echo "🚀 Запускаем новые контейнеры..."
 docker compose -f docker-compose.prod.yml up -d
 
