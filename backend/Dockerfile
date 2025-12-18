@@ -2,17 +2,17 @@ FROM node:18-alpine AS builder
 
 WORKDIR /app
 
-# Устанавливаем зависимости для кэширования
+# Устанавливаем только необходимые зависимости для сборки
 COPY package*.json ./
-# Используем cache mount для ускорения установки
-RUN --mount=type=cache,target=/root/.npm \
-    npm install --legacy-peer-deps --no-audit --progress=false --loglevel=warn --prefer-offline
+# Устанавливаем зависимости без лишних предупреждений
+RUN npm install --legacy-peer-deps --no-audit --silent --ignore-scripts || \
+    npm install --legacy-peer-deps --no-audit --silent
 
 # Копируем исходный код
 COPY . .
 
-# Генерируем Prisma клиент перед сборкой
-RUN npx prisma generate || echo "Prisma generate skipped"
+# Генерируем Prisma клиент
+RUN npx prisma generate
 
 # Собираем приложение
 RUN npm run build
@@ -22,8 +22,7 @@ FROM node:18-alpine AS production
 WORKDIR /app
 
 COPY package*.json ./
-RUN --mount=type=cache,target=/root/.npm \
-    npm install --only=production --legacy-peer-deps --no-audit --progress=false --loglevel=warn --prefer-offline
+RUN npm install --only=production --legacy-peer-deps --no-audit --silent
 
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
