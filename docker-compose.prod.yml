@@ -142,20 +142,20 @@ services:
     command: >
       sh -c "
         echo '⏳ Waiting for PostgreSQL to be ready...' &&
-        MIG_MAX_RETRIES=60 &&
-        MIG_RETRY=0 &&
-        while [ \$MIG_RETRY -lt \$MIG_MAX_RETRIES ]; do
+        max_retries=60 &&
+        retry=0 &&
+        while [ $$retry -lt $$max_retries ]; do
           if (timeout 2 sh -c '</dev/tcp/postgres/5432' 2>/dev/null) || (nc -z postgres 5432 2>/dev/null); then
             echo '✅ PostgreSQL is ready!' &&
             break
           fi
-          MIG_RETRY=\$((MIG_RETRY + 1)) &&
-          if [ \$((MIG_RETRY % 5)) -eq 0 ]; then
-            echo '  Still waiting for PostgreSQL... ('\$MIG_RETRY'/'\$MIG_MAX_RETRIES')'
+          retry=$$((retry + 1)) &&
+          if [ $$((retry % 5)) -eq 0 ]; then
+            echo '  Still waiting for PostgreSQL... ('$$retry'/$$max_retries')'
           fi &&
           sleep 2
         done &&
-        if [ \$MIG_RETRY -eq \$MIG_MAX_RETRIES ]; then
+        if [ $$retry -eq $$max_retries ]; then
           echo '❌ PostgreSQL did not become ready in time!' &&
           echo '🔍 Checking network connectivity...' &&
           getent hosts postgres || echo 'DNS resolution failed' &&
