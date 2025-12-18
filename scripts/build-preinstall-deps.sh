@@ -66,11 +66,14 @@ cd ..
 echo "🛑 Останавливаем старые контейнеры..."
 docker compose -f docker-compose.prod.yml down
 
-# 9. Запускаем новые (используем --no-build чтобы не пересобирать уже собранный образ)
+# 9. Запускаем новые (используем --no-build чтобы не пересобирать уже собранный образ backend)
 echo "🚀 Запускаем новые контейнеры..."
+# Сначала запускаем backend с --no-build (образ уже собран)
 docker compose -f docker-compose.prod.yml up -d --no-build backend
-docker compose -f docker-compose.prod.yml up -d --no-build frontend
-docker compose -f docker-compose.prod.yml up -d
+# Затем запускаем остальные сервисы (postgres, redis, nginx - они не требуют сборки)
+docker compose -f docker-compose.prod.yml up -d postgres redis nginx
+# Frontend запускаем отдельно (может потребоваться сборка, но это быстро)
+docker compose -f docker-compose.prod.yml up -d frontend
 
 echo ""
 echo "✅ Быстрая сборка завершена!"
