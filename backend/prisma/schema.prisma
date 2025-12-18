@@ -1,0 +1,178 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(uuid())
+  telegramId    Int      @unique
+  username      String?
+  firstName     String?
+  lastName      String?
+  avatar        String?
+  referralCode  String   @unique @default(uuid())
+  referredBy    String?
+  level         Int      @default(1)
+  xp            Int      @default(0)
+  narCoins      Int      @default(1000)
+  energy        Int      @default(100)
+  maxEnergy     Int      @default(100)
+  lives         Int      @default(3)
+  maxLives      Int      @default(3)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  games         Game[]
+  gameHistory   GameHistory[]
+  tournaments   TournamentParticipant[]
+  referrals     User[]   @relation("Referrals")
+  referrer      User?    @relation("Referrals", fields: [referredBy], references: [id])
+
+  @@index([telegramId])
+  @@index([referralCode])
+}
+
+model Game {
+  id            String   @id @default(uuid())
+  type          GameType
+  status        GameStatus @default(WAITING)
+  player1Id     String
+  player2Id     String?
+  botDifficulty String?
+  currentTurn   String?
+  winnerId      String?
+  seed          String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  finishedAt    DateTime?
+
+  player1       User     @relation("Player1Games", fields: [player1Id], references: [id])
+  player2       User?    @relation("Player2Games", fields: [player2Id], references: [id])
+  moves         GameMove[]
+  history       GameHistory?
+
+  @@index([status])
+  @@index([player1Id])
+  @@index([player2Id])
+}
+
+enum GameType {
+  SHORT_BACKGAMMON
+  LONG_BACKGAMMON
+}
+
+enum GameStatus {
+  WAITING
+  IN_PROGRESS
+  FINISHED
+  ABANDONED
+}
+
+model GameMove {
+  id          String   @id @default(uuid())
+  gameId      String
+  playerId    String
+  dice1       Int
+  dice2       Int
+  moves       Json
+  timestamp   DateTime @default(now())
+
+  game        Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@index([gameId])
+}
+
+model GameHistory {
+  id          String   @id @default(uuid())
+  gameId      String   @unique
+  userId      String
+  opponentId  String?
+  gameType    GameType
+  result      GameResult
+  ratingChange Int     @default(0)
+  createdAt   DateTime @default(now())
+
+  game        Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+enum GameResult {
+  WIN
+  LOSS
+  DRAW
+}
+
+model Tournament {
+  id          String   @id @default(uuid())
+  name        String
+  type        GameType
+  format      TournamentFormat
+  status      TournamentStatus @default(REGISTRATION)
+  maxPlayers  Int
+  startDate   DateTime
+  endDate     DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  participants TournamentParticipant[]
+  matches      TournamentMatch[]
+
+  @@index([status])
+}
+
+enum TournamentFormat {
+  BRACKET
+  ROUND_ROBIN
+}
+
+enum TournamentStatus {
+  REGISTRATION
+  IN_PROGRESS
+  FINISHED
+  CANCELLED
+}
+
+model TournamentParticipant {
+  id            String   @id @default(uuid())
+  tournamentId  String
+  userId        String
+  seed          Int?
+  position      Int?
+  createdAt     DateTime @default(now())
+
+  tournament    Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  user          User       @relation(fields: [userId], references: [id])
+
+  @@unique([tournamentId, userId])
+  @@index([tournamentId])
+}
+
+model TournamentMatch {
+  id            String   @id @default(uuid())
+  tournamentId  String
+  round         Int
+  player1Id     String
+  player2Id     String?
+  winnerId      String?
+  status        MatchStatus @default(SCHEDULED)
+  createdAt     DateTime @default(now())
+  finishedAt    DateTime?
+
+  tournament    Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+
+  @@index([tournamentId])
+  @@index([status])
+}
+
+enum MatchStatus {
+  SCHEDULED
+  IN_PROGRESS
+  FINISHED
+  BYE
+}
