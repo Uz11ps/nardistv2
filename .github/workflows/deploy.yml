@@ -26,8 +26,7 @@ jobs:
       - name: Set up Docker Buildx
         run: |
           docker buildx version
-          docker buildx create --name builder --driver docker-container --use || docker buildx use builder
-          docker buildx inspect --bootstrap
+          docker buildx create --use --name builder 2>/dev/null || docker buildx use builder || true
 
       - name: Log in to Container Registry
         uses: docker/login-action@v3
@@ -43,8 +42,6 @@ jobs:
           context: ./backend
           push: true
           tags: ghcr.io/uz11ps/nardist-backend:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
           platforms: linux/amd64
 
       - name: Build and push frontend image
@@ -54,8 +51,6 @@ jobs:
           context: ./frontend
           push: true
           tags: ghcr.io/uz11ps/nardist-frontend:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
           platforms: linux/amd64
 
       - name: Deploy to server
