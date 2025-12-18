@@ -16,10 +16,13 @@ ENV npm_config_fetch_retry_maxtimeout=60000
 COPY package*.json ./
 
 # Устанавливаем зависимости с таймаутами и retry
-RUN echo "📦 Installing dependencies..." && \
-    npm install --legacy-peer-deps --no-audit --progress=false --prefer-offline=false --fetch-timeout=300000 || \
+# Используем cache mount для ускорения (требует BuildKit: DOCKER_BUILDKIT=1)
+RUN --mount=type=cache,target=/root/.npm \
+    echo "📦 Installing dependencies..." && \
+    npm install --legacy-peer-deps --no-audit --progress=false --prefer-offline=false --fetch-timeout=300000 --maxsockets=15 || \
     (echo "⚠️ First attempt failed, retrying..." && \
-     npm install --legacy-peer-deps --no-audit --progress=false --prefer-offline=false --fetch-timeout=300000)
+     sleep 5 && \
+     npm install --legacy-peer-deps --no-audit --progress=false --prefer-offline=false --fetch-timeout=300000 --maxsockets=15)
 
 # Копируем исходный код
 COPY . .
