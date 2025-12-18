@@ -9,9 +9,14 @@ echo ""
 
 cd /opt/Nardist
 
-# 1. Останавливаем все контейнеры
+# 1. Останавливаем и удаляем все контейнеры
 echo "1️⃣ Останавливаем все контейнеры..."
-docker compose -f docker-compose.prod.yml down
+set +e  # Временно отключаем строгий режим
+docker compose -f docker-compose.prod.yml down --remove-orphans 2>/dev/null || true
+# Удаляем контейнеры вручную если они остались
+docker ps -a --filter "name=nardist_" --format "{{.Names}}" | xargs -r docker rm -f 2>/dev/null || true
+set -e  # Включаем строгий режим обратно
+sleep 3
 
 # 2. Удаляем сеть если она существует (чтобы создать заново)
 echo "2️⃣ Удаляем старую сеть..."
@@ -47,11 +52,21 @@ bash scripts/ensure-database.sh || echo "⚠️  Проблема с базой 
 
 # 7. Запускаем остальные сервисы
 echo "6️⃣ Запускаем остальные сервисы..."
+export BACKEND_IMAGE=nardist-backend:latest
 docker compose -f docker-compose.prod.yml up -d --no-build
 
-# 8. Ждем немного
+# 8. Ждем запуска всех сервисов
 echo "7️⃣ Ждем запуска всех сервисов..."
-sleep 10
+for i in {1..20}; do
+    RUNNING=$(docker compose -f docker-compose.prod.yml ps --format json | grep -c '"State":"running"' || echo "0")
+    TOTAL=$(docker compose -f docker-compose.prod.yml ps --format json | wc -l)
+    if [ "$RUNNING" -ge "$TOTAL" ] && [ "$TOTAL" -gt "0" ]; then
+        echo "✅ Все контейнеры запущены"
+        break
+    fi
+    sleep 1
+done
+sleep 5
 
 # 9. Проверяем статус
 echo "8️⃣ Статус контейнеров:"
