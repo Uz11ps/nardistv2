@@ -214,24 +214,39 @@ else
 fi
 
 echo "🗄️ Running database migrations..."
+# Убеждаемся, что postgres запущен и здоров перед запуском миграций
+echo "🔍 Ensuring PostgreSQL is running and healthy..."
+$DOCKER_COMPOSE -f docker-compose.prod.yml up -d postgres
+
+# Ждем, пока PostgreSQL станет здоровым
+echo "⏳ Waiting for PostgreSQL to be healthy..."
+MAX_HEALTH_RETRIES=30
+HEALTH_RETRY=0
+while [ $HEALTH_RETRY -lt $MAX_HEALTH_RETRIES ]; do
+    HEALTH_STATUS=$($DOCKER_COMPOSE -f docker-compose.prod.yml ps postgres 2>/dev/null | grep -o "healthy" || echo "")
+    if [ "$HEALTH_STATUS" = "healthy" ]; then
+        echo "✅ PostgreSQL is healthy"
+        break
+    fi
+    HEALTH_RETRY=$((HEALTH_RETRY + 1))
+    echo "  Waiting for postgres healthcheck... ($HEALTH_RETRY/$MAX_HEALTH_RETRIES)"
+    sleep 2
+done
+
+if [ $HEALTH_RETRY -eq $MAX_HEALTH_RETRIES ]; then
+    echo "⚠️  PostgreSQL did not become healthy in time, but continuing with migrations..."
+fi
+
 # Пробуем через exec (если backend контейнер запущен)
 if $DOCKER_COMPOSE -f docker-compose.prod.yml ps backend 2>/dev/null | grep -q "Up"; then
     echo "📦 Using existing backend container for migrations..."
     $DOCKER_COMPOSE -f docker-compose.prod.yml exec -T backend sh -c "npm run prisma:generate && npx --package=prisma@5.20.0 prisma migrate deploy" || {
         echo "⚠️  Migrations via exec failed, trying with migrations service..."
-        # Убеждаемся, что postgres запущен и здоров перед запуском миграций
-        $DOCKER_COMPOSE -f docker-compose.prod.yml up -d postgres
-        echo "⏳ Waiting for postgres to be healthy..."
-        sleep 5
         $DOCKER_COMPOSE -f docker-compose.prod.yml --profile migrations run --rm migrations || echo "⚠️  Migrations failed or not needed, continuing..."
     }
 else
     # Если backend не запущен, используем сервис миграций
     echo "⚠️  Backend container not running, using migrations service..."
-    # Убеждаемся, что postgres запущен и здоров перед запуском миграций
-    $DOCKER_COMPOSE -f docker-compose.prod.yml up -d postgres
-    echo "⏳ Waiting for postgres to be healthy..."
-    sleep 5
     $DOCKER_COMPOSE -f docker-compose.prod.yml --profile migrations run --rm migrations || echo "⚠️  Migrations failed or not needed, continuing..."
 fi
 

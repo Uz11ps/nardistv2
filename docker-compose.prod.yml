@@ -135,15 +135,32 @@ services:
       - migrations
     command: >
       sh -c "
-        echo '⏳ Waiting for PostgreSQL to be ready...' &&
-        for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+        echo '🔍 Debug: Checking network connectivity...' &&
+        echo '  Testing hostname resolution:' &&
+        (nslookup postgres 2>/dev/null || getent hosts postgres 2>/dev/null || echo '  ⚠️  Cannot resolve postgres hostname') &&
+        echo '⏳ Waiting for PostgreSQL to be ready (max 40 seconds)...' &&
+        i=1 &&
+        max_attempts=20 &&
+        while [ $i -le $max_attempts ]; do
           if nc -z postgres 5432 2>/dev/null; then
-            echo '✅ PostgreSQL port is reachable' &&
+            echo \"✅ PostgreSQL port is reachable (attempt $i/$max_attempts)\" &&
             break
           fi
-          echo '  Waiting for postgres:5432... ($i/15)' &&
-          sleep 2
+          echo \"  Waiting for postgres:5432... (attempt $i/$max_attempts)\" &&
+          sleep 2 &&
+          i=$((i + 1))
         done &&
+        if ! nc -z postgres 5432 2>/dev/null; then
+          echo '❌ ERROR: PostgreSQL is not reachable at postgres:5432 after 40 seconds' &&
+          echo '🔍 Debug info:' &&
+          echo '  Network interfaces:' &&
+          ip addr show 2>/dev/null || ifconfig 2>/dev/null || echo '    (cannot list interfaces)' &&
+          echo '  DNS resolution:' &&
+          (nslookup postgres 2>/dev/null || getent hosts postgres 2>/dev/null || echo '    Cannot resolve postgres') &&
+          echo '  Trying direct connection test:' &&
+          (timeout 2 sh -c '</dev/tcp/postgres/5432' 2>/dev/null && echo '    TCP connection successful' || echo '    TCP connection failed') &&
+          exit 1
+        fi &&
         echo '🔧 Generating Prisma client...' &&
         npm run prisma:generate &&
         echo '🗄️  Running migrations...' &&

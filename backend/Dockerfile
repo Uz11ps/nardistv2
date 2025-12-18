@@ -28,7 +28,7 @@ FROM node:18-alpine AS production
 WORKDIR /app
 
 # Устанавливаем OpenSSL и утилиты для проверки сетевого подключения
-RUN apk add --no-cache openssl netcat-openbsd
+RUN apk add --no-cache openssl netcat-openbsd bind-tools
 
 # Копируем package.json и prisma для генерации клиента на сервере
 COPY package*.json ./
