@@ -119,6 +119,9 @@ while [ $BACKEND_RETRY -lt $MAX_BACKEND_RETRIES ]; do
     sleep 2
 done
 
+echo "🔧 Generating Prisma client..."
+$DOCKER_COMPOSE -f docker-compose.prod.yml exec -T backend npx prisma generate || echo "⚠️  Prisma generate failed, continuing..."
+
 echo "🗄️ Running database migrations..."
 $DOCKER_COMPOSE -f docker-compose.prod.yml exec -T backend npx prisma migrate deploy || echo "⚠️  Migrations failed or not needed, continuing..."
 
