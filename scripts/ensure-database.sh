@@ -28,11 +28,18 @@ echo "   User: $POSTGRES_USER"
 echo "   Database: $POSTGRES_DB"
 echo ""
 
-# Проверяем что PostgreSQL запущен
-if ! docker compose -f docker-compose.prod.yml ps postgres | grep -q "Up"; then
-    echo "❌ PostgreSQL контейнер не запущен!"
-    exit 1
-fi
+# Проверяем что PostgreSQL запущен (с несколькими попытками)
+echo "⏳ Проверяем статус PostgreSQL..."
+for i in {1..10}; do
+    if docker compose -f docker-compose.prod.yml ps postgres | grep -q "Up"; then
+        break
+    fi
+    if [ $i -eq 10 ]; then
+        echo "❌ PostgreSQL контейнер не запущен после 10 попыток!"
+        exit 1
+    fi
+    sleep 2
+done
 
 echo "✅ PostgreSQL контейнер запущен"
 echo ""

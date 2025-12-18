@@ -25,9 +25,20 @@ export BACKEND_IMAGE=nardist-backend:latest
 echo "3️⃣ Запускаем PostgreSQL и Redis..."
 docker compose -f docker-compose.prod.yml up -d postgres redis
 
-# 5. Ждем пока они будут готовы
-echo "4️⃣ Ждем готовности PostgreSQL и Redis..."
-sleep 15
+# 5. Ждем пока они запустятся и будут готовы
+echo "4️⃣ Ждем запуска PostgreSQL и Redis..."
+for i in {1..30}; do
+    if docker compose -f docker-compose.prod.yml ps postgres | grep -q "Up" && \
+       docker compose -f docker-compose.prod.yml ps redis | grep -q "Up"; then
+        echo "✅ Контейнеры запущены, ждем готовности..."
+        break
+    fi
+    sleep 1
+done
+
+# Ждем еще немного для healthcheck
+echo "⏳ Ждем готовности healthcheck..."
+sleep 20
 
 # 6. Проверяем базу данных
 echo "5️⃣ Проверяем базу данных..."
