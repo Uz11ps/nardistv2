@@ -8,7 +8,36 @@ echo "========================================="
 # Update system
 echo "Updating system packages..."
 apt-get update -qq
-apt-get install -y docker.io docker-compose-plugin git certbot python3-certbot-nginx
+
+# Проверяем и устанавливаем зависимости
+echo "Checking dependencies..."
+
+# Проверяем Docker
+if ! command -v docker &> /dev/null; then
+    echo "Installing Docker..."
+    apt-get install -y docker.io || {
+        echo "Docker installation failed, trying alternative method..."
+        curl -fsSL https://get.docker.com -o get-docker.sh
+        sh get-docker.sh || true
+    }
+else
+    echo "Docker already installed: $(docker --version)"
+fi
+
+# Проверяем docker-compose
+if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
+    echo "Installing docker-compose..."
+    apt-get install -y docker-compose-plugin || {
+        echo "docker-compose-plugin installation skipped (may already be installed)"
+    }
+else
+    echo "Docker Compose already installed"
+fi
+
+# Устанавливаем остальные зависимости
+apt-get install -y git certbot python3-certbot-nginx || {
+    echo "Some packages failed to install, continuing anyway..."
+}
 
 # Stop any running services
 echo "Stopping existing services..."
@@ -80,11 +109,16 @@ echo "Building and starting containers..."
 cd /opt/nardist
 
 # Проверяем наличие docker-compose
-if command -v docker-compose &> /dev/null; then
+if docker compose version &> /dev/null; then
+    DOCKER_COMPOSE_CMD="docker compose"
+elif command -v docker-compose &> /dev/null; then
     DOCKER_COMPOSE_CMD="docker-compose"
 else
-    DOCKER_COMPOSE_CMD="docker compose"
+    echo "ERROR: docker-compose not found!"
+    exit 1
 fi
+
+echo "Using: $DOCKER_COMPOSE_CMD"
 
 echo "Running database migrations..."
 $DOCKER_COMPOSE_CMD -f infra/docker-compose.prod.yml run --rm backend npx prisma migrate deploy || {
