@@ -45,4 +45,5 @@ export class UsersService {
     return this.prisma.user.findUnique({
       where: { telegramId },
     });
-  }
+  }
+}
