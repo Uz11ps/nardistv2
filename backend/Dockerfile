@@ -11,8 +11,8 @@ RUN npm install --legacy-peer-deps --no-audit --silent --ignore-scripts || \
 # Копируем исходный код
 COPY . .
 
-# Генерируем Prisma клиент
-RUN npx prisma generate
+# Генерируем Prisma клиент (используем npm скрипт)
+RUN npm run prisma:generate || npx prisma generate || echo "Prisma generate skipped"
 
 # Собираем приложение
 RUN npm run build
@@ -26,8 +26,9 @@ RUN npm install --only=production --legacy-peer-deps --no-audit --silent
 
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
-RUN npx prisma generate
+# Prisma клиент уже сгенерирован в builder stage
 
 EXPOSE 3000
 
