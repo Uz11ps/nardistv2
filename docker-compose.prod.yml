@@ -120,6 +120,9 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-nardist}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-nardist_db}
       NODE_ENV: production
+      POSTGRES_USER: ${POSTGRES_USER:-nardist}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-nardist_db}
     volumes:
       # Монтируем prisma директорию для доступа к миграциям
       - ./backend/prisma:/app/prisma:ro
@@ -130,7 +133,22 @@ services:
       - nardist_network
     profiles:
       - migrations
-    command: sh -c "npm run prisma:generate && npx prisma migrate deploy"
+    command: >
+      sh -c "
+        echo '⏳ Waiting for PostgreSQL to be ready...' &&
+        for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+          if nc -z postgres 5432 2>/dev/null; then
+            echo '✅ PostgreSQL port is reachable' &&
+            break
+          fi
+          echo '  Waiting for postgres:5432... ($i/15)' &&
+          sleep 2
+        done &&
+        echo '🔧 Generating Prisma client...' &&
+        npm run prisma:generate &&
+        echo '🗄️  Running migrations...' &&
+        npx prisma migrate deploy
+      "
 
 volumes:
   postgres_data:

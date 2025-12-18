@@ -182,9 +182,13 @@ $DOCKER_COMPOSE -f docker-compose.prod.yml exec -T backend npm run prisma:genera
 $DOCKER_COMPOSE -f docker-compose.prod.yml exec -T backend npx --package=prisma@5.20.0 prisma generate || \
 echo "⚠️  Prisma generate failed, continuing..."
 
+# Убеждаемся, что сеть создана
+echo "🔗 Ensuring Docker network exists..."
+$DOCKER_COMPOSE -f docker-compose.prod.yml network create nardist_network 2>/dev/null || echo "  Network already exists or will be created"
+
 # Проверяем подключение к базе данных перед миграциями
 echo "🔍 Verifying database connection before migrations..."
-MAX_DB_RETRIES=10
+MAX_DB_RETRIES=15
 DB_RETRY=0
 while [ $DB_RETRY -lt $MAX_DB_RETRIES ]; do
     # Пробуем подключиться через psql из postgres контейнера
@@ -197,6 +201,10 @@ while [ $DB_RETRY -lt $MAX_DB_RETRIES ]; do
     sleep 2
 done
 
+if [ $DB_RETRY -eq $MAX_DB_RETRIES ]; then
+    echo "⚠️  Database did not become ready in time, but continuing with migrations..."
+fi
+
 # Дополнительная проверка: можем ли мы подключиться из backend контейнера
 echo "🔍 Testing connection from backend container..."
 if $DOCKER_COMPOSE -f docker-compose.prod.yml exec -T backend sh -c "timeout 5 sh -c '</dev/tcp/postgres/5432'" 2>/dev/null; then
@@ -208,13 +216,22 @@ fi
 echo "🗄️ Running database migrations..."
 # Пробуем через exec (если backend контейнер запущен)
 if $DOCKER_COMPOSE -f docker-compose.prod.yml ps backend 2>/dev/null | grep -q "Up"; then
-    $DOCKER_COMPOSE -f docker-compose.prod.yml exec -T backend npx --package=prisma@5.20.0 prisma migrate deploy || {
+    echo "📦 Using existing backend container for migrations..."
+    $DOCKER_COMPOSE -f docker-compose.prod.yml exec -T backend sh -c "npm run prisma:generate && npx --package=prisma@5.20.0 prisma migrate deploy" || {
         echo "⚠️  Migrations via exec failed, trying with migrations service..."
+        # Убеждаемся, что postgres запущен и здоров перед запуском миграций
+        $DOCKER_COMPOSE -f docker-compose.prod.yml up -d postgres
+        echo "⏳ Waiting for postgres to be healthy..."
+        sleep 5
         $DOCKER_COMPOSE -f docker-compose.prod.yml --profile migrations run --rm migrations || echo "⚠️  Migrations failed or not needed, continuing..."
     }
 else
     # Если backend не запущен, используем сервис миграций
     echo "⚠️  Backend container not running, using migrations service..."
+    # Убеждаемся, что postgres запущен и здоров перед запуском миграций
+    $DOCKER_COMPOSE -f docker-compose.prod.yml up -d postgres
+    echo "⏳ Waiting for postgres to be healthy..."
+    sleep 5
     $DOCKER_COMPOSE -f docker-compose.prod.yml --profile migrations run --rm migrations || echo "⚠️  Migrations failed or not needed, continuing..."
 fi
 
