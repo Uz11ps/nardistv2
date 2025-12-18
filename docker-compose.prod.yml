@@ -135,11 +135,17 @@ services:
       - migrations
     command: >
       sh -c "
-        echo '⏳ Waiting a bit for PostgreSQL to be ready...' &&
-        sleep 5 &&
+        echo '⏳ Waiting for PostgreSQL...' &&
+        for i in 1 2 3 4 5 6 7 8 9 10; do
+          if nc -z postgres 5432 2>/dev/null; then
+            echo '✅ PostgreSQL is ready' &&
+            break
+          fi
+          sleep 2
+        done &&
         echo '🔧 Generating Prisma client...' &&
         npm run prisma:generate &&
-        echo '🗄️  Running migrations (Prisma will retry on connection errors)...' &&
+        echo '🗄️  Running migrations...' &&
         npx prisma migrate deploy
       "
 

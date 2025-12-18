@@ -3,25 +3,28 @@
 echo "🔍 Testing PostgreSQL connection from backend container..."
 echo ""
 
-echo "1️⃣ Testing with timeout and TCP redirection..."
-docker exec nardist_backend_prod sh -c 'timeout 3 sh -c "</dev/tcp/172.18.0.4/5432" && echo "✅ Connection to IP successful" || echo "❌ Connection to IP failed"' 2>&1
+echo "1️⃣ Testing ping to postgres IP (172.18.0.4)..."
+docker exec nardist_backend_prod ping -c 2 172.18.0.4 2>&1 | head -5
 
 echo ""
-echo "2️⃣ Testing with hostname..."
-docker exec nardist_backend_prod sh -c 'timeout 3 sh -c "</dev/tcp/postgres/5432" && echo "✅ Connection to hostname successful" || echo "❌ Connection to hostname failed"' 2>&1
+echo "2️⃣ Testing ping to postgres hostname..."
+docker exec nardist_backend_prod ping -c 2 postgres 2>&1 | head -5
 
 echo ""
-echo "3️⃣ Testing with psql (if available)..."
-docker exec nardist_backend_prod sh -c 'timeout 3 psql -h postgres -U nardist -d nardist_db -c "SELECT 1;" 2>&1' || echo "  ⚠️  psql not available or connection failed"
+echo "3️⃣ Testing port 5432 with Alpine nc (correct syntax)..."
+docker exec nardist_backend_prod sh -c 'echo "" | nc -w 2 postgres 5432 && echo "✅ Port 5432 is open" || echo "❌ Port 5432 connection failed"' 2>&1
 
 echo ""
-echo "4️⃣ Testing with Prisma directly..."
-docker exec nardist_backend_prod sh -c 'cd /app && timeout 10 npx prisma db execute --stdin <<< "SELECT 1;" 2>&1' || echo "  ⚠️  Prisma connection test failed"
+echo "4️⃣ Testing port 5432 to IP directly..."
+docker exec nardist_backend_prod sh -c 'echo "" | nc -w 2 172.18.0.4 5432 && echo "✅ Port 5432 to IP is open" || echo "❌ Port 5432 to IP failed"' 2>&1
 
 echo ""
-echo "5️⃣ Checking if nc command exists and works..."
-docker exec nardist_backend_prod which nc || echo "  ⚠️  nc not found"
-docker exec nardist_backend_prod nc --version 2>&1 || echo "  ⚠️  nc version check failed"
+echo "5️⃣ Testing with Prisma (real connection test)..."
+docker exec nardist_backend_prod sh -c 'cd /app && echo "SELECT 1;" | npx prisma db execute --stdin 2>&1' | head -10
+
+echo ""
+echo "6️⃣ Testing Prisma migrate status..."
+docker exec nardist_backend_prod sh -c 'cd /app && npx prisma migrate status 2>&1' | head -10
 
 echo ""
 echo "✅ Tests completed!"
