@@ -177,5 +177,6 @@ networks:
   nardist_network:
     name: nardist_network
     driver: bridge
+    external: false
     ipam:
       driver: default

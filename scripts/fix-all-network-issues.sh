@@ -46,33 +46,49 @@ echo ""
 # 2. УДАЛЕНИЕ И ПЕРЕСОЗДАНИЕ СЕТИ
 echo "2️⃣ ПЕРЕСОЗДАНИЕ СЕТИ"
 echo "---------------------"
-docker network rm nardist_network 2>/dev/null || true
-sleep 2
-docker network create nardist_network --driver bridge --subnet 172.18.0.0/16
-echo "✅ Сеть nardist_network пересоздана"
+# Удаляем сеть если она существует
+if docker network inspect nardist_network >/dev/null 2>&1; then
+    echo "🗑️  Удаляю существующую сеть..."
+    # Отключаем все контейнеры от сети перед удалением
+    docker network inspect nardist_network --format '{{range .Containers}}{{.Name}} {{end}}' 2>/dev/null | xargs -r -n1 docker network disconnect nardist_network 2>/dev/null || true
+    docker network rm nardist_network 2>/dev/null || true
+    sleep 3
+fi
+echo "✅ Старая сеть удалена (если существовала)"
 echo ""
 
-# 3. ЗАПУСК POSTGRES
+# 3. ЗАПУСК POSTGRES (Docker Compose создаст сеть автоматически)
 echo "3️⃣ ЗАПУСК POSTGRES"
 echo "-------------------"
 $DOCKER_COMPOSE -f docker-compose.prod.yml up -d postgres
 echo "⏳ Жду 20 секунд для полного запуска PostgreSQL..."
 sleep 20
 
+# Проверяем что сеть создана Docker Compose
+if docker network inspect nardist_network >/dev/null 2>&1; then
+    echo "✅ Сеть nardist_network создана Docker Compose"
+    docker network inspect nardist_network --format '{{range .Containers}}{{.Name}} -> {{.IPv4Address}}{{"\n"}}{{end}}'
+else
+    echo "❌ Сеть не создана! Создаю вручную..."
+    docker network create nardist_network --driver bridge --subnet 172.18.0.0/16
+    docker network connect nardist_network nardist_postgres_prod 2>/dev/null || true
+fi
+echo ""
+
 # Ждем пока postgres станет готовым
-MAX_RETRIES=40
-RETRY=0
-while [ $RETRY -lt $MAX_RETRIES ]; do
+PG_MAX_RETRIES=40
+PG_RETRY=0
+while [ $PG_RETRY -lt $PG_MAX_RETRIES ]; do
     if docker exec nardist_postgres_prod pg_isready -U $POSTGRES_USER -h localhost >/dev/null 2>&1; then
         echo "✅ PostgreSQL готов!"
         break
     fi
-    RETRY=$((RETRY + 1))
-    echo "  Ожидание PostgreSQL... ($RETRY/$MAX_RETRIES)"
+    PG_RETRY=$((PG_RETRY + 1))
+    echo "  Ожидание PostgreSQL... ($PG_RETRY/$PG_MAX_RETRIES)"
     sleep 2
 done
 
-if [ $RETRY -eq $MAX_RETRIES ]; then
+if [ $PG_RETRY -eq $PG_MAX_RETRIES ]; then
     echo "❌ PostgreSQL не стал готовым!"
     echo "📋 Логи PostgreSQL:"
     docker logs nardist_postgres_prod --tail 30
