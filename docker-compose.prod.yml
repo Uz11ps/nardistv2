@@ -136,21 +136,16 @@ services:
     command: >
       sh -c "
         echo '⏳ Waiting for PostgreSQL to be reachable...' &&
-        POSTGRES_IP='' &&
-        for i in 1 2 3 4 5 6 7 8 9 10; do
-          # Пробуем найти IP postgres через getent
-          POSTGRES_IP=\$(getent hosts postgres | awk '{print \$1}' | head -1) &&
-          if [ -n \"\$POSTGRES_IP\" ] && echo '' | nc -w 2 \$POSTGRES_IP 5432 2>/dev/null; then
-            echo \"✅ PostgreSQL is reachable at \$POSTGRES_IP:5432\" &&
+        attempt=1 &&
+        while [ $$attempt -le 10 ]; do
+          if echo '' | nc -w 2 postgres 5432 2>/dev/null; then
+            echo \"✅ PostgreSQL is reachable (attempt $$attempt/10)\" &&
             break
           fi
-          echo \"  Waiting... (\$i/10)\" &&
-          sleep 2
+          echo \"  Waiting... ($$attempt/10)\" &&
+          sleep 2 &&
+          attempt=$$((attempt + 1))
         done &&
-        if [ -z \"\$POSTGRES_IP\" ]; then
-          echo '❌ Cannot resolve postgres hostname' &&
-          exit 1
-        fi &&
         echo '🔧 Generating Prisma client...' &&
         npm run prisma:generate &&
         echo '🗄️  Running migrations (Prisma will retry on connection errors)...' &&
