@@ -34,21 +34,10 @@ while [ $RETRY -lt $MAX_RETRIES ]; do
     sleep 2
 done
 
-# Генерируем Prisma клиент
-echo "📦 Generating Prisma client..."
-$DOCKER_COMPOSE -f docker-compose.prod.yml exec -T backend npx prisma generate || {
-    echo "⚠️  Prisma generate failed, trying again..."
-    sleep 5
-    $DOCKER_COMPOSE -f docker-compose.prod.yml exec -T backend npx prisma generate || {
-        echo "❌ Prisma generate failed!"
-        exit 1
-    }
-}
-
-# Применяем миграции
+# Применяем миграции (Prisma клиент уже сгенерирован в Docker образе)
 echo "🗄️  Running database migrations..."
 $DOCKER_COMPOSE -f docker-compose.prod.yml exec -T backend npx prisma migrate deploy || {
     echo "⚠️  Migrations failed or not needed"
 }
 
-echo "✅ Prisma setup completed!"
+echo "✅ Prisma migrations applied!"

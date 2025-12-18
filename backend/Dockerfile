@@ -9,15 +9,18 @@ RUN apk add --no-cache openssl
 COPY package*.json ./
 COPY prisma ./prisma/
 
-# Устанавливаем зависимости (Prisma generate будет выполнен на сервере)
+# Устанавливаем зависимости (включая dev зависимости для Prisma CLI)
 ENV npm_config_loglevel=warn
 ENV PRISMA_SKIP_POSTINSTALL_GENERATE=true
 RUN npm install --legacy-peer-deps --no-audit
 
+# Генерируем Prisma клиент (только типы, без подключения к БД)
+RUN npx prisma generate
+
 # Копируем исходный код
 COPY . .
 
-# Собираем приложение (Prisma клиент будет сгенерирован на сервере)
+# Собираем приложение
 RUN npm run build
 
 FROM node:18-alpine AS production
@@ -36,10 +39,10 @@ ENV npm_config_loglevel=warn
 ENV PRISMA_SKIP_POSTINSTALL_GENERATE=true
 RUN npm install --legacy-peer-deps --no-audit
 
-# Копируем собранное приложение
+# Копируем собранное приложение и сгенерированный Prisma клиент
 COPY --from=builder /app/dist ./dist
-
-# Prisma клиент будет сгенерирован на сервере через команду
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
 EXPOSE 3000
 
