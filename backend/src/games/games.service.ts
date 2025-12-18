@@ -1,8 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateGameDto } from './dto/create-game.dto';
-import { GameType, GameStatus } from '@prisma/client';
-import * as crypto from 'crypto';
+import { CreateGameDto, GameType } from './dto/create-game.dto';
+import * as crypto from 'node:crypto';
 
 @Injectable()
 export class GamesService {
@@ -13,11 +12,11 @@ export class GamesService {
     
     const game = await this.prisma.game.create({
       data: {
-        type: dto.type,
+        type: dto.type as any,
         player1Id: userId,
         player2Id: dto.opponentId,
         botDifficulty: dto.botDifficulty,
-        status: GameStatus.WAITING,
+        status: 'WAITING',
         seed,
         currentTurn: userId,
       },
