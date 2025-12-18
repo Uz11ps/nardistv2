@@ -137,10 +137,11 @@ services:
       sh -c "
         echo '⏳ Waiting for PostgreSQL...' &&
         for i in 1 2 3 4 5 6 7 8 9 10; do
-          if nc -z postgres 5432 2>/dev/null; then
-            echo '✅ PostgreSQL is ready' &&
+          if timeout 2 sh -c '</dev/tcp/postgres/5432' 2>/dev/null; then
+            echo \"✅ PostgreSQL is ready (attempt $i)\" &&
             break
           fi
+          echo \"  Waiting... ($i/10)\" &&
           sleep 2
         done &&
         echo '🔧 Generating Prisma client...' &&
@@ -159,3 +160,5 @@ networks:
   nardist_network:
     name: nardist_network
     driver: bridge
+    ipam:
+      driver: default

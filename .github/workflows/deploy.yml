@@ -160,12 +160,11 @@ jobs:
             systemctl stop nginx 2>/dev/null || true
             systemctl disable nginx 2>/dev/null || true
             
-            # Перезапускаем Docker daemon для сброса состояния и решения проблем с permission denied
-            echo "🔄 Restarting Docker daemon to reset state..."
-            sudo systemctl stop docker 2>/dev/null || true
-            sleep 3
-            sudo systemctl start docker
-            sleep 10
+            # Проверяем что Docker работает (без перезапуска, чтобы не сбрасывать состояние)
+            echo "🔍 Checking Docker status..."
+            sudo docker ps >/dev/null 2>&1 || docker ps >/dev/null 2>&1 || {
+              echo "⚠️  Docker not responding, but continuing..."
+            }
             
             # Проверяем что порты свободны
             if lsof -i :80 2>/dev/null | grep -v docker; then
@@ -367,6 +366,24 @@ jobs:
               echo "⏳ Waiting for backend to be ready..."
               sleep 10
             fi
+            
+            # Убеждаемся что postgres запущен и здоров перед миграциями
+            echo "🔍 Ensuring PostgreSQL is running and healthy..."
+            sudo $DOCKER_COMPOSE -f docker-compose.prod.yml up -d postgres 2>/dev/null || \
+            $DOCKER_COMPOSE -f docker-compose.prod.yml up -d postgres
+            
+            # Ждем пока postgres станет healthy
+            echo "⏳ Waiting for PostgreSQL to be healthy..."
+            for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+              HEALTH=$(sudo $DOCKER_COMPOSE -f docker-compose.prod.yml ps postgres 2>/dev/null | grep -o "healthy" || \
+                      $DOCKER_COMPOSE -f docker-compose.prod.yml ps postgres 2>/dev/null | grep -o "healthy" || echo "")
+              if [ "$HEALTH" = "healthy" ]; then
+                echo "✅ PostgreSQL is healthy"
+                break
+              fi
+              echo "  Waiting... ($i/15)"
+              sleep 2
+            done
             
             # Применяем миграции (с таймаутом)
             echo "🗄️  Running database migrations..."
