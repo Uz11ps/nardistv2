@@ -68,12 +68,8 @@ docker compose -f docker-compose.prod.yml down
 
 # 9. Запускаем новые (используем --no-build чтобы не пересобирать уже собранный образ backend)
 echo "🚀 Запускаем новые контейнеры..."
-# Сначала запускаем backend с --no-build (образ уже собран)
-docker compose -f docker-compose.prod.yml up -d --no-build backend
-# Затем запускаем остальные сервисы (postgres, redis, nginx - они не требуют сборки)
-docker compose -f docker-compose.prod.yml up -d postgres redis nginx
-# Frontend запускаем отдельно (может потребоваться сборка, но это быстро)
-docker compose -f docker-compose.prod.yml up -d frontend
+# Запускаем все сервисы с --no-build (backend образ уже собран, остальные используют готовые образы)
+docker compose -f docker-compose.prod.yml up -d --no-build
 
 echo ""
 echo "✅ Быстрая сборка завершена!"
