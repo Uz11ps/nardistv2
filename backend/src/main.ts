@@ -48,6 +48,9 @@ async function bootstrap() {
   // Глобальный exception filter
   app.useGlobalFilters(new HttpExceptionFilter());
 
+  // Устанавливаем глобальный префикс для API
+  app.setGlobalPrefix('api');
+
   // Глобальная валидация и санитизация
   app.useGlobalPipes(
     new SanitizePipe(),
