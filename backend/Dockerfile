@@ -2,14 +2,12 @@ FROM node:18-alpine AS builder
 
 WORKDIR /app
 
-# Устанавливаем только базовые пакеты (OpenSSL обычно уже есть в alpine)
-RUN apk add --no-cache openssl
-
 # Устанавливаем зависимости для кэширования
 COPY package*.json ./
 COPY prisma ./prisma/
 
 # Устанавливаем зависимости (включая dev зависимости для Prisma CLI)
+# OpenSSL уже есть в базовом образе alpine, не устанавливаем
 ENV npm_config_loglevel=warn
 ENV PRISMA_SKIP_POSTINSTALL_GENERATE=true
 RUN npm install --legacy-peer-deps --no-audit
@@ -27,17 +25,14 @@ FROM node:18-alpine AS production
 
 WORKDIR /app
 
-# Устанавливаем OpenSSL для runtime (обычно уже есть)
-RUN apk add --no-cache openssl
-
-# Копируем package.json и prisma для генерации клиента на сервере
+# Копируем package.json и prisma (OpenSSL уже есть в базовом образе)
 COPY package*.json ./
 COPY prisma ./prisma/
 
-# Устанавливаем все зависимости (включая dev для prisma CLI)
+# Устанавливаем только production зависимости (без dev)
 ENV npm_config_loglevel=warn
 ENV PRISMA_SKIP_POSTINSTALL_GENERATE=true
-RUN npm install --legacy-peer-deps --no-audit
+RUN npm install --only=production --legacy-peer-deps --no-audit
 
 # Копируем собранное приложение и сгенерированный Prisma клиент
 COPY --from=builder /app/dist ./dist
