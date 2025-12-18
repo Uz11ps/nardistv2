@@ -66,8 +66,10 @@ cd ..
 echo "🛑 Останавливаем старые контейнеры..."
 docker compose -f docker-compose.prod.yml down
 
-# 9. Запускаем новые
+# 9. Запускаем новые (используем --no-build чтобы не пересобирать уже собранный образ)
 echo "🚀 Запускаем новые контейнеры..."
+docker compose -f docker-compose.prod.yml up -d --no-build backend
+docker compose -f docker-compose.prod.yml up -d --no-build frontend
 docker compose -f docker-compose.prod.yml up -d
 
 echo ""
