@@ -203,6 +203,46 @@ echo "🔄 Запуск Docker daemon для восстановления iptabl
 sudo systemctl start docker 2>/dev/null || true
 sleep 10
 
+# Создаем цепочки iptables Docker вручную если они не существуют
+echo "🔧 Создание цепочек iptables Docker..."
+if command -v iptables &> /dev/null; then
+    # Проверяем и создаем цепочки если их нет
+    if ! sudo iptables -t filter -L DOCKER-ISOLATION-STAGE-1 &>/dev/null; then
+        echo "  Создание цепочки DOCKER-ISOLATION-STAGE-1..."
+        sudo iptables -t filter -N DOCKER-ISOLATION-STAGE-1 2>/dev/null || true
+        sudo iptables -t filter -A DOCKER-ISOLATION-STAGE-1 -j RETURN 2>/dev/null || true
+    fi
+    
+    if ! sudo iptables -t filter -L DOCKER-ISOLATION-STAGE-2 &>/dev/null; then
+        echo "  Создание цепочки DOCKER-ISOLATION-STAGE-2..."
+        sudo iptables -t filter -N DOCKER-ISOLATION-STAGE-2 2>/dev/null || true
+        sudo iptables -t filter -A DOCKER-ISOLATION-STAGE-2 -j RETURN 2>/dev/null || true
+    fi
+    
+    if ! sudo iptables -t filter -L DOCKER &>/dev/null; then
+        echo "  Создание цепочки DOCKER..."
+        sudo iptables -t filter -N DOCKER 2>/dev/null || true
+    fi
+    
+    if ! sudo iptables -t nat -L DOCKER &>/dev/null; then
+        echo "  Создание цепочки DOCKER (nat)..."
+        sudo iptables -t nat -N DOCKER 2>/dev/null || true
+    fi
+    
+    # Добавляем правила в FORWARD цепочку для связи с Docker цепочками
+    if ! sudo iptables -t filter -C FORWARD -j DOCKER-ISOLATION-STAGE-1 &>/dev/null; then
+        echo "  Добавление правила в FORWARD..."
+        sudo iptables -t filter -I FORWARD -j DOCKER-ISOLATION-STAGE-1 2>/dev/null || true
+    fi
+fi
+
+# Пробуем создать тестовую сеть для инициализации Docker сетевых правил
+echo "🔧 Инициализация Docker сетевых правил..."
+sudo docker network create --driver bridge test_docker_init 2>/dev/null && \
+    sudo docker network rm test_docker_init 2>/dev/null || true
+
+sleep 2
+
 # Шаг 8: Запускаем контейнеры
 echo "🚀 Запуск контейнеров через docker-compose..."
 sudo $DOCKER_COMPOSE -f docker-compose.prod.yml up -d --force-recreate --remove-orphans
