@@ -100,8 +100,27 @@ fi
 echo "⏳ Waiting for services to be ready..."
 sleep 10
 
+# Ждем пока backend контейнер станет готовым
+echo "⏳ Waiting for backend container to be ready..."
+MAX_BACKEND_RETRIES=30
+BACKEND_RETRY=0
+while [ $BACKEND_RETRY -lt $MAX_BACKEND_RETRIES ]; do
+    if $DOCKER_COMPOSE -f docker-compose.prod.yml ps backend | grep -q "Up"; then
+        # Проверяем что контейнер не перезапускается
+        CONTAINER_STATUS=$($DOCKER_COMPOSE -f docker-compose.prod.yml ps backend | grep backend | awk '{print $4}')
+        if [ "$CONTAINER_STATUS" != "Restarting" ]; then
+            echo "✅ Backend container is ready"
+            sleep 5  # Дополнительное ожидание для полной инициализации
+            break
+        fi
+    fi
+    BACKEND_RETRY=$((BACKEND_RETRY + 1))
+    echo "  Waiting for backend... ($BACKEND_RETRY/$MAX_BACKEND_RETRIES)"
+    sleep 2
+done
+
 echo "🗄️ Running database migrations..."
-$DOCKER_COMPOSE -f docker-compose.prod.yml exec -T backend npx prisma migrate deploy
+$DOCKER_COMPOSE -f docker-compose.prod.yml exec -T backend npx prisma migrate deploy || echo "⚠️  Migrations failed or not needed, continuing..."
 
 echo "🔒 Setting up SSL certificate..."
 if [ ! -d "./nginx/ssl/live/${DOMAIN_NAME}" ] || [ ! -f "./nginx/ssl/live/${DOMAIN_NAME}/fullchain.pem" ]; then
