@@ -3,7 +3,25 @@
 echo "🔍 Testing Node.js TCP connection to PostgreSQL..."
 echo ""
 
-POSTGRES_IP=$(docker inspect nardist_postgres_prod --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}')
+# Убеждаемся что контейнеры запущены
+if ! docker ps | grep -q nardist_backend_prod; then
+  echo "⚠️  Backend not running, starting it..."
+  docker compose -f docker-compose.prod.yml up -d backend
+  sleep 10
+fi
+
+if ! docker ps | grep -q nardist_postgres_prod; then
+  echo "⚠️  Postgres not running, starting it..."
+  docker compose -f docker-compose.prod.yml up -d postgres
+  sleep 10
+fi
+
+POSTGRES_IP=$(docker inspect nardist_postgres_prod --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' 2>/dev/null)
+if [ -z "$POSTGRES_IP" ] || [ "$POSTGRES_IP" = "invalid IP" ]; then
+  echo "❌ Cannot get postgres IP"
+  exit 1
+fi
+
 echo "Postgres IP: $POSTGRES_IP"
 echo ""
 
@@ -49,7 +67,7 @@ try {
     host: '$POSTGRES_IP',
     port: 5432,
     user: 'nardist',
-    password: '$(grep POSTGRES_PASSWORD .env | cut -d \"=\" -f2)',
+    password: '$(grep POSTGRES_PASSWORD .env | sed \"s/^POSTGRES_PASSWORD=//\")',
     database: 'nardist_db',
     connectionTimeoutMillis: 5000
   });
