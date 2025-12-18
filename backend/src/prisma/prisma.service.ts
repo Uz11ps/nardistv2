@@ -12,7 +12,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        await this.$connect();
+    await this.$connect();
         this.logger.log('Successfully connected to database');
         return;
       } catch (error) {

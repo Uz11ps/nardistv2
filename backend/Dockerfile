@@ -2,19 +2,20 @@ FROM node:18-alpine AS builder
 
 WORKDIR /app
 
+# Устанавливаем только базовые пакеты (OpenSSL обычно уже есть в alpine)
+RUN apk add --no-cache openssl
+
 # Устанавливаем зависимости для кэширования
 COPY package*.json ./
 COPY prisma ./prisma/
 
-# Устанавливаем зависимости (включая dev зависимости для Prisma CLI)
-# OpenSSL уже есть в базовом образе alpine, не устанавливаем
-ENV npm_config_loglevel=error
-ENV npm_config_prefer_offline=true
-ENV PRISMA_SKIP_POSTINSTALL_GENERATE=true
-RUN npm ci --legacy-peer-deps --no-audit --prefer-offline || npm install --legacy-peer-deps --no-audit --prefer-offline
+# Устанавливаем зависимости (Prisma автоматически сгенерирует клиент через postinstall)
+ENV npm_config_loglevel=warn
+ENV PRISMA_SKIP_POSTINSTALL_GENERATE=false
+RUN npm install --legacy-peer-deps --no-audit
 
-# Генерируем Prisma клиент (только типы, без подключения к БД)
-RUN npx prisma generate
+# Явно генерируем Prisma клиент (на случай если postinstall не сработал)
+RUN npx prisma generate || echo "Prisma generate failed, will retry"
 
 # Копируем исходный код
 COPY . .
@@ -26,16 +27,25 @@ FROM node:18-alpine AS production
 
 WORKDIR /app
 
-# Копируем package.json для фильтрации зависимостей
-COPY package*.json ./
+# Устанавливаем OpenSSL для runtime (обычно уже есть)
+RUN apk add --no-cache openssl
 
-# Копируем все node_modules из builder и удаляем dev зависимости
-# Это быстрее чем повторная установка всех пакетов
-COPY --from=builder /app/node_modules ./node_modules
-RUN npm prune --production --legacy-peer-deps --no-audit
+# Копируем package.json и prisma для генерации клиента на сервере
+COPY package*.json ./
+COPY prisma ./prisma/
+
+# Устанавливаем все зависимости (включая dev для prisma CLI)
+ENV npm_config_loglevel=warn
+ENV PRISMA_SKIP_POSTINSTALL_GENERATE=false
+RUN npm install --legacy-peer-deps --no-audit
+
+# Генерируем Prisma клиент (будет перегенерирован на сервере если нужно)
+RUN npx prisma generate || echo "Prisma generate failed, will retry on server"
 
 # Копируем собранное приложение и сгенерированный Prisma клиент из builder
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
 EXPOSE 3000
 
