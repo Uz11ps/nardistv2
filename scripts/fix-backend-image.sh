@@ -23,23 +23,59 @@ if ! docker images | grep -q "nardist-backend.*latest"; then
 fi
 echo "✅ Локальный образ найден"
 
-# 3. Запускаем backend с локальным образом
-echo "3️⃣ Запускаем backend с локальным образом..."
-export BACKEND_IMAGE=nardist-backend:latest
-docker compose -f docker-compose.prod.yml up -d --no-build backend
+# 3. Убеждаемся что PostgreSQL и Redis запущены
+echo "3️⃣ Проверяем PostgreSQL и Redis..."
+if ! docker compose -f docker-compose.prod.yml ps postgres | grep -q "Up"; then
+    echo "⚠️  PostgreSQL не запущен, запускаем..."
+    docker compose -f docker-compose.prod.yml up -d postgres
+    sleep 5
+fi
 
-# 4. Ждем немного
-echo "4️⃣ Ждем запуска backend..."
+if ! docker compose -f docker-compose.prod.yml ps redis | grep -q "Up"; then
+    echo "⚠️  Redis не запущен, запускаем..."
+    docker compose -f docker-compose.prod.yml up -d redis
+    sleep 5
+fi
+
+# 4. Запускаем backend с локальным образом (используем docker run напрямую)
+echo "4️⃣ Запускаем backend с локальным образом..."
+# Останавливаем и удаляем старый контейнер если он есть
+docker stop nardist_backend_prod 2>/dev/null || true
+docker rm nardist_backend_prod 2>/dev/null || true
+
+# Загружаем переменные окружения
+if [ -f .env ]; then
+    set -a
+    source .env
+    set +a
+fi
+
+# Запускаем backend контейнер напрямую с локальным образом
+docker run -d \
+  --name nardist_backend_prod \
+  --network nardist_network \
+  --restart unless-stopped \
+  -e DATABASE_URL="postgresql://${POSTGRES_USER:-nardist}:${POSTGRES_PASSWORD:-nardist_password}@postgres:5432/${POSTGRES_DB:-nardist_db}" \
+  -e REDIS_URL="redis://redis:6379" \
+  -e NODE_ENV=production \
+  -e PORT=3000 \
+  -e JWT_SECRET="${JWT_SECRET}" \
+  -e TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN}" \
+  -e FRONTEND_URL="${FRONTEND_URL:-https://nardist.online}" \
+  nardist-backend:latest
+
+# 5. Ждем немного
+echo "5️⃣ Ждем запуска backend..."
 sleep 10
 
-# 5. Проверяем переменные окружения
-echo "5️⃣ Проверяем переменные окружения backend..."
-docker exec nardist_backend_prod env | grep -E "(DATABASE_URL|REDIS_URL|BACKEND_IMAGE)" || echo "⚠️  Переменные не найдены"
+# 6. Проверяем переменные окружения
+echo "6️⃣ Проверяем переменные окружения backend..."
+docker exec nardist_backend_prod env | grep -E "(DATABASE_URL|REDIS_URL)" || echo "⚠️  Переменные не найдены"
 
-# 6. Проверяем логи
+# 7. Проверяем логи
 echo ""
 echo "📝 Логи backend (последние 30 строк):"
-docker compose -f docker-compose.prod.yml logs --tail=30 backend
+docker logs nardist_backend_prod --tail=30 2>&1
 
 echo ""
 echo "✅ Готово!"
