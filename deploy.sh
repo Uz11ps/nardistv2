@@ -98,7 +98,47 @@ else
 fi
 
 echo "⏳ Waiting for services to be ready..."
-sleep 10
+sleep 15  # Увеличено время ожидания для инициализации сети
+
+# Проверяем что сеть создана и контейнеры в ней
+echo "🌐 Verifying network connectivity..."
+sleep 5  # Даем время сети создаться
+if docker network inspect nardist_network >/dev/null 2>&1; then
+    echo "✅ Network nardist_network exists"
+    # Проверяем что postgres и backend в сети
+    NETWORK_INFO=$(docker network inspect nardist_network 2>/dev/null || echo "")
+    if echo "$NETWORK_INFO" | grep -q "nardist_postgres_prod" && \
+       echo "$NETWORK_INFO" | grep -q "nardist_backend_prod"; then
+        echo "✅ Containers are in the network"
+    else
+        echo "⚠️  Containers may not be in the network yet, waiting..."
+        sleep 10
+        NETWORK_INFO=$(docker network inspect nardist_network 2>/dev/null || echo "")
+        if echo "$NETWORK_INFO" | grep -q "nardist_postgres_prod" && \
+           echo "$NETWORK_INFO" | grep -q "nardist_backend_prod"; then
+            echo "✅ Containers are now in the network"
+        else
+            echo "❌ Containers still not in network, checking details..."
+            docker network inspect nardist_network
+        fi
+    fi
+    
+    # Проверяем DNS резолвинг из backend
+    echo "🔍 Testing DNS resolution from backend..."
+    if $DOCKER_COMPOSE -f docker-compose.prod.yml exec -T backend sh -c "getent hosts postgres" >/dev/null 2>&1; then
+        echo "✅ DNS resolution works: postgres -> $(docker compose -f docker-compose.prod.yml exec -T backend getent hosts postgres | awk '{print $1}')"
+    else
+        echo "⚠️  DNS resolution failed, trying ping..."
+        $DOCKER_COMPOSE -f docker-compose.prod.yml exec -T backend sh -c "ping -c 1 postgres" >/dev/null 2>&1 && echo "✅ Ping works" || echo "❌ Ping failed"
+    fi
+else
+    echo "❌ Network not found after container start!"
+    echo "🔍 Inspecting networks..."
+    docker network ls
+    echo "🔄 Recreating containers..."
+    $DOCKER_COMPOSE -f docker-compose.prod.yml up -d --force-recreate
+    sleep 10
+fi
 
 # Ждем пока backend контейнер станет готовым
 echo "⏳ Waiting for backend container to be ready..."
@@ -107,9 +147,9 @@ BACKEND_RETRY=0
 while [ $BACKEND_RETRY -lt $MAX_BACKEND_RETRIES ]; do
     if $DOCKER_COMPOSE -f docker-compose.prod.yml ps backend | grep -q "Up"; then
         # Проверяем что контейнер не перезапускается
-        CONTAINER_STATUS=$($DOCKER_COMPOSE -f docker-compose.prod.yml ps backend | grep backend | awk '{print $4}')
-        if [ "$CONTAINER_STATUS" != "Restarting" ]; then
-            echo "✅ Backend container is ready"
+        CONTAINER_STATUS=$($DOCKER_COMPOSE -f docker-compose.prod.yml ps backend | grep backend | awk '{print $4}' || echo "")
+        if [ "$CONTAINER_STATUS" != "Restarting" ] && [ -n "$CONTAINER_STATUS" ]; then
+            echo "✅ Backend container is ready (status: $CONTAINER_STATUS)"
             sleep 5  # Дополнительное ожидание для полной инициализации
             break
         fi
@@ -119,10 +159,51 @@ while [ $BACKEND_RETRY -lt $MAX_BACKEND_RETRIES ]; do
     sleep 2
 done
 
+# Проверяем подключение из backend к postgres
+echo "🔗 Testing connection from backend to postgres..."
+# Проверяем несколько способов подключения
+if $DOCKER_COMPOSE -f docker-compose.prod.yml exec -T backend sh -c "nc -zv postgres 5432" 2>&1 | grep -qE "(succeeded|open)"; then
+    echo "✅ Backend can reach postgres via nc"
+elif $DOCKER_COMPOSE -f docker-compose.prod.yml exec -T backend sh -c "timeout 3 sh -c '</dev/tcp/postgres/5432'" 2>/dev/null; then
+    echo "✅ Backend can reach postgres via tcp"
+else
+    echo "⚠️  Backend cannot reach postgres"
+    echo "🔍 Debugging network connectivity..."
+    echo "Backend container IP:"
+    docker inspect nardist_backend_prod | grep -A 10 "Networks" || true
+    echo "Postgres container IP:"
+    docker inspect nardist_postgres_prod | grep -A 10 "Networks" || true
+    echo "Checking backend logs..."
+    $DOCKER_COMPOSE -f docker-compose.prod.yml logs --tail=30 backend
+fi
+
 echo "🔧 Generating Prisma client..."
 $DOCKER_COMPOSE -f docker-compose.prod.yml exec -T backend npm run prisma:generate || \
 $DOCKER_COMPOSE -f docker-compose.prod.yml exec -T backend npx --package=prisma@5.20.0 prisma generate || \
 echo "⚠️  Prisma generate failed, continuing..."
+
+# Проверяем подключение к базе данных перед миграциями
+echo "🔍 Verifying database connection before migrations..."
+MAX_DB_RETRIES=10
+DB_RETRY=0
+while [ $DB_RETRY -lt $MAX_DB_RETRIES ]; do
+    # Пробуем подключиться через psql из postgres контейнера
+    if $DOCKER_COMPOSE -f docker-compose.prod.yml exec -T postgres psql -U ${POSTGRES_USER:-nardist} -d ${POSTGRES_DB:-nardist_db} -c "SELECT 1;" >/dev/null 2>&1; then
+        echo "✅ Database is ready and accepting connections"
+        break
+    fi
+    DB_RETRY=$((DB_RETRY + 1))
+    echo "  Waiting for database to be ready... ($DB_RETRY/$MAX_DB_RETRIES)"
+    sleep 2
+done
+
+# Дополнительная проверка: можем ли мы подключиться из backend контейнера
+echo "🔍 Testing connection from backend container..."
+if $DOCKER_COMPOSE -f docker-compose.prod.yml exec -T backend sh -c "timeout 5 sh -c '</dev/tcp/postgres/5432'" 2>/dev/null; then
+    echo "✅ Backend can reach postgres port"
+else
+    echo "⚠️  Backend cannot reach postgres port, but continuing with migrations..."
+fi
 
 echo "🗄️ Running database migrations..."
 $DOCKER_COMPOSE -f docker-compose.prod.yml exec -T backend npx --package=prisma@5.20.0 prisma migrate deploy || echo "⚠️  Migrations failed or not needed, continuing..."
@@ -146,8 +227,11 @@ else
     echo "✅ SSL certificate already exists"
 fi
 
-echo "🧹 Cleaning up..."
-docker system prune -f
+echo "🧹 Cleaning up unused Docker resources (preserving networks)..."
+# Удаляем только неиспользуемые контейнеры, образы и volumes, но НЕ сети
+docker container prune -f
+docker image prune -f
+# Не удаляем volumes и networks, так как они могут быть нужны
 
 echo "✅ Deployment completed successfully!"
 echo "🌐 Your application is available at: https://${DOMAIN_NAME}"
