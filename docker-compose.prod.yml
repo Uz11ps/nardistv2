@@ -6,11 +6,17 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-nardist}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB:-nardist_db}
+      # Заставляем PostgreSQL слушать на всех интерфейсах, а не только на localhost
+      POSTGRES_HOST_AUTH_METHOD: md5
+    command: >
+      postgres
+      -c listen_addresses='*'
+      -c max_connections=200
     volumes:
       - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-nardist}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-nardist} -h localhost"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -135,11 +141,29 @@ services:
       - migrations
     command: >
       sh -c "
-        echo '⏳ Waiting a bit for PostgreSQL to be ready...' &&
-        sleep 5 &&
+        echo '⏳ Waiting for PostgreSQL to be ready...' &&
+        MAX_RETRIES=60 &&
+        RETRY=0 &&
+        while [ \$RETRY -lt \$MAX_RETRIES ]; do
+          if (timeout 2 sh -c '</dev/tcp/postgres/5432' 2>/dev/null) || (nc -z postgres 5432 2>/dev/null); then
+            echo '✅ PostgreSQL is ready!' &&
+            break
+          fi
+          RETRY=\$((RETRY + 1)) &&
+          if [ \$((RETRY % 5)) -eq 0 ]; then
+            echo '  Still waiting for PostgreSQL... ('\$RETRY'/'\$MAX_RETRIES')'
+          fi &&
+          sleep 2
+        done &&
+        if [ \$RETRY -eq \$MAX_RETRIES ]; then
+          echo '❌ PostgreSQL did not become ready in time!' &&
+          echo '🔍 Checking network connectivity...' &&
+          getent hosts postgres || echo 'DNS resolution failed' &&
+          exit 1
+        fi &&
         echo '🔧 Generating Prisma client...' &&
         npm run prisma:generate &&
-        echo '🗄️  Running migrations (Prisma will retry on connection errors)...' &&
+        echo '🗄️  Running migrations...' &&
         npx prisma migrate deploy
       "
 
