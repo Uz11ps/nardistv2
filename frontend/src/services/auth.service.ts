@@ -2,7 +2,7 @@ import axios from 'axios';
 import { getTelegramInitData } from '../utils/telegram';
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || '/api',
+  baseURL: (import.meta.env as any).VITE_API_URL || '/api',
 });
 
 api.interceptors.request.use((config) => {

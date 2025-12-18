@@ -8,7 +8,6 @@ interface GameBoardProps {
 
 export default function GameBoard({ gameId }: GameBoardProps) {
   const [socket, setSocket] = useState<Socket | null>(null);
-  const [board, setBoard] = useState<any>(null);
 
   useEffect(() => {
     const token = localStorage.getItem('token');

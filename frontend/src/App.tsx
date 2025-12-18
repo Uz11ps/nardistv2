@@ -9,7 +9,7 @@ import Tournaments from './pages/Tournaments';
 
 function App() {
   const [isReady, setIsReady] = useState(false);
-  const { user, loading } = useAuth();
+  const { loading } = useAuth();
 
   useEffect(() => {
     initTelegramWebApp();
