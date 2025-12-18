@@ -166,9 +166,41 @@ sudo docker network ls --filter "name=nardist_" --format "{{.ID}}" 2>/dev/null |
     fi
 done || true
 
+# Останавливаем Docker daemon для полной очистки iptables
+echo "🛑 Остановка Docker daemon для очистки iptables правил..."
+sudo systemctl stop docker 2>/dev/null || true
+sleep 3
+
+# Очищаем правила iptables Docker
+echo "🧹 Очистка правил iptables Docker..."
+if command -v iptables &> /dev/null; then
+    # Удаляем все правила из цепочек Docker
+    sudo iptables -t filter -F DOCKER-ISOLATION-STAGE-1 2>/dev/null || true
+    sudo iptables -t filter -F DOCKER-ISOLATION-STAGE-2 2>/dev/null || true
+    sudo iptables -t filter -F DOCKER 2>/dev/null || true
+    sudo iptables -t nat -F DOCKER 2>/dev/null || true
+    
+    # Удаляем цепочки Docker если они существуют
+    sudo iptables -t filter -X DOCKER-ISOLATION-STAGE-1 2>/dev/null || true
+    sudo iptables -t filter -X DOCKER-ISOLATION-STAGE-2 2>/dev/null || true
+    sudo iptables -t filter -X DOCKER 2>/dev/null || true
+    sudo iptables -t nat -X DOCKER 2>/dev/null || true
+fi
+
+# Удаляем сетевые интерфейсы Docker (br-*)
+echo "🧹 Удаление сетевых интерфейсов Docker..."
+if command -v ip &> /dev/null; then
+    ip link show 2>/dev/null | grep -o 'br-[a-f0-9]*' | while read -r br_name; do
+        if [ -n "$br_name" ]; then
+            echo "  Удаление интерфейса: $br_name"
+            sudo ip link delete "$br_name" 2>/dev/null || true
+        fi
+    done || true
+fi
+
 # Перезапускаем Docker daemon для восстановления iptables правил
-echo "🔄 Перезапуск Docker daemon для восстановления iptables правил..."
-sudo systemctl restart docker 2>/dev/null || true
+echo "🔄 Запуск Docker daemon для восстановления iptables правил..."
+sudo systemctl start docker 2>/dev/null || true
 sleep 10
 
 # Шаг 8: Запускаем контейнеры
