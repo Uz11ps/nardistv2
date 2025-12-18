@@ -231,10 +231,17 @@ if command -v update-alternatives &> /dev/null && command -v iptables-legacy &> 
     sudo update-alternatives --set ip6tables /usr/sbin/ip6tables-legacy 2>/dev/null || true
 fi
 
-# Перезапускаем Docker daemon для восстановления iptables правил
-echo "🔄 Запуск Docker daemon для восстановления iptables правил..."
-sudo systemctl start docker 2>/dev/null || true
+# Перезапускаем Docker daemon для применения настроек iptables-legacy
+echo "🔄 Перезапуск Docker daemon для применения настроек iptables-legacy..."
+sudo systemctl restart docker 2>/dev/null || true
 sleep 10
+
+# Проверяем что Docker использует правильный интерфейс iptables
+echo "🔍 Проверка используемого интерфейса iptables..."
+if command -v iptables &> /dev/null; then
+    IPTABLES_VERSION=$(sudo iptables --version 2>&1)
+    echo "  Версия iptables: $IPTABLES_VERSION"
+fi
 
 # Инициализируем Docker сетевые правила через создание и удаление тестовой сети
 # Это должно создать все необходимые цепочки iptables
@@ -261,22 +268,44 @@ echo "🔧 Проверка цепочек iptables Docker..."
 # Используем iptables напрямую (Docker должен использовать legacy после настройки)
 if command -v iptables &> /dev/null; then
     # Проверяем и создаем цепочки через iptables (Docker использует тот же интерфейс)
-    if ! sudo iptables -t filter -L DOCKER-ISOLATION-STAGE-2 &>/dev/null; then
-        echo "  Создание цепочки DOCKER-ISOLATION-STAGE-2..."
-        sudo iptables -t filter -N DOCKER-ISOLATION-STAGE-2 2>/dev/null || true
-        sudo iptables -t filter -A DOCKER-ISOLATION-STAGE-2 -j RETURN 2>/dev/null || true
-    fi
-    
-    if ! sudo iptables -t filter -L DOCKER-ISOLATION-STAGE-1 &>/dev/null; then
-        echo "  Создание цепочки DOCKER-ISOLATION-STAGE-1..."
-        sudo iptables -t filter -N DOCKER-ISOLATION-STAGE-1 2>/dev/null || true
-        sudo iptables -t filter -A DOCKER-ISOLATION-STAGE-1 -j RETURN 2>/dev/null || true
-    fi
-    
-    # Добавляем правило в FORWARD для связи цепочек
-    if ! sudo iptables -t filter -C FORWARD -j DOCKER-ISOLATION-STAGE-1 &>/dev/null; then
-        echo "  Добавление правила в FORWARD..."
-        sudo iptables -t filter -I FORWARD -j DOCKER-ISOLATION-STAGE-1 2>/dev/null || true
+    # Сначала проверяем через iptables-legacy напрямую
+    if command -v iptables-legacy &> /dev/null; then
+        if ! sudo iptables-legacy -t filter -L DOCKER-ISOLATION-STAGE-2 &>/dev/null; then
+            echo "  Создание цепочки DOCKER-ISOLATION-STAGE-2 через iptables-legacy..."
+            sudo iptables-legacy -t filter -N DOCKER-ISOLATION-STAGE-2 2>/dev/null || true
+            sudo iptables-legacy -t filter -A DOCKER-ISOLATION-STAGE-2 -j RETURN 2>/dev/null || true
+        fi
+        
+        if ! sudo iptables-legacy -t filter -L DOCKER-ISOLATION-STAGE-1 &>/dev/null; then
+            echo "  Создание цепочки DOCKER-ISOLATION-STAGE-1 через iptables-legacy..."
+            sudo iptables-legacy -t filter -N DOCKER-ISOLATION-STAGE-1 2>/dev/null || true
+            sudo iptables-legacy -t filter -A DOCKER-ISOLATION-STAGE-1 -j RETURN 2>/dev/null || true
+        fi
+        
+        # Добавляем правило в FORWARD для связи цепочек
+        if ! sudo iptables-legacy -t filter -C FORWARD -j DOCKER-ISOLATION-STAGE-1 &>/dev/null; then
+            echo "  Добавление правила в FORWARD через iptables-legacy..."
+            sudo iptables-legacy -t filter -I FORWARD -j DOCKER-ISOLATION-STAGE-1 2>/dev/null || true
+        fi
+    else
+        # Fallback на обычный iptables
+        if ! sudo iptables -t filter -L DOCKER-ISOLATION-STAGE-2 &>/dev/null; then
+            echo "  Создание цепочки DOCKER-ISOLATION-STAGE-2..."
+            sudo iptables -t filter -N DOCKER-ISOLATION-STAGE-2 2>/dev/null || true
+            sudo iptables -t filter -A DOCKER-ISOLATION-STAGE-2 -j RETURN 2>/dev/null || true
+        fi
+        
+        if ! sudo iptables -t filter -L DOCKER-ISOLATION-STAGE-1 &>/dev/null; then
+            echo "  Создание цепочки DOCKER-ISOLATION-STAGE-1..."
+            sudo iptables -t filter -N DOCKER-ISOLATION-STAGE-1 2>/dev/null || true
+            sudo iptables -t filter -A DOCKER-ISOLATION-STAGE-1 -j RETURN 2>/dev/null || true
+        fi
+        
+        # Добавляем правило в FORWARD для связи цепочек
+        if ! sudo iptables -t filter -C FORWARD -j DOCKER-ISOLATION-STAGE-1 &>/dev/null; then
+            echo "  Добавление правила в FORWARD..."
+            sudo iptables -t filter -I FORWARD -j DOCKER-ISOLATION-STAGE-1 2>/dev/null || true
+        fi
     fi
 fi
 
