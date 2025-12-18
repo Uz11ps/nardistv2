@@ -110,6 +110,28 @@ services:
     networks:
       - nardist_network
 
+  # Сервис для выполнения миграций Prisma
+  # Используется через: docker compose -f docker-compose.prod.yml run --rm migrations
+  migrations:
+    image: ${BACKEND_IMAGE:-nardist-backend:latest}
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-nardist}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-nardist_db}
+      NODE_ENV: production
+    volumes:
+      # Монтируем prisma директорию для доступа к миграциям
+      - ./backend/prisma:/app/prisma:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - nardist_network
+    profiles:
+      - migrations
+    command: sh -c "npm run prisma:generate && npx prisma migrate deploy"
+
 volumes:
   postgres_data:
   redis_data:

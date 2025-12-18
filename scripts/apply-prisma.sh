@@ -47,9 +47,21 @@ $DOCKER_COMPOSE -f docker-compose.prod.yml exec -T backend npm run prisma:genera
 
 # Применяем миграции
 echo "🗄️  Running database migrations..."
-$DOCKER_COMPOSE -f docker-compose.prod.yml exec -T backend npx --package=prisma@5.20.0 prisma migrate deploy || {
-    echo "⚠️  Migrations failed or not needed"
-}
+# Сначала пробуем через exec (если backend контейнер запущен)
+if $DOCKER_COMPOSE -f docker-compose.prod.yml ps backend | grep -q "Up"; then
+    $DOCKER_COMPOSE -f docker-compose.prod.yml exec -T backend npx --package=prisma@5.20.0 prisma migrate deploy || {
+        echo "⚠️  Migrations via exec failed, trying with migrations service..."
+        $DOCKER_COMPOSE -f docker-compose.prod.yml --profile migrations run --rm migrations || {
+            echo "⚠️  Migrations failed or not needed"
+        }
+    }
+else
+    # Если backend не запущен, используем сервис миграций
+    echo "⚠️  Backend container not running, using migrations service..."
+    $DOCKER_COMPOSE -f docker-compose.prod.yml --profile migrations run --rm migrations || {
+        echo "⚠️  Migrations failed or not needed"
+    }
+fi
 
 echo "✅ Prisma setup completed!"
 
