@@ -14,8 +14,8 @@ ENV npm_config_loglevel=warn
 ENV PRISMA_SKIP_POSTINSTALL_GENERATE=false
 RUN npm install --legacy-peer-deps --no-audit
 
-# Явно генерируем Prisma клиент (на случай если postinstall не сработал)
-RUN npx prisma generate || echo "Prisma generate failed, will retry"
+# Явно генерируем Prisma клиент используя локальную версию из node_modules
+RUN npm run prisma:generate || ./node_modules/.bin/prisma generate || echo "Prisma generate failed, will retry"
 
 # Копируем исходный код
 COPY . .
@@ -39,8 +39,8 @@ ENV npm_config_loglevel=warn
 ENV PRISMA_SKIP_POSTINSTALL_GENERATE=false
 RUN npm install --legacy-peer-deps --no-audit
 
-# Генерируем Prisma клиент (будет перегенерирован на сервере если нужно)
-RUN npx prisma generate || echo "Prisma generate failed, will retry on server"
+# Генерируем Prisma клиент используя локальную версию (будет перегенерирован на сервере если нужно)
+RUN npm run prisma:generate || ./node_modules/.bin/prisma generate || echo "Prisma generate failed, will retry on server"
 
 # Копируем собранное приложение и сгенерированный Prisma клиент из builder
 COPY --from=builder /app/dist ./dist

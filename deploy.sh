@@ -120,10 +120,12 @@ while [ $BACKEND_RETRY -lt $MAX_BACKEND_RETRIES ]; do
 done
 
 echo "🔧 Generating Prisma client..."
-$DOCKER_COMPOSE -f docker-compose.prod.yml exec -T backend npx prisma generate || echo "⚠️  Prisma generate failed, continuing..."
+$DOCKER_COMPOSE -f docker-compose.prod.yml exec -T backend npm run prisma:generate || \
+$DOCKER_COMPOSE -f docker-compose.prod.yml exec -T backend npx --package=prisma@5.20.0 prisma generate || \
+echo "⚠️  Prisma generate failed, continuing..."
 
 echo "🗄️ Running database migrations..."
-$DOCKER_COMPOSE -f docker-compose.prod.yml exec -T backend npx prisma migrate deploy || echo "⚠️  Migrations failed or not needed, continuing..."
+$DOCKER_COMPOSE -f docker-compose.prod.yml exec -T backend npx --package=prisma@5.20.0 prisma migrate deploy || echo "⚠️  Migrations failed or not needed, continuing..."
 
 echo "🔒 Setting up SSL certificate..."
 if [ ! -d "./nginx/ssl/live/${DOMAIN_NAME}" ] || [ ! -f "./nginx/ssl/live/${DOMAIN_NAME}/fullchain.pem" ]; then
