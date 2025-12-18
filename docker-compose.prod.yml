@@ -118,7 +118,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-nardist}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-nardist_db}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-nardist}:${POSTGRES_PASSWORD}@nardist_postgres_prod:5432/${POSTGRES_DB:-nardist_db}
       NODE_ENV: production
       POSTGRES_USER: ${POSTGRES_USER:-nardist}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -136,33 +136,46 @@ services:
     command: >
       sh -c "
         echo '🔍 Debug: Checking network connectivity...' &&
-        echo '  Testing hostname resolution:' &&
-        (nslookup postgres 2>/dev/null || getent hosts postgres 2>/dev/null || echo '  ⚠️  Cannot resolve postgres hostname') &&
+        echo '  Testing hostname resolution for nardist_postgres_prod:' &&
+        (nslookup nardist_postgres_prod 2>/dev/null || getent hosts nardist_postgres_prod 2>/dev/null || echo '  ⚠️  Cannot resolve nardist_postgres_prod hostname') &&
         echo '⏳ Waiting for PostgreSQL to be ready (max 40 seconds)...' &&
-        i=1 &&
+        attempt=1 &&
         max_attempts=20 &&
-        while [ $i -le $max_attempts ]; do
-          if nc -z postgres 5432 2>/dev/null; then
-            echo \"✅ PostgreSQL port is reachable (attempt $i/$max_attempts)\" &&
+        while [ $$attempt -le $$max_attempts ]; do
+          if nc -z nardist_postgres_prod 5432 2>/dev/null; then
+            echo \"✅ PostgreSQL port is reachable (attempt $$attempt/$$max_attempts)\" &&
             break
           fi
-          echo \"  Waiting for postgres:5432... (attempt $i/$max_attempts)\" &&
+          echo \"  Waiting for nardist_postgres_prod:5432... (attempt $$attempt/$$max_attempts)\" &&
           sleep 2 &&
-          i=$((i + 1))
+          attempt=$$((attempt + 1))
         done &&
-        if ! nc -z postgres 5432 2>/dev/null; then
-          echo '❌ ERROR: PostgreSQL is not reachable at postgres:5432 after 40 seconds' &&
+        if ! nc -z nardist_postgres_prod 5432 2>/dev/null; then
+          echo '❌ ERROR: PostgreSQL is not reachable at nardist_postgres_prod:5432 after 40 seconds' &&
           echo '🔍 Debug info:' &&
           echo '  Network interfaces:' &&
           ip addr show 2>/dev/null || ifconfig 2>/dev/null || echo '    (cannot list interfaces)' &&
           echo '  DNS resolution:' &&
-          (nslookup postgres 2>/dev/null || getent hosts postgres 2>/dev/null || echo '    Cannot resolve postgres') &&
+          (nslookup nardist_postgres_prod 2>/dev/null || getent hosts nardist_postgres_prod 2>/dev/null || echo '    Cannot resolve nardist_postgres_prod') &&
           echo '  Trying direct connection test:' &&
-          (timeout 2 sh -c '</dev/tcp/postgres/5432' 2>/dev/null && echo '    TCP connection successful' || echo '    TCP connection failed') &&
+          (timeout 2 sh -c '</dev/tcp/nardist_postgres_prod/5432' 2>/dev/null && echo '    TCP connection successful' || echo '    TCP connection failed') &&
           exit 1
         fi &&
+        echo '✅ PostgreSQL port is open, verifying database connection...' &&
         echo '🔧 Generating Prisma client...' &&
         npm run prisma:generate &&
+        echo '🔍 Testing Prisma connection to database...' &&
+        db_test_attempt=1 &&
+        db_max_attempts=10 &&
+        while [ $$db_test_attempt -le $$db_max_attempts ]; do
+          if npx prisma db execute --stdin <<< 'SELECT 1;' 2>/dev/null || npx prisma db pull --force 2>&1 | grep -q 'Introspection' || true; then
+            echo \"✅ Database connection verified (attempt $$db_test_attempt/$$db_max_attempts)\" &&
+            break
+          fi
+          echo \"  Testing database connection... (attempt $$db_test_attempt/$$db_max_attempts)\" &&
+          sleep 1 &&
+          db_test_attempt=$$((db_test_attempt + 1))
+        done &&
         echo '🗄️  Running migrations...' &&
         npx prisma migrate deploy
       "
