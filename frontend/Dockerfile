@@ -3,7 +3,7 @@ FROM node:18-alpine AS builder
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci
+RUN npm install --legacy-peer-deps --no-audit
 
 COPY . .
 ARG VITE_API_URL
