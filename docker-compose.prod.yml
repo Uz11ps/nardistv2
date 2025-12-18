@@ -142,23 +142,18 @@ services:
     command: >
       sh -c "
         echo '⏳ Waiting for PostgreSQL to be ready...' &&
-        max_retries=60 &&
-        retry=0 &&
-        while [ $$retry -lt $$max_retries ]; do
-          if (timeout 2 sh -c '</dev/tcp/postgres/5432' 2>/dev/null) || (nc -z postgres 5432 2>/dev/null); then
+        sleep 5 &&
+        i=0 &&
+        while [ $$i -lt 30 ]; do
+          if timeout 2 sh -c '</dev/tcp/postgres/5432' 2>/dev/null || nc -z postgres 5432 2>/dev/null; then
             echo '✅ PostgreSQL is ready!' &&
             break
-          fi
-          retry=$$((retry + 1)) &&
-          if [ $$((retry % 5)) -eq 0 ]; then
-            echo '  Still waiting for PostgreSQL... ('$$retry'/$$max_retries')'
           fi &&
+          i=$$((i + 1)) &&
           sleep 2
         done &&
-        if [ $$retry -eq $$max_retries ]; then
-          echo '❌ PostgreSQL did not become ready in time!' &&
-          echo '🔍 Checking network connectivity...' &&
-          getent hosts postgres || echo 'DNS resolution failed' &&
+        if [ $$i -eq 30 ]; then
+          echo '❌ PostgreSQL did not become ready!' &&
           exit 1
         fi &&
         echo '🔧 Generating Prisma client...' &&
