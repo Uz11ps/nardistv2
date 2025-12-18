@@ -57,16 +57,11 @@ docker compose -f docker-compose.prod.yml up -d --no-build
 
 # 8. Ждем запуска всех сервисов
 echo "7️⃣ Ждем запуска всех сервисов..."
-for i in {1..20}; do
-    RUNNING=$(docker compose -f docker-compose.prod.yml ps --format json | grep -c '"State":"running"' || echo "0")
-    TOTAL=$(docker compose -f docker-compose.prod.yml ps --format json | wc -l)
-    if [ "$RUNNING" -ge "$TOTAL" ] && [ "$TOTAL" -gt "0" ]; then
-        echo "✅ Все контейнеры запущены"
-        break
-    fi
-    sleep 1
-done
-sleep 5
+sleep 10
+
+# Проверяем статус контейнеров
+echo "📊 Проверяем статус контейнеров..."
+docker compose -f docker-compose.prod.yml ps
 
 # 9. Проверяем статус
 echo "8️⃣ Статус контейнеров:"
