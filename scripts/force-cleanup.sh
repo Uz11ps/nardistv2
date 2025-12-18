@@ -153,11 +153,29 @@ else
     done || true
 fi
 
-# Шаг 7: Запускаем контейнеры
+# Шаг 7: Очистка сетей Docker и восстановление iptables правил
+echo "🧹 Очистка неиспользуемых сетей Docker..."
+sudo docker network prune -f 2>/dev/null || true
+
+# Удаляем сети nardist_* если они остались
+echo "🔍 Поиск и удаление сетей nardist_*..."
+sudo docker network ls --filter "name=nardist_" --format "{{.ID}}" 2>/dev/null | while read -r net_id; do
+    if [ -n "$net_id" ]; then
+        echo "  Удаление сети: $net_id"
+        sudo docker network rm "$net_id" 2>/dev/null || true
+    fi
+done || true
+
+# Перезапускаем Docker daemon для восстановления iptables правил
+echo "🔄 Перезапуск Docker daemon для восстановления iptables правил..."
+sudo systemctl restart docker 2>/dev/null || true
+sleep 10
+
+# Шаг 8: Запускаем контейнеры
 echo "🚀 Запуск контейнеров через docker-compose..."
 sudo $DOCKER_COMPOSE -f docker-compose.prod.yml up -d --force-recreate --remove-orphans
 
-# Шаг 8: Ждем и проверяем статус
+# Шаг 9: Ждем и проверяем статус
 echo "⏳ Ожидание запуска сервисов..."
 sleep 10
 
