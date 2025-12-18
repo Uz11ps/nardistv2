@@ -38,20 +38,23 @@ echo "✅ PostgreSQL контейнер запущен"
 echo ""
 
 # Проверяем существует ли база данных
+# Подключаемся к системной базе данных 'postgres' для проверки
 echo "🔍 Проверяем существование базы данных '$POSTGRES_DB'..."
-DB_EXISTS=$(docker compose -f docker-compose.prod.yml exec -T postgres psql -U "$POSTGRES_USER" -tAc "SELECT 1 FROM pg_database WHERE datname='$POSTGRES_DB'" 2>/dev/null || echo "")
+DB_EXISTS=$(docker compose -f docker-compose.prod.yml exec -T postgres psql -U "$POSTGRES_USER" -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='$POSTGRES_DB'" 2>/dev/null || echo "")
 
 if [ "$DB_EXISTS" = "1" ]; then
     echo "✅ База данных '$POSTGRES_DB' уже существует"
 else
     echo "⚠️  База данных '$POSTGRES_DB' не найдена, создаём..."
     
-    # Создаем базу данных
-    docker compose -f docker-compose.prod.yml exec -T postgres psql -U "$POSTGRES_USER" -c "CREATE DATABASE $POSTGRES_DB;" 2>&1 || {
-        # Если не получилось подключиться как пользователь, пробуем через postgres
-        echo "⚠️  Попытка создать через пользователя postgres..."
-        docker compose -f docker-compose.prod.yml exec -T postgres psql -U postgres -c "CREATE DATABASE $POSTGRES_DB OWNER $POSTGRES_USER;" 2>&1 || {
-            echo "❌ Не удалось создать базу данных"
+    # Создаем базу данных, подключаясь к системной базе 'postgres'
+    # Используем переменную окружения PGPASSWORD для аутентификации
+    docker compose -f docker-compose.prod.yml exec -T -e PGPASSWORD="$POSTGRES_PASSWORD" postgres psql -U "$POSTGRES_USER" -d postgres -c "CREATE DATABASE $POSTGRES_DB;" 2>&1 || {
+        echo "❌ Не удалось создать базу данных"
+        echo "Попытка через альтернативный метод..."
+        # Альтернативный способ: используем команду createdb через bash
+        docker compose -f docker-compose.prod.yml exec -T -e PGPASSWORD="$POSTGRES_PASSWORD" postgres bash -c "createdb -U $POSTGRES_USER $POSTGRES_DB" 2>&1 || {
+            echo "❌ Все попытки создания базы данных не удались"
             exit 1
         }
     }
@@ -61,8 +64,8 @@ fi
 
 echo ""
 echo "📊 Список баз данных:"
-docker compose -f docker-compose.prod.yml exec -T postgres psql -U "$POSTGRES_USER" -c "\l" 2>/dev/null || \
-docker compose -f docker-compose.prod.yml exec -T postgres psql -U postgres -c "\l"
+docker compose -f docker-compose.prod.yml exec -T -e PGPASSWORD="$POSTGRES_PASSWORD" postgres psql -U "$POSTGRES_USER" -d postgres -c "\l" 2>/dev/null || \
+docker compose -f docker-compose.prod.yml exec -T postgres psql -U "$POSTGRES_USER" -d postgres -c "\l"
 
 echo ""
 echo "✅ Проверка завершена!"
