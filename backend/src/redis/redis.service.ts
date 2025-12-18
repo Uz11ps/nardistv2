@@ -1,22 +1,59 @@
-import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
 import Redis from 'ioredis';
 
 @Injectable()
 export class RedisService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(RedisService.name);
   private client: Redis;
 
   constructor() {
-    this.client = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
+    const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
+    this.logger.log(`Connecting to Redis at ${redisUrl.replace(/\/\/.*@/, '//***@')}`);
+    
+    this.client = new Redis(redisUrl, {
       retryStrategy: (times) => {
         const delay = Math.min(times * 50, 2000);
+        this.logger.warn(`Redis connection retry attempt ${times}, delay: ${delay}ms`);
         return delay;
       },
+      maxRetriesPerRequest: 3,
+      connectTimeout: 10000,
+      lazyConnect: true, // Не подключаемся сразу, только при первом запросе
+    });
+
+    // Обработка ошибок подключения
+    this.client.on('error', (error) => {
+      this.logger.error(`Redis connection error: ${error.message}`);
+    });
+
+    this.client.on('connect', () => {
+      this.logger.log('Redis connection established');
     });
   }
 
   async onModuleInit() {
-    await this.client.ping();
-    console.log('Redis connected');
+    const maxRetries = 5;
+    const retryDelay = 2000;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        this.logger.log(`Attempting to connect to Redis (attempt ${attempt}/${maxRetries})...`);
+        await this.client.connect();
+        await this.client.ping();
+        this.logger.log('Redis connected successfully');
+        return;
+      } catch (error) {
+        this.logger.warn(`Redis connection attempt ${attempt} failed: ${error.message}`);
+        
+        if (attempt === maxRetries) {
+          this.logger.error('Failed to connect to Redis after all retries', error);
+          // Не пробрасываем ошибку, чтобы приложение могло работать без Redis
+          return;
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+      }
+    }
   }
 
   async onModuleDestroy() {
