@@ -1,54 +1,66 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { DatabaseService } from '../database/database.service';
 
 @Injectable()
 export class InventoryService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly db: DatabaseService) {}
 
   /**
    * Получить инвентарь пользователя
    */
   async getUserInventory(userId: number) {
-    return this.prisma.inventoryItem.findMany({
-      where: { userId },
-      include: {
-        skin: true,
+    const items = await this.db.query(
+      `SELECT ii.*, s.*
+       FROM inventory_items ii
+       JOIN skins s ON ii."skinId" = s.id
+       WHERE ii."userId" = $1
+       ORDER BY ii."isEquipped" DESC`,
+      [userId]
+    );
+
+    return items.rows.map(item => ({
+      ...item,
+      skin: {
+        id: item.skinId,
+        name: item.name,
+        type: item.type,
+        previewUrl: item.previewUrl,
+        rarity: item.rarity,
+        weight: item.weight,
+        durabilityMax: item.durabilityMax,
+        isDefault: item.isDefault,
+        priceCoin: item.priceCoin,
+        isActive: item.isActive,
       },
-      orderBy: { isEquipped: 'desc' },
-    });
+    }));
   }
 
   /**
    * Добавить предмет в инвентарь
    */
   async addItem(userId: number, skinId: number, rarity: string = 'COMMON') {
-    const skin = await this.prisma.skin.findUnique({
-      where: { id: skinId },
-    });
+    const skin = await this.db.findOne('skins', { id: skinId });
 
     if (!skin) {
       throw new Error('Skin not found');
     }
 
     // Проверяем вес (силу игрока)
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      include: {
-        inventoryItems: {
-          where: { isEquipped: true },
-          include: { skin: true },
-        },
-      },
-    });
-
+    const user = await this.db.findOne('users', { id: userId });
     if (!user) {
       throw new Error('User not found');
     }
 
-    const currentWeight = user.inventoryItems.reduce(
-      (sum, item) => sum + item.skin.weight,
-      0,
+    // Получаем надетые предметы
+    const equippedItems = await this.db.query(
+      `SELECT ii.*, s.weight
+       FROM inventory_items ii
+       JOIN skins s ON ii."skinId" = s.id
+       WHERE ii."userId" = $1 AND ii."isEquipped" = true`,
+      [userId]
     );
+
+    const currentWeight = equippedItems.rows.reduce((sum, item) => sum + (item.weight || 0), 0);
     const totalWeight = currentWeight + skin.weight;
 
     if (totalWeight > user.powerMax) {
@@ -56,72 +68,75 @@ export class InventoryService {
     }
 
     // Создаем предмет
-    return this.prisma.inventoryItem.create({
-      data: {
-        userId,
-        skinId,
-        rarity,
-        durability: skin.durabilityMax,
-        durabilityMax: skin.durabilityMax,
-        weight: skin.weight,
-        isEquipped: false,
-      },
-      include: {
-        skin: true,
-      },
+    const item = await this.db.create('inventory_items', {
+      userId,
+      skinId,
+      rarity,
+      durability: skin.durabilityMax,
+      durabilityMax: skin.durabilityMax,
+      weight: skin.weight,
+      isEquipped: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     });
+
+    // Загружаем скин для возврата
+    return {
+      ...item,
+      skin,
+    };
   }
 
   /**
    * Надеть/снять предмет
    */
   async toggleEquip(userId: number, itemId: number) {
-    const item = await this.prisma.inventoryItem.findUnique({
-      where: { id: itemId },
-      include: { skin: true },
-    });
+    const itemResult = await this.db.query(
+      `SELECT ii.*, s.*
+       FROM inventory_items ii
+       JOIN skins s ON ii."skinId" = s.id
+       WHERE ii.id = $1`,
+      [itemId]
+    );
 
+    const item = itemResult.rows[0];
     if (!item || item.userId !== userId) {
       throw new Error('Item not found or access denied');
     }
 
     if (item.isEquipped) {
       // Снимаем
-      return this.prisma.inventoryItem.update({
-        where: { id: itemId },
-        data: { isEquipped: false },
-      });
+      return await this.db.update('inventory_items',
+        { id: itemId },
+        { isEquipped: false, updatedAt: new Date() }
+      );
     } else {
       // Проверяем вес перед надеванием
-      const user = await this.prisma.user.findUnique({
-        where: { id: userId },
-        include: {
-          inventoryItems: {
-            where: { isEquipped: true },
-            include: { skin: true },
-          },
-        },
-      });
-
+      const user = await this.db.findOne('users', { id: userId });
       if (!user) {
         throw new Error('User not found');
       }
 
-      const currentWeight = user.inventoryItems.reduce(
-        (sum, item) => sum + item.skin.weight,
-        0,
+      const equippedItems = await this.db.query(
+        `SELECT ii.*, s.weight
+         FROM inventory_items ii
+         JOIN skins s ON ii."skinId" = s.id
+         WHERE ii."userId" = $1 AND ii."isEquipped" = true`,
+        [userId]
       );
-      const totalWeight = currentWeight + item.skin.weight;
+
+      const currentWeight = equippedItems.rows.reduce((sum, item) => sum + (item.weight || 0), 0);
+      const totalWeight = currentWeight + item.weight;
 
       if (totalWeight > user.powerMax) {
         throw new Error('Not enough power to equip this item');
       }
 
       // Надеваем
-      return this.prisma.inventoryItem.update({
-        where: { id: itemId },
-        data: { isEquipped: true },
-      });
+      return await this.db.update('inventory_items',
+        { id: itemId },
+        { isEquipped: true, updatedAt: new Date() }
+      );
     }
   }
 
@@ -129,9 +144,7 @@ export class InventoryService {
    * Применить износ к предмету
    */
   async applyWear(userId: number, itemId: number, wearAmount: number) {
-    const item = await this.prisma.inventoryItem.findUnique({
-      where: { id: itemId },
-    });
+    const item = await this.db.findOne('inventory_items', { id: itemId });
 
     if (!item || item.userId !== userId) {
       throw new Error('Item not found or access denied');
@@ -139,78 +152,64 @@ export class InventoryService {
 
     const newDurability = Math.max(0, item.durability - wearAmount);
 
-    return this.prisma.inventoryItem.update({
-      where: { id: itemId },
-      data: { durability: newDurability },
-    });
+    return await this.db.update('inventory_items',
+      { id: itemId },
+      { durability: newDurability, updatedAt: new Date() }
+    );
   }
 
   /**
    * Применить износ к надетым предметам после игры
-   * @param userId - ID игрока
-   * @param gameMode - Режим игры
-   * @param diceRollsCount - Количество бросков кубиков (для износа зариков)
    */
   async applyGameWear(userId: number, gameMode: string, diceRollsCount?: number) {
-    const equippedItems = await this.prisma.inventoryItem.findMany({
-      where: {
-        userId,
-        isEquipped: true,
-      },
-      include: { skin: true },
-    });
+    const equippedItems = await this.db.query(
+      `SELECT ii.*, s.*
+       FROM inventory_items ii
+       JOIN skins s ON ii."skinId" = s.id
+       WHERE ii."userId" = $1 AND ii."isEquipped" = true`,
+      [userId]
+    );
 
     const updates = [];
-    for (const item of equippedItems) {
+    for (const item of equippedItems.rows) {
       let wearAmount = 0;
 
-      if (item.skin.type === 'DICE') {
+      if (item.type === 'DICE') {
         // Зарики изнашиваются по количеству бросков
-        // 1 бросок = 0.1 износа (1000 бросков = 100 износа)
         if (diceRollsCount && diceRollsCount > 0) {
           wearAmount = diceRollsCount * 0.1;
         } else {
-          // Fallback: если не указано количество бросков, используем старую логику
           wearAmount = 2;
         }
       } else {
         // Остальные предметы изнашиваются по играм
         const wearAmounts: Record<string, number> = {
-          BOARD: 1, // Доска изнашивается на 1 за игру
-          CHECKERS: 0.5, // Фишки медленнее
-          CUP: 0.3, // Стакан еще медленнее
-          FRAME: 0.1, // Рамка почти не изнашивается
+          BOARD: 1,
+          CHECKERS: 0.5,
+          CUP: 0.3,
+          FRAME: 0.1,
         };
-        wearAmount = wearAmounts[item.skin.type] || 0;
+        wearAmount = wearAmounts[item.type] || 0;
       }
 
       if (wearAmount > 0) {
         const newDurability = Math.max(0, item.durability - wearAmount);
-        // Определяем визуальное состояние на основе прочности
-        const visualState = this.getVisualState(newDurability, item.durabilityMax);
-        
         updates.push(
-          this.prisma.inventoryItem.update({
-            where: { id: item.id },
-            data: { 
-              durability: newDurability,
-              // Обновляем previewUrl если нужно (можно добавить поле visualStateUrl в схему)
-            },
-          }),
+          this.db.update('inventory_items',
+            { id: item.id },
+            { durability: newDurability, updatedAt: new Date() }
+          )
         );
       }
     }
 
     await Promise.all(updates);
 
-    return { itemsWorn: equippedItems.length };
+    return { itemsWorn: equippedItems.rows.length };
   }
 
   /**
    * Получить визуальное состояние предмета на основе прочности
-   * @param durability - Текущая прочность
-   * @param durabilityMax - Максимальная прочность
-   * @returns Состояние: 'NEW' | 'USED' | 'WORN' | 'BROKEN'
    */
   getVisualState(durability: number, durabilityMax: number): 'NEW' | 'USED' | 'WORN' | 'BROKEN' {
     const percentage = durability / durabilityMax;
@@ -218,11 +217,11 @@ export class InventoryService {
     if (durability <= 0) {
       return 'BROKEN';
     } else if (percentage > 0.7) {
-      return 'NEW'; // Новая (70-100%)
+      return 'NEW';
     } else if (percentage > 0.3) {
-      return 'USED'; // Поюзанная (30-70%)
+      return 'USED';
     } else {
-      return 'WORN'; // Изношенная (0-30%)
+      return 'WORN';
     }
   }
 
@@ -230,11 +229,15 @@ export class InventoryService {
    * Получить информацию о визуальном состоянии предмета
    */
   async getItemVisualInfo(itemId: number) {
-    const item = await this.prisma.inventoryItem.findUnique({
-      where: { id: itemId },
-      include: { skin: true },
-    });
+    const itemResult = await this.db.query(
+      `SELECT ii.*, s.*
+       FROM inventory_items ii
+       JOIN skins s ON ii."skinId" = s.id
+       WHERE ii.id = $1`,
+      [itemId]
+    );
 
+    const item = itemResult.rows[0];
     if (!item) {
       throw new Error('Item not found');
     }
@@ -252,32 +255,33 @@ export class InventoryService {
    * Отремонтировать предмет
    */
   async repairItem(userId: number, itemId: number, repairType: 'PARTIAL' | 'FULL') {
-    const item = await this.prisma.inventoryItem.findUnique({
-      where: { id: itemId },
-      include: { skin: true },
-    });
+    const itemResult = await this.db.query(
+      `SELECT ii.*, s.*
+       FROM inventory_items ii
+       JOIN skins s ON ii."skinId" = s.id
+       WHERE ii.id = $1`,
+      [itemId]
+    );
 
+    const item = itemResult.rows[0];
     if (!item || item.userId !== userId) {
       throw new Error('Item not found or access denied');
     }
 
     const durabilityLost = item.durabilityMax - item.durability;
     if (durabilityLost === 0) {
-      return item; // Уже полностью отремонтирован
+      return item;
     }
 
     // Расчет стоимости ремонта
     const repairCostPartial = Math.floor(
-      (durabilityLost / item.durabilityMax) * item.skin.priceCoin * 0.3,
+      (durabilityLost / item.durabilityMax) * item.priceCoin * 0.3,
     );
-    const repairCostFull = Math.floor(item.skin.priceCoin * 0.5);
+    const repairCostFull = Math.floor(item.priceCoin * 0.5);
     const repairCost = repairType === 'FULL' ? repairCostFull : repairCostPartial;
 
     // Проверяем баланс
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-    });
-
+    const user = await this.db.findOne('users', { id: userId });
     if (!user || user.narCoin < repairCost) {
       throw new Error('Not enough NAR coins');
     }
@@ -286,26 +290,22 @@ export class InventoryService {
     const durabilityRestored =
       repairType === 'FULL' ? durabilityLost : Math.floor(durabilityLost * 0.5);
 
-    // Обновляем предмет
-    const updated = await this.prisma.inventoryItem.update({
-      where: { id: itemId },
-      data: {
-        durability: Math.min(
-          item.durabilityMax,
-          item.durability + durabilityRestored,
-        ),
-      },
+    // Используем транзакцию для атомарности
+    await this.db.transaction(async (client) => {
+      // Обновляем предмет
+      await client.query(
+        'UPDATE inventory_items SET durability = LEAST($1, $2 + $3), "updatedAt" = $4 WHERE id = $5',
+        [item.durabilityMax, item.durability, durabilityRestored, new Date(), itemId]
+      );
+
+      // Списываем стоимость
+      await client.query(
+        'UPDATE users SET "narCoin" = "narCoin" - $1 WHERE id = $2',
+        [repairCost, userId]
+      );
     });
 
-    // Списываем стоимость
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: {
-        narCoin: { decrement: repairCost },
-      },
-    });
-
+    const updated = await this.db.findOne('inventory_items', { id: itemId });
     return { item: updated, cost: repairCost };
   }
 }
-

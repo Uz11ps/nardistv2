@@ -1,59 +1,44 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { DatabaseService } from '../database/database.service';
 
 @Injectable()
 export class QuestsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly db: DatabaseService) {}
 
   async getActiveQuests(userId: number) {
     const now = new Date();
     
-    const quests = await this.prisma.quest.findMany({
-      where: {
-        isActive: true,
-        // Фильтруем по датам: квест должен быть активен сейчас
-        OR: [
-          // Квесты без дат (всегда активны)
-          {
-            startDate: null,
-            endDate: null,
-          },
-          // Квесты с датой начала в прошлом или сейчас, и без даты окончания
-          {
-            startDate: { lte: now },
-            endDate: null,
-          },
-          // Квесты в диапазоне дат
-          {
-            startDate: { lte: now },
-            endDate: { gte: now },
-          },
-          // Бесконечные квесты
-          {
-            isInfinite: true,
-          },
-        ],
-      },
-      include: {
-        progress: {
-          where: { userId },
-        },
-      },
-    });
+    const quests = await this.db.query(
+      `SELECT * FROM quests 
+       WHERE "isActive" = true 
+       AND (
+         ("startDate" IS NULL AND "endDate" IS NULL)
+         OR ("startDate" <= $1 AND "endDate" IS NULL)
+         OR ("startDate" <= $1 AND "endDate" >= $1)
+         OR "isInfinite" = true
+       )
+       ORDER BY "createdAt" DESC`,
+      [now]
+    );
 
-    return quests.map((quest) => {
-      const questProgress = quest.progress && quest.progress.length > 0 
-        ? quest.progress[0] 
-        : {
+    const questsWithProgress = await Promise.all(
+      quests.rows.map(async (quest) => {
+        const progress = await this.db.query(
+          'SELECT * FROM quest_progress WHERE "questId" = $1 AND "userId" = $2 LIMIT 1',
+          [quest.id, userId]
+        ).then(r => r.rows[0]);
+
+        return {
+          ...quest,
+          progress: progress || {
             progress: 0,
             completed: false,
-          };
-      
-      return {
-        ...quest,
-        progress: questProgress,
-      };
-    });
+          },
+        };
+      })
+    );
+
+    return questsWithProgress;
   }
 
   async updateQuestProgress(
@@ -61,47 +46,52 @@ export class QuestsService {
     questId: number,
     progress: number,
   ) {
-    const quest = await this.prisma.quest.findUnique({
-      where: { id: questId },
-    });
+    const quest = await this.db.findOne('quests', { id: questId });
 
     if (!quest) {
       throw new Error('Quest not found');
     }
 
-    const questProgress = await this.prisma.questProgress.upsert({
-      where: {
-        questId_userId: {
-          questId,
-          userId,
-        },
-      },
-      update: {
-        progress: Math.min(progress, quest.target),
-        completed: progress >= quest.target,
-        completedAt: progress >= quest.target ? new Date() : null,
-      },
-      create: {
+    const finalProgress = Math.min(progress, quest.target);
+    const completed = finalProgress >= quest.target;
+
+    const existing = await this.db.query(
+      'SELECT * FROM quest_progress WHERE "questId" = $1 AND "userId" = $2 LIMIT 1',
+      [questId, userId]
+    ).then(r => r.rows[0]);
+
+    let questProgress;
+    if (existing) {
+      questProgress = await this.db.update('quest_progress',
+        { questId, userId },
+        {
+          progress: finalProgress,
+          completed,
+          completedAt: completed ? new Date() : null,
+          updatedAt: new Date(),
+        }
+      );
+    } else {
+      questProgress = await this.db.create('quest_progress', {
         questId,
         userId,
-        progress: Math.min(progress, quest.target),
-        completed: progress >= quest.target,
-        completedAt: progress >= quest.target ? new Date() : null,
-      },
-    });
+        progress: finalProgress,
+        completed,
+        completedAt: completed ? new Date() : null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+    }
 
-    // Если квест выполнен, награждаем пользователя
-    if (questProgress.completed && !questProgress.completedAt) {
-      await this.prisma.user.update({
-        where: { id: userId },
-        data: {
-          narCoin: { increment: quest.rewardCoin },
-          xp: { increment: quest.rewardXp },
-        },
+    if (completed && questProgress.completedAt) {
+      await this.db.transaction(async (client) => {
+        await client.query(
+          'UPDATE users SET "narCoin" = "narCoin" + $1, xp = xp + $2 WHERE id = $3',
+          [quest.rewardCoin || 0, quest.rewardXp || 0, userId]
+        );
       });
     }
 
     return questProgress;
   }
 }
-

@@ -1,236 +1,256 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { DatabaseService } from '../database/database.service';
 
 @Injectable()
 export class SiegesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly db: DatabaseService) {}
 
-  /**
-   * Создать осаду района
-   */
   async createSiege(leaderId: number, districtId: number) {
-    // Проверяем права лидера
-    const leader = await this.prisma.user.findUnique({
-      where: { id: leaderId },
-      include: {
-        ownedClans: true,
-      },
-    });
+    const leaderClans = await this.db.query(
+      `SELECT c.*
+       FROM clans c
+       WHERE c."leaderId" = $1`,
+      [leaderId]
+    );
 
-    if (!leader || !leader.ownedClans || leader.ownedClans.length === 0) {
+    if (leaderClans.rows.length === 0) {
       throw new Error('User is not a clan leader');
     }
 
-    const clan = leader.ownedClans[0];
+    const clan = leaderClans.rows[0];
 
-    // Проверяем район
-    const district = await this.prisma.district.findUnique({
-      where: { id: districtId },
-      include: { clan: true },
-    });
+    const district = await this.db.query(
+      `SELECT d.*, c.*
+       FROM districts d
+       LEFT JOIN clans c ON d."clanId" = c.id
+       WHERE d.id = $1`,
+      [districtId]
+    ).then(r => r.rows[0]);
 
     if (!district) {
       throw new Error('District not found');
     }
 
-    // Проверяем, что нет активной осады
-    const activeSiege = await this.prisma.siege.findFirst({
-      where: {
-        districtId,
-        status: 'ACTIVE',
-      },
-    });
+    const activeSiege = await this.db.query(
+      'SELECT * FROM sieges WHERE "districtId" = $1 AND status = $2 LIMIT 1',
+      [districtId, 'ACTIVE']
+    ).then(r => r.rows[0]);
 
     if (activeSiege) {
       throw new Error('District is already under siege');
     }
 
-    // Нельзя осаждать свой же район
     if (district.clanId === clan.id) {
       throw new Error('Cannot siege your own district');
     }
 
-    // Создаем осаду
-    return this.prisma.siege.create({
-      data: {
-        districtId,
-        attackingClanId: clan.id,
-        defendingClanId: district.clanId,
-        status: 'ACTIVE',
-        requiredWins: 5,
-      },
-      include: {
-        district: true,
-        attackingClan: true,
-        defendingClan: true,
-      },
+    const siege = await this.db.create('sieges', {
+      districtId,
+      attackingClanId: clan.id,
+      defendingClanId: district.clanId || null,
+      status: 'ACTIVE',
+      requiredWins: 5,
+      attackingWins: 0,
+      defendingWins: 0,
+      startDate: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
     });
+
+    const [districtData, attackingClan, defendingClan] = await Promise.all([
+      this.db.findOne('districts', { id: districtId }),
+      this.db.findOne('clans', { id: clan.id }),
+      district.clanId ? this.db.findOne('clans', { id: district.clanId }) : null,
+    ]);
+
+    return {
+      ...siege,
+      district: districtData,
+      attackingClan,
+      defendingClan,
+    };
   }
 
-  /**
-   * Зарегистрировать результат игры в осаде
-   */
   async recordSiegeGame(siegeId: number, whitePlayerId: number, blackPlayerId: number, winnerId: number, gameHistoryId?: number) {
-    const siege = await this.prisma.siege.findUnique({
-      where: { id: siegeId },
-      include: {
-        attackingClan: {
-          include: { members: true },
-        },
-        defendingClan: {
-          include: { members: true },
-        },
-      },
-    });
+    const siege = await this.db.query(
+      `SELECT s.*, 
+              ac.id as "attackingClanId", ac."leaderId" as "attackingLeaderId",
+              dc.id as "defendingClanId", dc."leaderId" as "defendingLeaderId"
+       FROM sieges s
+       LEFT JOIN clans ac ON s."attackingClanId" = ac.id
+       LEFT JOIN clans dc ON s."defendingClanId" = dc.id
+       WHERE s.id = $1`,
+      [siegeId]
+    ).then(r => r.rows[0]);
 
     if (!siege || siege.status !== 'ACTIVE') {
       throw new Error('Siege not found or not active');
     }
 
-    // Определяем, какой клан выиграл
-    const winnerIsAttacking = siege.attackingClan.members.some((m) => m.userId === winnerId);
-    const winnerIsDefending = siege.defendingClan?.members.some((m) => m.userId === winnerId);
+    const [attackingMembers, defendingMembers] = await Promise.all([
+      this.db.query(
+        'SELECT "userId" FROM clan_members WHERE "clanId" = $1',
+        [siege.attackingClanId]
+      ).then(r => r.rows.map(m => m.userId)),
+      siege.defendingClanId ? this.db.query(
+        'SELECT "userId" FROM clan_members WHERE "clanId" = $1',
+        [siege.defendingClanId]
+      ).then(r => r.rows.map(m => m.userId)) : [],
+    ]);
+
+    const winnerIsAttacking = attackingMembers.includes(winnerId);
+    const winnerIsDefending = defendingMembers.includes(winnerId);
 
     if (!winnerIsAttacking && !winnerIsDefending) {
       throw new Error('Winner is not a member of participating clans');
     }
 
-    // Записываем игру
-    await this.prisma.siegeGame.create({
-      data: {
-        siegeId,
-        whitePlayerId,
-        blackPlayerId,
-        winnerId,
-        gameHistoryId,
-      },
+    await this.db.create('siege_games', {
+      siegeId,
+      whitePlayerId,
+      blackPlayerId,
+      winnerId,
+      gameHistoryId: gameHistoryId || null,
+      createdAt: new Date(),
     });
 
-    // Обновляем счет
-    const updateData: any = {};
+    let updateQuery = 'UPDATE sieges SET ';
+    const params: any[] = [];
+    let paramIndex = 1;
+
     if (winnerIsAttacking) {
-      updateData.attackingWins = { increment: 1 };
+      updateQuery += `"attackingWins" = "attackingWins" + 1`;
     } else if (winnerIsDefending) {
-      updateData.defendingWins = { increment: 1 };
+      updateQuery += `"defendingWins" = "defendingWins" + 1`;
     }
 
-    const updated = await this.prisma.siege.update({
-      where: { id: siegeId },
-      data: updateData,
-    });
+    updateQuery += ` WHERE id = $${paramIndex++}`;
+    params.push(siegeId);
 
-    // Получаем обновленную осаду
-    const updatedSiege = await this.prisma.siege.findUnique({
-      where: { id: siegeId },
-    });
+    await this.db.query(updateQuery, params);
 
-    if (!updatedSiege) {
-      return updated;
-    }
+    const updatedSiege = await this.db.findOne('sieges', { id: siegeId });
 
-    // Проверяем, достигнут ли лимит побед
     if (updatedSiege.attackingWins >= updatedSiege.requiredWins) {
-      // Атакующий клан побеждает
       await this.finishSiege(siegeId, updatedSiege.attackingClanId);
     } else if (updatedSiege.defendingWins >= updatedSiege.requiredWins && siege.defendingClanId) {
-      // Защищающий клан побеждает
       await this.finishSiege(siegeId, siege.defendingClanId);
     }
 
-    return updated;
+    return updatedSiege;
   }
 
-  /**
-   * Завершить осаду и передать контроль района
-   */
   private async finishSiege(siegeId: number, winnerClanId: number) {
-    const siege = await this.prisma.siege.findUnique({
-      where: { id: siegeId },
-    });
-
+    const siege = await this.db.findOne('sieges', { id: siegeId });
     if (!siege) {
       return;
     }
 
-    // Обновляем осаду
-    await this.prisma.siege.update({
-      where: { id: siegeId },
-      data: {
-        status: 'FINISHED',
-        winnerClanId,
-        endDate: new Date(),
-      },
+    await this.db.transaction(async (client) => {
+      await client.query(
+        'UPDATE sieges SET status = $1, "winnerClanId" = $2, "endDate" = $3 WHERE id = $4',
+        ['FINISHED', winnerClanId, new Date(), siegeId]
+      );
+      await client.query(
+        'UPDATE districts SET "clanId" = $1 WHERE id = $2',
+        [winnerClanId, siege.districtId]
+      );
     });
-
-    // Передаем контроль района победившему клану
-    await this.prisma.district.update({
-      where: { id: siege.districtId },
-      data: {
-        clanId: winnerClanId,
-      },
-    });
-
-    // Если был защищающий клан, сбрасываем его контроль
-    // (уже сделано выше через обновление clanId)
   }
 
-  /**
-   * Получить активные осады
-   */
   async getActiveSieges() {
-    return this.prisma.siege.findMany({
-      where: { status: 'ACTIVE' },
-      include: {
-        district: true,
-        attackingClan: true,
-        defendingClan: true,
-        siegeGames: {
-          orderBy: { createdAt: 'desc' },
-          take: 10,
-        },
-      },
-      orderBy: { startDate: 'desc' },
-    });
+    const sieges = await this.db.query(
+      `SELECT s.*
+       FROM sieges s
+       WHERE s.status = 'ACTIVE'
+       ORDER BY s."startDate" DESC`
+    );
+
+    const siegesWithRelations = await Promise.all(
+      sieges.rows.map(async (siege) => {
+        const [district, attackingClan, defendingClan, siegeGames] = await Promise.all([
+          this.db.findOne('districts', { id: siege.districtId }),
+          this.db.findOne('clans', { id: siege.attackingClanId }),
+          siege.defendingClanId ? this.db.findOne('clans', { id: siege.defendingClanId }) : null,
+          this.db.query(
+            `SELECT sg.*, s.*
+             FROM siege_games sg
+             JOIN sieges s ON sg."siegeId" = s.id
+             WHERE sg."siegeId" = $1
+             ORDER BY sg."createdAt" DESC
+             LIMIT 10`,
+            [siege.id]
+          ).then(r => r.rows),
+        ]);
+
+        return {
+          ...siege,
+          district,
+          attackingClan,
+          defendingClan,
+          siegeGames,
+        };
+      })
+    );
+
+    return siegesWithRelations;
   }
 
-  /**
-   * Получить осады клана
-   */
   async getClanSieges(clanId: number) {
-    return this.prisma.siege.findMany({
-      where: {
-        OR: [
-          { attackingClanId: clanId },
-          { defendingClanId: clanId },
-        ],
-      },
-      include: {
-        district: true,
-        attackingClan: true,
-        defendingClan: true,
-      },
-      orderBy: { startDate: 'desc' },
-    });
+    const sieges = await this.db.query(
+      `SELECT s.*
+       FROM sieges s
+       WHERE s."attackingClanId" = $1 OR s."defendingClanId" = $1
+       ORDER BY s."startDate" DESC`,
+      [clanId]
+    );
+
+    const siegesWithRelations = await Promise.all(
+      sieges.rows.map(async (siege) => {
+        const [district, attackingClan, defendingClan] = await Promise.all([
+          this.db.findOne('districts', { id: siege.districtId }),
+          this.db.findOne('clans', { id: siege.attackingClanId }),
+          siege.defendingClanId ? this.db.findOne('clans', { id: siege.defendingClanId }) : null,
+        ]);
+
+        return {
+          ...siege,
+          district,
+          attackingClan,
+          defendingClan,
+        };
+      })
+    );
+
+    return siegesWithRelations;
   }
 
-  /**
-   * Получить осаду по ID
-   */
   async getSiegeById(siegeId: number) {
-    return this.prisma.siege.findUnique({
-      where: { id: siegeId },
-      include: {
-        district: true,
-        attackingClan: true,
-        defendingClan: true,
-        siegeGames: {
-          include: {
-            siege: true,
-          },
-          orderBy: { createdAt: 'desc' },
-        },
-      },
-    });
+    const siege = await this.db.findOne('sieges', { id: siegeId });
+    if (!siege) {
+      return null;
+    }
+
+    const [district, attackingClan, defendingClan, siegeGames] = await Promise.all([
+      this.db.findOne('districts', { id: siege.districtId }),
+      this.db.findOne('clans', { id: siege.attackingClanId }),
+      siege.defendingClanId ? this.db.findOne('clans', { id: siege.defendingClanId }) : null,
+      this.db.query(
+        `SELECT sg.*, s.*
+         FROM siege_games sg
+         JOIN sieges s ON sg."siegeId" = s.id
+         WHERE sg."siegeId" = $1
+         ORDER BY sg."createdAt" DESC`,
+        [siegeId]
+      ).then(r => r.rows),
+    ]);
+
+    return {
+      ...siege,
+      district,
+      attackingClan,
+      defendingClan,
+      siegeGames,
+    };
   }
 }
-

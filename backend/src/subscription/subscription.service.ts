@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { DatabaseService } from '../database/database.service';
 
 @Injectable()
 export class SubscriptionService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly db: DatabaseService) {}
 
   async createSubscription(
     userId: number,
@@ -19,39 +19,43 @@ export class SubscriptionService {
     const endDate = new Date();
     endDate.setDate(endDate.getDate() + durations[plan]);
 
-    return this.prisma.subscription.upsert({
-      where: { userId },
-      update: {
-        plan,
-        startDate,
-        endDate,
-        isActive: true,
-      },
-      create: {
+    // Проверяем существует ли подписка
+    const existing = await this.db.findOne('subscriptions', { userId });
+
+    if (existing) {
+      return await this.db.update('subscriptions', 
+        { userId },
+        {
+          plan,
+          startDate,
+          endDate,
+          isActive: true,
+        }
+      );
+    } else {
+      return await this.db.create('subscriptions', {
         userId,
         plan,
         startDate,
         endDate,
         isActive: true,
-      },
-    });
+      });
+    }
   }
 
   async checkSubscription(userId: number): Promise<boolean> {
-    const subscription = await this.prisma.subscription.findUnique({
-      where: { userId },
-    });
+    const subscription = await this.db.findOne('subscriptions', { userId });
 
     if (!subscription || !subscription.isActive) {
       return false;
     }
 
-    if (new Date() > subscription.endDate) {
+    if (new Date() > new Date(subscription.endDate)) {
       // Подписка истекла
-      await this.prisma.subscription.update({
-        where: { id: subscription.id },
-        data: { isActive: false },
-      });
+      await this.db.update('subscriptions', 
+        { id: subscription.id },
+        { isActive: false }
+      );
       return false;
     }
 
@@ -59,9 +63,7 @@ export class SubscriptionService {
   }
 
   async getSubscription(userId: number) {
-    return this.prisma.subscription.findUnique({
-      where: { userId },
-    });
+    return await this.db.findOne('subscriptions', { userId });
   }
 }
 

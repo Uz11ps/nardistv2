@@ -1,11 +1,11 @@
 import { Module } from '@nestjs/common';
 import { RatingsController } from './ratings.controller';
 import { RatingsService } from './ratings.service';
-import { PrismaModule } from '../prisma/prisma.module';
+import { DatabaseModule } from '../database/database.module';
 import { AuthModule } from '../auth/auth.module';
 
 @Module({
-  imports: [PrismaModule, AuthModule],
+  imports: [DatabaseModule, AuthModule],
   controllers: [RatingsController],
   providers: [RatingsService],
   exports: [RatingsService],

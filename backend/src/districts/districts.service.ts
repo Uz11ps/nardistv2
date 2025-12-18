@@ -1,13 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { DatabaseService } from '../database/database.service';
 
 @Injectable()
 export class DistrictsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly db: DatabaseService) {}
 
-  /**
-   * Инициализация 7 районов города
-   */
   async initializeDistricts() {
     const districts = [
       {
@@ -63,21 +60,25 @@ export class DistrictsService {
 
     const created = [];
     for (const district of districts) {
-      const existing = await this.prisma.district.findFirst({
-        where: { type: district.type },
-      });
+      const existing = await this.db.query(
+        'SELECT * FROM districts WHERE type = $1 LIMIT 1',
+        [district.type]
+      ).then(r => r.rows[0]);
 
       if (!existing) {
-        const newDistrict = await this.prisma.district.create({
-          data: district,
+        const newDistrict = await this.db.create('districts', {
+          ...district,
+          createdAt: new Date(),
+          updatedAt: new Date(),
         });
-        // Создаем фонд для района
-        await this.prisma.districtFund.create({
-          data: {
-            districtId: newDistrict.id,
-            balance: 0,
-          },
+        
+        await this.db.create('district_funds', {
+          districtId: newDistrict.id,
+          balance: 0,
+          createdAt: new Date(),
+          lastUpdated: new Date(),
         });
+        
         created.push(newDistrict);
       } else {
         created.push(existing);
@@ -87,113 +88,142 @@ export class DistrictsService {
     return created;
   }
 
-  /**
-   * Получить все районы
-   */
   async getAllDistricts() {
-    return this.prisma.district.findMany({
-      include: {
-        clan: {
-          include: {
+    const districts = await this.db.findMany('districts', undefined, { orderBy: 'id ASC' });
+
+    const districtsWithRelations = await Promise.all(
+      districts.map(async (district) => {
+        const [clan, fund, businessCount] = await Promise.all([
+          district.clanId ? this.db.query(
+            `SELECT c.*, u.id as "leaderId", u.nickname, u."firstName", u."photoUrl"
+             FROM clans c
+             LEFT JOIN users u ON c."leaderId" = u.id
+             WHERE c.id = $1`,
+            [district.clanId]
+          ).then(r => r.rows[0]) : null,
+          this.db.findOne('district_funds', { districtId: district.id }),
+          this.db.count('businesses', { districtId: district.id }),
+        ]);
+
+        return {
+          ...district,
+          clan: clan ? {
+            ...clan,
             leader: {
-              select: {
-                id: true,
-                nickname: true,
-                firstName: true,
-                photoUrl: true,
-              },
+              id: clan.leaderId,
+              nickname: clan.nickname,
+              firstName: clan.firstName,
+              photoUrl: clan.photoUrl,
             },
+          } : null,
+          fund: fund || null,
+          _count: {
+            businesses: businessCount,
           },
-        },
-        fund: true,
-        _count: {
-          select: {
-            businesses: true,
-          },
-        },
-      },
-      orderBy: { id: 'asc' },
-    });
+        };
+      })
+    );
+
+    return districtsWithRelations;
   }
 
-  /**
-   * Получить район по ID
-   */
   async getDistrictById(id: number) {
-    return this.prisma.district.findUnique({
-      where: { id },
-      include: {
-        clan: {
-          include: {
-            leader: {
-              select: {
-                id: true,
-                nickname: true,
-                firstName: true,
-                photoUrl: true,
-              },
-            },
-            members: {
-              include: {
-                user: {
-                  select: {
-                    id: true,
-                    nickname: true,
-                    firstName: true,
-                    photoUrl: true,
-                  },
-                },
-              },
-            },
-          },
+    const district = await this.db.findOne('districts', { id });
+    if (!district) {
+      return null;
+    }
+
+    const [clan, fund, businesses] = await Promise.all([
+      district.clanId ? this.db.query(
+        `SELECT c.*, u.id as "leaderId", u.nickname, u."firstName", u."photoUrl"
+         FROM clans c
+         LEFT JOIN users u ON c."leaderId" = u.id
+         WHERE c.id = $1`,
+        [district.clanId]
+      ).then(r => r.rows[0]) : null,
+      this.db.findOne('district_funds', { districtId: district.id }),
+      district.clanId ? this.db.query(
+        `SELECT cm.*, u.id as "userId", u.nickname, u."firstName", u."photoUrl"
+         FROM clan_members cm
+         JOIN users u ON cm."userId" = u.id
+         WHERE cm."clanId" = $1
+         ORDER BY cm.role ASC`,
+        [district.clanId]
+      ).then(r => r.rows.map(m => ({
+        ...m,
+        user: {
+          id: m.userId,
+          nickname: m.nickname,
+          firstName: m.firstName,
+          photoUrl: m.photoUrl,
         },
-        fund: true,
-        businesses: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                nickname: true,
-                firstName: true,
-              },
-            },
-          },
+      }))) : [],
+      this.db.query(
+        `SELECT b.*, u.id as "userId", u.nickname, u."firstName"
+         FROM businesses b
+         JOIN users u ON b."userId" = u.id
+         WHERE b."districtId" = $1`,
+        [id]
+      ).then(r => r.rows.map(b => ({
+        ...b,
+        user: {
+          id: b.userId,
+          nickname: b.nickname,
+          firstName: b.firstName,
         },
-      },
-    });
+      }))),
+    ]);
+
+    return {
+      ...district,
+      clan: clan ? {
+        ...clan,
+        leader: {
+          id: clan.leaderId,
+          nickname: clan.nickname,
+          firstName: clan.firstName,
+          photoUrl: clan.photoUrl,
+        },
+        members: clan.members || [],
+      } : null,
+      fund: fund || null,
+      businesses,
+    };
   }
 
-  /**
-   * Получить район по типу
-   */
   async getDistrictByType(type: string) {
-    return this.prisma.district.findFirst({
-      where: { type },
-      include: {
-        clan: true,
-        fund: true,
-      },
-    });
+    const district = await this.db.query(
+      'SELECT * FROM districts WHERE type = $1 LIMIT 1',
+      [type]
+    ).then(r => r.rows[0]);
+
+    if (!district) {
+      return null;
+    }
+
+    const [clan, fund] = await Promise.all([
+      district.clanId ? this.db.findOne('clans', { id: district.clanId }) : null,
+      this.db.findOne('district_funds', { districtId: district.id }),
+    ]);
+
+    return {
+      ...district,
+      clan: clan || null,
+      fund: fund || null,
+    };
   }
 
-  /**
-   * Установить контроль клана над районом
-   */
   async setClanControl(districtId: number, clanId: number) {
-    return this.prisma.district.update({
-      where: { id: districtId },
-      data: { clanId },
-    });
+    return await this.db.update('districts',
+      { id: districtId },
+      { clanId, updatedAt: new Date() }
+    );
   }
 
-  /**
-   * Снять контроль клана с района
-   */
   async removeClanControl(districtId: number) {
-    return this.prisma.district.update({
-      where: { id: districtId },
-      data: { clanId: null },
-    });
+    return await this.db.update('districts',
+      { id: districtId },
+      { clanId: null, updatedAt: new Date() }
+    );
   }
 }
-

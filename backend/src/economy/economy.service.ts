@@ -1,39 +1,30 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { DatabaseService } from '../database/database.service';
 
 @Injectable()
 export class EconomyService {
-  private readonly BASE_COMMISSION = 15; // Базовая комиссия 15%
-  private readonly CITY_TAX_RATE = 10; // 10% налог города
-  private readonly DISTRICT_RATE = 5; // 5% район
-  private readonly ECONOMY_STAT_REDUCTION = 0.5; // 0.5% снижения комиссии за поинт Экономики
+  private readonly BASE_COMMISSION = 15;
+  private readonly CITY_TAX_RATE = 10;
+  private readonly DISTRICT_RATE = 5;
+  private readonly ECONOMY_STAT_REDUCTION = 0.5;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly db: DatabaseService) {}
 
-  /**
-   * Расчет комиссии с учетом ветки Экономика игрока
-   */
   calculateCommission(betAmount: number, playerEconomyStat: number): {
     totalCommission: number;
     cityTax: number;
     districtFee: number;
-    playerRebate: number; // Возврат игроку за прокачку Экономики
+    playerRebate: number;
   } {
-    const totalBank = betAmount * 2; // Общий банк (ставка обоих игроков)
+    const totalBank = betAmount * 2;
     const baseCommission = (totalBank * this.BASE_COMMISSION) / 100;
-
-    // Снижение комиссии за счет ветки Экономика (максимум до 10%)
     const economyReduction = playerEconomyStat * this.ECONOMY_STAT_REDUCTION;
     const effectiveCommissionRate = Math.max(
       this.BASE_COMMISSION - economyReduction,
-      10, // Минимум 10% комиссии
+      10,
     );
     const effectiveCommission = (totalBank * effectiveCommissionRate) / 100;
-
-    // Возврат игроку (разница между базовой и эффективной комиссией)
     const playerRebate = baseCommission - effectiveCommission;
-
-    // Разделение комиссии
     const cityTax = (totalBank * this.CITY_TAX_RATE) / 100;
     const districtFee = (totalBank * this.DISTRICT_RATE) / 100;
 
@@ -45,9 +36,6 @@ export class EconomyService {
     };
   }
 
-  /**
-   * Обработка экономики игры (комиссия, распределение)
-   */
   async processGameEconomy(data: {
     whitePlayerId: number;
     blackPlayerId: number;
@@ -57,21 +45,17 @@ export class EconomyService {
   }) {
     const { whitePlayerId, blackPlayerId, winnerId, betAmount, districtId } = data;
 
-    // Получаем игроков
     const [whitePlayer, blackPlayer] = await Promise.all([
-      this.prisma.user.findUnique({ where: { id: whitePlayerId } }),
-      this.prisma.user.findUnique({ where: { id: blackPlayerId } }),
+      this.db.findOne('users', { id: whitePlayerId }),
+      this.db.findOne('users', { id: blackPlayerId }),
     ]);
 
     if (!whitePlayer || !blackPlayer) {
       throw new Error('Players not found');
     }
 
-    // Рассчитываем комиссию для каждого игрока
     const whiteCommission = this.calculateCommission(betAmount, whitePlayer.statsEconomy);
     const blackCommission = this.calculateCommission(betAmount, blackPlayer.statsEconomy);
-
-    // Используем среднюю комиссию (или можно взять от победителя)
     const winner = winnerId === whitePlayerId ? whitePlayer : blackPlayer;
     const winnerCommission = winnerId === whitePlayerId ? whiteCommission : blackCommission;
 
@@ -79,38 +63,23 @@ export class EconomyService {
     const finalCommission = winnerCommission.totalCommission;
     const winnerPrize = totalBank - finalCommission;
 
-    // Обновляем баланс победителя
-    await this.prisma.user.update({
-      where: { id: winnerId },
-      data: {
-        narCoin: { increment: winnerPrize },
-      },
-    });
+    await this.db.query(
+      'UPDATE users SET "narCoin" = "narCoin" + $1 WHERE id = $2',
+      [winnerPrize, winnerId]
+    );
 
-    // Обновляем баланс проигравшего (уже списано при создании игры)
-    const loserId = winnerId === whitePlayerId ? blackPlayerId : whitePlayerId;
-    // Ставка уже списана, ничего не делаем
-
-    // Распределение комиссии
     const cityTax = winnerCommission.cityTax;
     const districtFee = winnerCommission.districtFee;
 
-    // Налог города (сжигается или идет в общий фонд)
-    // Пока просто логируем, можно добавить отдельную таблицу для городского фонда
-
-    // Комиссия района
     if (districtId) {
       await this.updateDistrictFund(districtId, districtFee);
     }
 
-    // Возврат игроку за прокачку Экономики
     if (winnerCommission.playerRebate > 0) {
-      await this.prisma.user.update({
-        where: { id: winnerId },
-        data: {
-          narCoin: { increment: Math.floor(winnerCommission.playerRebate) },
-        },
-      });
+      await this.db.query(
+        'UPDATE users SET "narCoin" = "narCoin" + $1 WHERE id = $2',
+        [Math.floor(winnerCommission.playerRebate), winnerId]
+      );
     }
 
     return {
@@ -122,94 +91,75 @@ export class EconomyService {
     };
   }
 
-  /**
-   * Обновление фонда района
-   */
   async updateDistrictFund(districtId: number, amount: number) {
-    // Создаем или обновляем фонд района
-    const fund = await this.prisma.districtFund.upsert({
-      where: { districtId },
-      create: {
+    const existing = await this.db.findOne('district_funds', { districtId });
+
+    if (existing) {
+      await this.db.query(
+        'UPDATE district_funds SET balance = balance + $1, "lastUpdated" = $2 WHERE "districtId" = $3',
+        [amount, new Date(), districtId]
+      );
+    } else {
+      await this.db.create('district_funds', {
         districtId,
         balance: amount,
-      },
-      update: {
-        balance: { increment: amount },
         lastUpdated: new Date(),
-      },
-    });
+        createdAt: new Date(),
+      });
+    }
 
-    // Обновляем баланс в районе (для удобства)
-    await this.prisma.district.update({
-      where: { id: districtId },
-      data: {
-        updatedAt: new Date(),
-      },
-    });
+    await this.db.update('districts', { id: districtId }, { updatedAt: new Date() });
 
-    return fund;
+    return await this.db.findOne('district_funds', { districtId });
   }
 
-  /**
-   * Получить баланс фонда района
-   */
   async getDistrictFund(districtId: number) {
-    const fund = await this.prisma.districtFund.findUnique({
-      where: { districtId },
-      include: {
-        district: {
-          include: {
-            clan: true,
-          },
-        },
-      },
-    });
+    const fund = await this.db.query(
+      `SELECT df.*, d.*, c.*
+       FROM district_funds df
+       LEFT JOIN districts d ON df."districtId" = d.id
+       LEFT JOIN clans c ON d."clanId" = c.id
+       WHERE df."districtId" = $1`,
+      [districtId]
+    ).then(r => r.rows[0]);
 
     return fund || { balance: 0, district: null };
   }
 
-  /**
-   * Распределение фонда района клану
-   */
   async distributeDistrictFundToClan(districtId: number, amount: number) {
-    const district = await this.prisma.district.findUnique({
-      where: { id: districtId },
-      include: { clan: true },
-    });
+    const district = await this.db.query(
+      `SELECT d.*, c.*
+       FROM districts d
+       LEFT JOIN clans c ON d."clanId" = c.id
+       WHERE d.id = $1`,
+      [districtId]
+    ).then(r => r.rows[0]);
 
     if (!district || !district.clanId) {
       throw new Error('District has no controlling clan');
     }
 
-    const fund = await this.prisma.districtFund.findUnique({
-      where: { districtId },
-    });
-
+    const fund = await this.db.findOne('district_funds', { districtId });
     if (!fund || fund.balance < amount) {
       throw new Error('Insufficient fund balance');
     }
 
-    // Переводим в клановую казну
-    await this.prisma.clan.update({
-      where: { id: district.clanId },
-      data: {
-        treasury: { increment: amount },
-      },
+    await this.db.transaction(async (client) => {
+      await client.query(
+        'UPDATE clans SET treasury = treasury + $1 WHERE id = $2',
+        [amount, district.clanId]
+      );
+      await client.query(
+        'UPDATE district_funds SET balance = balance - $1 WHERE "districtId" = $2',
+        [amount, districtId]
+      );
     });
 
-    // Списываем с фонда
-    await this.prisma.districtFund.update({
-      where: { districtId },
-      data: {
-        balance: { decrement: amount },
-      },
-    });
-
+    const updatedClan = await this.db.findOne('clans', { id: district.clanId });
     return {
       clanId: district.clanId,
       amount,
-      newClanTreasury: (await this.prisma.clan.findUnique({ where: { id: district.clanId } }))!.treasury,
+      newClanTreasury: updatedClan.treasury,
     };
   }
 }
-

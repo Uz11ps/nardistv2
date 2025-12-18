@@ -1,196 +1,198 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { DatabaseService } from '../database/database.service';
 import { EconomyService } from '../economy/economy.service';
 
 @Injectable()
 export class ClansService {
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly db: DatabaseService,
     private readonly economyService: EconomyService,
   ) {}
 
-  /**
-   * Создать клан
-   */
   async createClan(userId: number, data: { name: string; description?: string }) {
-    // Проверяем, что пользователь не состоит в другом клане
-    const existingMember = await this.prisma.clanMember.findFirst({
-      where: { userId },
-    });
+    const existingMember = await this.db.query(
+      'SELECT * FROM clan_members WHERE "userId" = $1 LIMIT 1',
+      [userId]
+    ).then(r => r.rows[0]);
 
     if (existingMember) {
       throw new Error('User is already a member of a clan');
     }
 
-    // Проверяем, что имя клана уникально
-    const existingClan = await this.prisma.clan.findUnique({
-      where: { name: data.name },
-    });
-
+    const existingClan = await this.db.findOne('clans', { name: data.name });
     if (existingClan) {
       throw new Error('Clan name already exists');
     }
 
-    // Создаем клан
-    const clan = await this.prisma.clan.create({
-      data: {
-        name: data.name,
-        description: data.description,
-        leaderId: userId,
-        treasury: 0,
-      },
+    const clan = await this.db.create('clans', {
+      name: data.name,
+      description: data.description || null,
+      leaderId: userId,
+      treasury: 0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     });
 
-    // Добавляем создателя как лидера
-    await this.prisma.clanMember.create({
-      data: {
-        clanId: clan.id,
-        userId,
-        role: 'LEADER',
-      },
+    await this.db.create('clan_members', {
+      clanId: clan.id,
+      userId,
+      role: 'LEADER',
+      createdAt: new Date(),
     });
 
     return clan;
   }
 
-  /**
-   * Получить все кланы
-   */
   async getAllClans() {
-    return this.prisma.clan.findMany({
-      include: {
-        leader: {
-          select: {
-            id: true,
-            nickname: true,
-            firstName: true,
-            photoUrl: true,
-          },
-        },
-        members: {
-          include: {
+    const clans = await this.db.findMany('clans', undefined, { orderBy: '"treasury" DESC' });
+
+    const clansWithRelations = await Promise.all(
+      clans.map(async (clan) => {
+        const [leader, members, districts, memberCount, districtCount] = await Promise.all([
+          this.db.query(
+            'SELECT id, nickname, "firstName", "photoUrl" FROM users WHERE id = $1',
+            [clan.leaderId]
+          ).then(r => r.rows[0]),
+          this.db.query(
+            `SELECT cm.*, u.id as "userId", u.nickname, u."firstName", u."photoUrl"
+             FROM clan_members cm
+             JOIN users u ON cm."userId" = u.id
+             WHERE cm."clanId" = $1`,
+            [clan.id]
+          ).then(r => r.rows.map(m => ({
+            ...m,
             user: {
-              select: {
-                id: true,
-                nickname: true,
-                firstName: true,
-                photoUrl: true,
-              },
+              id: m.userId,
+              nickname: m.nickname,
+              firstName: m.firstName,
+              photoUrl: m.photoUrl,
             },
+          }))),
+          this.db.findMany('districts', { clanId: clan.id }),
+          this.db.count('clan_members', { clanId: clan.id }),
+          this.db.count('districts', { clanId: clan.id }),
+        ]);
+
+        return {
+          ...clan,
+          leader: leader || null,
+          members,
+          districts,
+          _count: {
+            members: memberCount,
+            districts: districtCount,
           },
-        },
-        districts: true,
-        _count: {
-          select: {
-            members: true,
-            districts: true,
-          },
-        },
-      },
-      orderBy: { treasury: 'desc' },
-    });
+        };
+      })
+    );
+
+    return clansWithRelations;
   }
 
-  /**
-   * Получить клан по ID
-   */
   async getClanById(id: number) {
-    return this.prisma.clan.findUnique({
-      where: { id },
-      include: {
-        leader: {
-          select: {
-            id: true,
-            nickname: true,
-            firstName: true,
-            photoUrl: true,
-          },
+    const clan = await this.db.findOne('clans', { id });
+    if (!clan) {
+      return null;
+    }
+
+    const [leader, members, districts] = await Promise.all([
+      this.db.query(
+        'SELECT id, nickname, "firstName", "photoUrl" FROM users WHERE id = $1',
+        [clan.leaderId]
+      ).then(r => r.rows[0]),
+      this.db.query(
+        `SELECT cm.*, u.id as "userId", u.nickname, u."firstName", u."photoUrl"
+         FROM clan_members cm
+         JOIN users u ON cm."userId" = u.id
+         WHERE cm."clanId" = $1
+         ORDER BY cm.role ASC`,
+        [clan.id]
+      ).then(r => r.rows.map(m => ({
+        ...m,
+        user: {
+          id: m.userId,
+          nickname: m.nickname,
+          firstName: m.firstName,
+          photoUrl: m.photoUrl,
         },
-        members: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                nickname: true,
-                firstName: true,
-                photoUrl: true,
-              },
-            },
-          },
-          orderBy: { role: 'asc' },
-        },
-        districts: {
-          include: {
-            fund: true,
-          },
-        },
-      },
-    });
+      }))),
+      this.db.query(
+        `SELECT d.*, df.balance as "fundBalance"
+         FROM districts d
+         LEFT JOIN district_funds df ON d.id = df."districtId"
+         WHERE d."clanId" = $1`,
+        [clan.id]
+      ).then(r => r.rows.map(d => ({
+        ...d,
+        fund: d.fundBalance ? { balance: d.fundBalance } : null,
+      }))),
+    ]);
+
+    return {
+      ...clan,
+      leader: leader || null,
+      members,
+      districts,
+    };
   }
 
-  /**
-   * Получить клан пользователя
-   */
   async getUserClan(userId: number) {
-    const member = await this.prisma.clanMember.findFirst({
-      where: { userId },
-      include: {
-        clan: {
-          include: {
-            leader: true,
-            districts: true,
-          },
-        },
-      },
-    });
+    const member = await this.db.query(
+      `SELECT cm.*, c.*, u.id as "leaderId", u.nickname, u."firstName", u."photoUrl"
+       FROM clan_members cm
+       JOIN clans c ON cm."clanId" = c.id
+       LEFT JOIN users u ON c."leaderId" = u.id
+       WHERE cm."userId" = $1
+       LIMIT 1`,
+      [userId]
+    ).then(r => r.rows[0]);
 
-    return member?.clan || null;
+    if (!member) {
+      return null;
+    }
+
+    const districts = await this.db.findMany('districts', { clanId: member.clanId });
+
+    return {
+      ...member,
+      leader: {
+        id: member.leaderId,
+        nickname: member.nickname,
+        firstName: member.firstName,
+        photoUrl: member.photoUrl,
+      },
+      districts,
+    };
   }
 
-  /**
-   * Присоединиться к клану
-   */
   async joinClan(userId: number, clanId: number) {
-    // Проверяем, что пользователь не состоит в другом клане
-    const existingMember = await this.prisma.clanMember.findFirst({
-      where: { userId },
-    });
+    const existingMember = await this.db.query(
+      'SELECT * FROM clan_members WHERE "userId" = $1 LIMIT 1',
+      [userId]
+    ).then(r => r.rows[0]);
 
     if (existingMember) {
       throw new Error('User is already a member of a clan');
     }
 
-    // Проверяем, что клан существует
-    const clan = await this.prisma.clan.findUnique({
-      where: { id: clanId },
-    });
-
+    const clan = await this.db.findOne('clans', { id: clanId });
     if (!clan) {
       throw new Error('Clan not found');
     }
 
-    // Добавляем участника
-    return this.prisma.clanMember.create({
-      data: {
-        clanId,
-        userId,
-        role: 'MEMBER',
-      },
+    return await this.db.create('clan_members', {
+      clanId,
+      userId,
+      role: 'MEMBER',
+      createdAt: new Date(),
     });
   }
 
-  /**
-   * Покинуть клан
-   */
   async leaveClan(userId: number, clanId: number) {
-    const member = await this.prisma.clanMember.findUnique({
-      where: {
-        clanId_userId: {
-          clanId,
-          userId,
-        },
-      },
-    });
+    const member = await this.db.query(
+      'SELECT * FROM clan_members WHERE "clanId" = $1 AND "userId" = $2 LIMIT 1',
+      [clanId, userId]
+    ).then(r => r.rows[0]);
 
     if (!member) {
       throw new Error('User is not a member of this clan');
@@ -200,228 +202,145 @@ export class ClansService {
       throw new Error('Leader cannot leave the clan');
     }
 
-    return this.prisma.clanMember.delete({
-      where: {
-        clanId_userId: {
-          clanId,
-          userId,
-        },
-      },
-    });
+    await this.db.delete('clan_members', { clanId, userId });
+    return { success: true };
   }
 
-  /**
-   * Изменить роль участника (только лидер)
-   */
   async changeMemberRole(
     leaderId: number,
     clanId: number,
     memberId: number,
     newRole: string,
   ) {
-    // Проверяем, что вызывающий является лидером
-    const leader = await this.prisma.clanMember.findUnique({
-      where: {
-        clanId_userId: {
-          clanId,
-          userId: leaderId,
-        },
-      },
-    });
+    const leader = await this.db.query(
+      'SELECT * FROM clan_members WHERE "clanId" = $1 AND "userId" = $2 LIMIT 1',
+      [clanId, leaderId]
+    ).then(r => r.rows[0]);
 
     if (!leader || leader.role !== 'LEADER') {
       throw new Error('Only leader can change roles');
     }
 
-    // Обновляем роль
-    return this.prisma.clanMember.update({
-      where: {
-        clanId_userId: {
-          clanId,
-          userId: memberId,
-        },
-      },
-      data: { role: newRole },
-    });
+    return await this.db.update('clan_members',
+      { clanId, userId: memberId },
+      { role: newRole }
+    );
   }
 
-  /**
-   * Распределить средства из казны
-   */
   async distributeTreasury(
     leaderId: number,
     clanId: number,
     amount: number,
     recipientId: number,
   ) {
-    // Проверяем права
-    const leader = await this.prisma.clanMember.findUnique({
-      where: {
-        clanId_userId: {
-          clanId,
-          userId: leaderId,
-        },
-      },
-    });
+    const leader = await this.db.query(
+      'SELECT * FROM clan_members WHERE "clanId" = $1 AND "userId" = $2 LIMIT 1',
+      [clanId, leaderId]
+    ).then(r => r.rows[0]);
 
     if (!leader || !['LEADER', 'OFFICER'].includes(leader.role)) {
       throw new Error('Insufficient permissions');
     }
 
-    // Проверяем баланс
-    const clan = await this.prisma.clan.findUnique({
-      where: { id: clanId },
-    });
-
+    const clan = await this.db.findOne('clans', { id: clanId });
     if (!clan || clan.treasury < amount) {
       throw new Error('Insufficient treasury balance');
     }
 
-    // Списываем с казны
-    await this.prisma.clan.update({
-      where: { id: clanId },
-      data: {
-        treasury: { decrement: amount },
-      },
+    await this.db.transaction(async (client) => {
+      await client.query(
+        'UPDATE clans SET treasury = treasury - $1 WHERE id = $2',
+        [amount, clanId]
+      );
+      await client.query(
+        'UPDATE users SET "narCoin" = "narCoin" + $1 WHERE id = $2',
+        [amount, recipientId]
+      );
     });
 
-    // Начисляем игроку
-    await this.prisma.user.update({
-      where: { id: recipientId },
-      data: {
-        narCoin: { increment: amount },
-      },
-    });
-
-    return { success: true, newTreasury: clan.treasury - amount };
+    const updatedClan = await this.db.findOne('clans', { id: clanId });
+    return { success: true, newTreasury: updatedClan.treasury };
   }
 
-  /**
-   * Получить фонды районов, контролируемых кланом
-   */
   async getDistrictFunds(clanId: number) {
-    const clan = await this.prisma.clan.findUnique({
-      where: { id: clanId },
-      include: {
-        districts: {
-          include: {
-            fund: true,
-          },
-        },
+    const districts = await this.db.query(
+      `SELECT d.*, df.balance, df."lastUpdated"
+       FROM districts d
+       LEFT JOIN district_funds df ON d.id = df."districtId"
+       WHERE d."clanId" = $1`,
+      [clanId]
+    );
+
+    return districts.rows.map(d => ({
+      district: {
+        ...d,
+        fund: d.balance ? { balance: d.balance, lastUpdated: d.lastUpdated } : null,
       },
-    });
-
-    if (!clan) {
-      throw new Error('Clan not found');
-    }
-
-    return clan.districts.map((district) => ({
-      district,
-      fund: district.fund || { balance: 0 },
+      fund: d.balance ? { balance: d.balance, lastUpdated: d.lastUpdated } : { balance: 0 },
     }));
   }
 
-  /**
-   * Распределить фонд района в клановую казну
-   */
   async distributeDistrictFund(
     leaderId: number,
     clanId: number,
     districtId: number,
     amount: number,
   ) {
-    // Проверяем права
-    const leader = await this.prisma.clanMember.findUnique({
-      where: {
-        clanId_userId: {
-          clanId,
-          userId: leaderId,
-        },
-      },
-    });
+    const leader = await this.db.query(
+      'SELECT * FROM clan_members WHERE "clanId" = $1 AND "userId" = $2 LIMIT 1',
+      [clanId, leaderId]
+    ).then(r => r.rows[0]);
 
     if (!leader || !['LEADER', 'OFFICER'].includes(leader.role)) {
       throw new Error('Insufficient permissions');
     }
 
-    // Проверяем, что район контролируется кланом
-    const district = await this.prisma.district.findUnique({
-      where: { id: districtId },
-    });
-
+    const district = await this.db.findOne('districts', { id: districtId });
     if (!district || district.clanId !== clanId) {
       throw new Error('District is not controlled by this clan');
     }
 
-    // Используем метод из EconomyService
-    return this.economyService.distributeDistrictFundToClan(districtId, amount);
+    return await this.economyService.distributeDistrictFundToClan(districtId, amount);
   }
 
-  /**
-   * Обновить информацию о клане
-   */
   async updateClan(leaderId: number, clanId: number, data: { name?: string; description?: string }) {
-    // Проверяем права
-    const leader = await this.prisma.clanMember.findUnique({
-      where: {
-        clanId_userId: {
-          clanId,
-          userId: leaderId,
-        },
-      },
-    });
+    const leader = await this.db.query(
+      'SELECT * FROM clan_members WHERE "clanId" = $1 AND "userId" = $2 LIMIT 1',
+      [clanId, leaderId]
+    ).then(r => r.rows[0]);
 
     if (!leader || leader.role !== 'LEADER') {
       throw new Error('Only leader can update clan');
     }
 
-    // Если меняется имя, проверяем уникальность
     if (data.name) {
-      const existingClan = await this.prisma.clan.findUnique({
-        where: { name: data.name },
-      });
-
+      const existingClan = await this.db.findOne('clans', { name: data.name });
       if (existingClan && existingClan.id !== clanId) {
         throw new Error('Clan name already exists');
       }
     }
 
-    return this.prisma.clan.update({
-      where: { id: clanId },
-      data: {
-        ...(data.name && { name: data.name }),
-        ...(data.description !== undefined && { description: data.description }),
-      },
-    });
+    const updateData: any = { updatedAt: new Date() };
+    if (data.name) updateData.name = data.name;
+    if (data.description !== undefined) updateData.description = data.description;
+
+    return await this.db.update('clans', { id: clanId }, updateData);
   }
 
-  /**
-   * Исключить участника из клана
-   */
   async kickMember(leaderId: number, clanId: number, memberId: number) {
-    // Проверяем права
-    const leader = await this.prisma.clanMember.findUnique({
-      where: {
-        clanId_userId: {
-          clanId,
-          userId: leaderId,
-        },
-      },
-    });
+    const leader = await this.db.query(
+      'SELECT * FROM clan_members WHERE "clanId" = $1 AND "userId" = $2 LIMIT 1',
+      [clanId, leaderId]
+    ).then(r => r.rows[0]);
 
     if (!leader || !['LEADER', 'OFFICER'].includes(leader.role)) {
       throw new Error('Insufficient permissions');
     }
 
-    // Нельзя исключить лидера
-    const member = await this.prisma.clanMember.findUnique({
-      where: {
-        clanId_userId: {
-          clanId,
-          userId: memberId,
-        },
-      },
-    });
+    const member = await this.db.query(
+      'SELECT * FROM clan_members WHERE "clanId" = $1 AND "userId" = $2 LIMIT 1',
+      [clanId, memberId]
+    ).then(r => r.rows[0]);
 
     if (!member) {
       throw new Error('Member not found');
@@ -431,14 +350,7 @@ export class ClansService {
       throw new Error('Cannot kick leader');
     }
 
-    return this.prisma.clanMember.delete({
-      where: {
-        clanId_userId: {
-          clanId,
-          userId: memberId,
-        },
-      },
-    });
+    await this.db.delete('clan_members', { clanId, userId: memberId });
+    return { success: true };
   }
 }
-

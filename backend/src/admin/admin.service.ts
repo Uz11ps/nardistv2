@@ -1,23 +1,22 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { DatabaseService } from '../database/database.service';
 import { TournamentsService } from '../tournaments/tournaments.service';
 
 @Injectable()
 export class AdminService {
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly db: DatabaseService,
     private readonly tournamentsService: TournamentsService,
   ) {}
 
   async getUsers(page: number, limit: number) {
     const skip = (page - 1) * limit;
     const [users, total] = await Promise.all([
-      this.prisma.user.findMany({
-        skip,
-        take: limit,
-        orderBy: { createdAt: 'desc' },
-      }),
-      this.prisma.user.count(),
+      this.db.query(
+        `SELECT * FROM users ORDER BY "createdAt" DESC LIMIT $1 OFFSET $2`,
+        [limit, skip]
+      ).then(r => r.rows),
+      this.db.count('users'),
     ]);
 
     return {
@@ -30,8 +29,6 @@ export class AdminService {
   }
 
   async banUser(userId: number) {
-    // В реальном приложении здесь была бы логика бана
-    // Пока просто возвращаем успех
     return { success: true, message: 'User banned' };
   }
 
@@ -40,22 +37,31 @@ export class AdminService {
   }
 
   async getTournaments() {
-    return this.prisma.tournament.findMany({
-      include: {
-        participants: {
-          include: {
+    const tournaments = await this.db.findMany('tournaments', undefined, { orderBy: '"createdAt" DESC' });
+
+    return await Promise.all(
+      tournaments.map(async (tournament) => {
+        const participants = await this.db.query(
+          `SELECT tp.*, u.id as "userId", u.nickname, u."firstName"
+           FROM tournament_participants tp
+           JOIN users u ON tp."userId" = u.id
+           WHERE tp."tournamentId" = $1`,
+          [tournament.id]
+        );
+
+        return {
+          ...tournament,
+          participants: participants.rows.map(p => ({
+            ...p,
             user: {
-              select: {
-                id: true,
-                nickname: true,
-                firstName: true,
-              },
+              id: p.userId,
+              nickname: p.nickname,
+              firstName: p.firstName,
             },
-          },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+          })),
+        };
+      })
+    );
   }
 
   async createTournament(data: any) {
@@ -63,30 +69,28 @@ export class AdminService {
   }
 
   async updateTournament(tournamentId: number, data: any) {
-    return this.prisma.tournament.update({
-      where: { id: tournamentId },
-      data,
-    });
+    return await this.db.update('tournaments',
+      { id: tournamentId },
+      { ...data, updatedAt: new Date() }
+    );
   }
 
   async startTournament(tournamentId: number) {
-    return this.prisma.tournament.update({
-      where: { id: tournamentId },
-      data: { status: 'IN_PROGRESS' },
-    });
+    return await this.db.update('tournaments',
+      { id: tournamentId },
+      { status: 'IN_PROGRESS', updatedAt: new Date() }
+    );
   }
 
   async finishTournament(tournamentId: number) {
-    return this.prisma.tournament.update({
-      where: { id: tournamentId },
-      data: { status: 'FINISHED', endDate: new Date() },
-    });
+    return await this.db.update('tournaments',
+      { id: tournamentId },
+      { status: 'FINISHED', endDate: new Date(), updatedAt: new Date() }
+    );
   }
 
   async getArticles() {
-    return this.prisma.academyArticle.findMany({
-      orderBy: { createdAt: 'desc' },
-    });
+    return await this.db.findMany('academy_articles', undefined, { orderBy: '"createdAt" DESC' });
   }
 
   async createArticle(data: {
@@ -96,36 +100,36 @@ export class AdminService {
     isPaid?: boolean;
     priceCoin?: number;
   }) {
-    return this.prisma.academyArticle.create({
-      data: {
-        ...data,
-        isPublished: false,
-      },
+    return await this.db.create('academy_articles', {
+      ...data,
+      isPublished: false,
+      views: 0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     });
   }
 
   async updateArticle(id: number, data: any) {
-    return this.prisma.academyArticle.update({
-      where: { id },
-      data,
-    });
+    return await this.db.update('academy_articles',
+      { id },
+      { ...data, updatedAt: new Date() }
+    );
   }
 
   async deleteArticle(id: number) {
-    return this.prisma.academyArticle.delete({
-      where: { id },
-    });
+    await this.db.delete('academy_articles', { id });
+    return { success: true };
   }
 
   async getSkins() {
-    return this.prisma.skin.findMany({
-      orderBy: { createdAt: 'desc' },
-    });
+    return await this.db.findMany('skins', undefined, { orderBy: '"createdAt" DESC' });
   }
 
   async createSkin(data: any) {
-    return this.prisma.skin.create({
-      data,
+    return await this.db.create('skins', {
+      ...data,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     });
   }
 
@@ -152,88 +156,40 @@ export class AdminService {
       gamesByMode,
       userActivityData,
     ] = await Promise.all([
-      // Всего пользователей
-      this.prisma.user.count(),
-      // Активные пользователи (за последние 24 часа)
-      this.prisma.user.count({
-        where: {
-          updatedAt: {
-            gte: new Date(Date.now() - 24 * 60 * 60 * 1000),
-          },
-        },
-      }),
-      // Всего игр
-      this.prisma.gameHistory.count(),
-      // Игры сегодня
-      this.prisma.gameHistory.count({
-        where: {
-          createdAt: {
-            gte: todayStart,
-          },
-        },
-      }),
-      // Игры вчера (для расчета тренда)
-      this.prisma.gameHistory.count({
-        where: {
-          createdAt: {
-            gte: yesterdayStart,
-            lt: todayStart,
-          },
-        },
-      }),
-      // Всего турниров
-      this.prisma.tournament.count(),
-      // Активные турниры
-      this.prisma.tournament.count({
-        where: {
-          status: 'IN_PROGRESS',
-        },
-      }),
-      // Общий доход (комиссия из всех игр)
-      this.prisma.gameHistory.aggregate({
-        where: {
-          commission: {
-            not: null,
-          },
-        },
-        _sum: {
-          commission: true,
-        },
-      }),
-      // Доход сегодня
-      this.prisma.gameHistory.aggregate({
-        where: {
-          createdAt: {
-            gte: todayStart,
-          },
-          commission: {
-            not: null,
-          },
-        },
-        _sum: {
-          commission: true,
-        },
-      }),
-      // Игры по режимам
-      this.prisma.gameHistory.groupBy({
-        by: ['mode'],
-        _count: {
-          id: true,
-        },
-      }),
-      // Активность пользователей за последние 7 дней
+      this.db.count('users'),
+      this.db.query(
+        'SELECT COUNT(*) as count FROM users WHERE "updatedAt" >= $1',
+        [new Date(Date.now() - 24 * 60 * 60 * 1000)]
+      ).then(r => parseInt(r.rows[0].count, 10)),
+      this.db.count('game_history'),
+      this.db.query(
+        'SELECT COUNT(*) as count FROM game_history WHERE "createdAt" >= $1',
+        [todayStart]
+      ).then(r => parseInt(r.rows[0].count, 10)),
+      this.db.query(
+        'SELECT COUNT(*) as count FROM game_history WHERE "createdAt" >= $1 AND "createdAt" < $2',
+        [yesterdayStart, todayStart]
+      ).then(r => parseInt(r.rows[0].count, 10)),
+      this.db.count('tournaments'),
+      this.db.count('tournaments', { status: 'IN_PROGRESS' }),
+      this.db.query(
+        'SELECT COALESCE(SUM(commission), 0) as total FROM game_history WHERE commission IS NOT NULL'
+      ).then(r => parseFloat(r.rows[0].total || 0)),
+      this.db.query(
+        'SELECT COALESCE(SUM(commission), 0) as total FROM game_history WHERE "createdAt" >= $1 AND commission IS NOT NULL',
+        [todayStart]
+      ).then(r => parseFloat(r.rows[0].total || 0)),
+      this.db.query(
+        'SELECT mode, COUNT(*) as count FROM game_history GROUP BY mode'
+      ).then(r => r.rows),
       this.getUserActivityForLast7Days(),
     ]);
 
-    // Расчет трендов
-    const usersLastMonth = await this.prisma.user.count({
-      where: {
-        createdAt: {
-          gte: monthAgo,
-          lt: weekAgo,
-        },
-      },
-    });
+    const usersLastMonth = await this.db.query(
+      'SELECT COUNT(*) as count FROM users WHERE "createdAt" >= $1 AND "createdAt" < $2',
+      [monthAgo, weekAgo]
+    ).then(r => parseInt(r.rows[0].count, 10));
+
     const usersThisMonth = totalUsers - usersLastMonth;
     const userTrend = usersLastMonth > 0 
       ? Math.round(((usersThisMonth - usersLastMonth) / usersLastMonth) * 100)
@@ -243,34 +199,22 @@ export class AdminService {
       ? Math.round(((gamesToday - gamesYesterday) / gamesYesterday) * 100)
       : 0;
 
-    // Доход вчера для расчета тренда
-    const revenueYesterdayData = await this.prisma.gameHistory.aggregate({
-      where: {
-        createdAt: {
-          gte: yesterdayStart,
-          lt: todayStart,
-        },
-        commission: {
-          not: null,
-        },
-      },
-      _sum: {
-        commission: true,
-      },
-    });
+    const revenueYesterdayData = await this.db.query(
+      'SELECT COALESCE(SUM(commission), 0) as total FROM game_history WHERE "createdAt" >= $1 AND "createdAt" < $2 AND commission IS NOT NULL',
+      [yesterdayStart, todayStart]
+    ).then(r => parseFloat(r.rows[0].total || 0));
 
-    const revenueYesterday = revenueYesterdayData._sum.commission || 0;
-    const revenueToday = revenueTodayData._sum.commission || 0;
+    const revenueYesterday = revenueYesterdayData;
+    const revenueToday = revenueTodayData;
     const revenueTrend = revenueYesterday > 0
       ? Math.round(((revenueToday - revenueYesterday) / revenueYesterday) * 100)
       : 0;
 
-    // Распределение игр по режимам
-    const totalGamesByMode = gamesByMode.reduce((sum, item) => sum + item._count.id, 0);
-    const shortGames = gamesByMode.find(item => item.mode === 'SHORT')?._count.id || 0;
-    const longGames = gamesByMode.find(item => item.mode === 'LONG')?._count.id || 0;
-    const shortPercentage = totalGamesByMode > 0 ? Math.round((shortGames / totalGamesByMode) * 100) : 0;
-    const longPercentage = totalGamesByMode > 0 ? Math.round((longGames / totalGamesByMode) * 100) : 0;
+    const totalGamesByMode = gamesByMode.reduce((sum, item) => sum + parseInt(item.count, 10), 0);
+    const shortGames = gamesByMode.find(item => item.mode === 'SHORT')?.count || 0;
+    const longGames = gamesByMode.find(item => item.mode === 'LONG')?.count || 0;
+    const shortPercentage = totalGamesByMode > 0 ? Math.round((parseInt(shortGames, 10) / totalGamesByMode) * 100) : 0;
+    const longPercentage = totalGamesByMode > 0 ? Math.round((parseInt(longGames, 10) / totalGamesByMode) * 100) : 0;
 
     return {
       totalUsers,
@@ -279,14 +223,14 @@ export class AdminService {
       gamesToday,
       totalTournaments,
       activeTournaments,
-      totalRevenue: revenueData._sum.commission || 0,
+      totalRevenue: revenueData,
       revenueToday: revenueToday,
       userTrend,
       gameTrend,
       revenueTrend,
       gamesByMode: {
-        short: shortGames,
-        long: longGames,
+        short: parseInt(shortGames, 10),
+        long: parseInt(longGames, 10),
         shortPercentage,
         longPercentage,
       },
@@ -294,9 +238,6 @@ export class AdminService {
     };
   }
 
-  /**
-   * Получить активность пользователей за последние 7 дней
-   */
   private async getUserActivityForLast7Days(): Promise<number[]> {
     const now = new Date();
     const todayStart = new Date(now.setHours(0, 0, 0, 0));
@@ -308,24 +249,12 @@ export class AdminService {
       const dayEnd = new Date(dayStart);
       dayEnd.setDate(dayEnd.getDate() + 1);
 
-      const count = await this.prisma.user.count({
-        where: {
-          OR: [
-            {
-              createdAt: {
-                gte: dayStart,
-                lt: dayEnd,
-              },
-            },
-            {
-              updatedAt: {
-                gte: dayStart,
-                lt: dayEnd,
-              },
-            },
-          ],
-        },
-      });
+      const count = await this.db.query(
+        `SELECT COUNT(*) as count FROM users 
+         WHERE ("createdAt" >= $1 AND "createdAt" < $2) 
+         OR ("updatedAt" >= $1 AND "updatedAt" < $2)`,
+        [dayStart, dayEnd]
+      ).then(r => parseInt(r.rows[0].count, 10));
 
       activity.push(count);
     }
@@ -333,66 +262,70 @@ export class AdminService {
     return activity;
   }
 
-  /**
-   * Получить последние игры для дашборда
-   */
   async getRecentGames(limit: number = 10) {
-    return this.prisma.gameHistory.findMany({
-      take: limit,
-      include: {
-        whitePlayer: {
-          select: {
-            id: true,
-            nickname: true,
-            firstName: true,
-            photoUrl: true,
-          },
-        },
-        blackPlayer: {
-          select: {
-            id: true,
-            nickname: true,
-            firstName: true,
-            photoUrl: true,
-          },
-        },
-        district: {
-          select: {
-            id: true,
-            name: true,
-            icon: true,
-          },
-        },
+    const games = await this.db.query(
+      `SELECT gh.*, 
+              w.id as "whiteId", w.nickname as "whiteNickname", w."firstName" as "whiteFirstName", w."photoUrl" as "whitePhotoUrl",
+              b.id as "blackId", b.nickname as "blackNickname", b."firstName" as "blackFirstName", b."photoUrl" as "blackPhotoUrl",
+              d.id as "districtId", d.name as "districtName", d.icon as "districtIcon"
+       FROM game_history gh
+       LEFT JOIN users w ON gh."whitePlayerId" = w.id
+       LEFT JOIN users b ON gh."blackPlayerId" = b.id
+       LEFT JOIN districts d ON gh."districtId" = d.id
+       ORDER BY gh."createdAt" DESC
+       LIMIT $1`,
+      [limit]
+    );
+
+    return games.rows.map(g => ({
+      ...g,
+      whitePlayer: {
+        id: g.whiteId,
+        nickname: g.whiteNickname,
+        firstName: g.whiteFirstName,
+        photoUrl: g.whitePhotoUrl,
       },
-      orderBy: { createdAt: 'desc' },
-    });
+      blackPlayer: {
+        id: g.blackId,
+        nickname: g.blackNickname,
+        firstName: g.blackFirstName,
+        photoUrl: g.blackPhotoUrl,
+      },
+      district: g.districtId ? {
+        id: g.districtId,
+        name: g.districtName,
+        icon: g.districtIcon,
+      } : null,
+    }));
   }
 
   async getGames(page: number, limit: number) {
     const skip = (page - 1) * limit;
     const [games, total] = await Promise.all([
-      this.prisma.gameHistory.findMany({
-        skip,
-        take: limit,
-        include: {
-          whitePlayer: {
-            select: {
-              id: true,
-              nickname: true,
-              firstName: true,
-            },
-          },
-          blackPlayer: {
-            select: {
-              id: true,
-              nickname: true,
-              firstName: true,
-            },
-          },
+      this.db.query(
+        `SELECT gh.*, 
+                w.id as "whiteId", w.nickname as "whiteNickname", w."firstName" as "whiteFirstName",
+                b.id as "blackId", b.nickname as "blackNickname", b."firstName" as "blackFirstName"
+         FROM game_history gh
+         LEFT JOIN users w ON gh."whitePlayerId" = w.id
+         LEFT JOIN users b ON gh."blackPlayerId" = b.id
+         ORDER BY gh."createdAt" DESC
+         LIMIT $1 OFFSET $2`,
+        [limit, skip]
+      ).then(r => r.rows.map(g => ({
+        ...g,
+        whitePlayer: {
+          id: g.whiteId,
+          nickname: g.whiteNickname,
+          firstName: g.whiteFirstName,
         },
-        orderBy: { createdAt: 'desc' },
-      }),
-      this.prisma.gameHistory.count(),
+        blackPlayer: {
+          id: g.blackId,
+          nickname: g.blackNickname,
+          firstName: g.blackFirstName,
+        },
+      }))),
+      this.db.count('game_history'),
     ]);
 
     return {
@@ -405,18 +338,14 @@ export class AdminService {
   }
 
   async addCoins(userId: number, amount: number) {
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: {
-        narCoin: { increment: amount },
-      },
-    });
-
+    await this.db.query(
+      'UPDATE users SET "narCoin" = "narCoin" + $1 WHERE id = $2',
+      [amount, userId]
+    );
     return { success: true };
   }
 
   async getSettings() {
-    // TODO: Реализовать хранение настроек в БД
     return {
       ratingPerWin: 20,
       ratingPerLoss: -15,
@@ -430,21 +359,15 @@ export class AdminService {
   }
 
   async updateSettings(settings: any) {
-    // TODO: Реализовать сохранение настроек в БД
     return { success: true, settings };
   }
 
-  // Управление квестами
   async getQuests() {
-    return this.prisma.quest.findMany({
-      orderBy: { createdAt: 'desc' },
-    });
+    return await this.db.findMany('quests', undefined, { orderBy: '"createdAt" DESC' });
   }
 
   async getQuestById(id: number) {
-    return this.prisma.quest.findUnique({
-      where: { id },
-    });
+    return await this.db.findOne('quests', { id });
   }
 
   async createQuest(data: {
@@ -474,34 +397,30 @@ export class AdminService {
           endDate = new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000);
           break;
         case 'MONTH':
-          endDate = new Date(start.setMonth(start.getMonth() + 1));
+          endDate = new Date(start);
+          endDate.setMonth(endDate.getMonth() + 1);
           break;
-        case 'FOREVER': // 'FOREVER' means no end date, handled by isInfinite
+        case 'FOREVER':
           endDate = null;
-          break;
-        default:
-          // CUSTOM or no durationType, use provided endDate or null
           break;
       }
     }
 
-    return this.prisma.quest.create({
-      data: {
-        ...data,
-        endDate: endDate,
-        isActive: data.isActive ?? true,
-        isInfinite: data.isInfinite ?? false,
-        isHoliday: data.isHoliday ?? false,
-      },
+    return await this.db.create('quests', {
+      ...data,
+      endDate: endDate || null,
+      isActive: data.isActive ?? true,
+      isInfinite: data.isInfinite ?? false,
+      isHoliday: data.isHoliday ?? false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     });
   }
 
   async updateQuest(id: number, data: any) {
     let endDate = data.endDate;
     if (data.durationType && !data.isInfinite) {
-      const quest = await this.prisma.quest.findUnique({ 
-        where: { id },
-      });
+      const quest = await this.db.findOne('quests', { id });
       const start = data.startDate || (quest?.startDate ? new Date(quest.startDate) : new Date());
       
       if (data.durationType === 'FOREVER') {
@@ -520,28 +439,21 @@ export class AdminService {
             endDate = new Date(start);
             endDate.setMonth(endDate.getMonth() + 1);
             break;
-          default:
-            break;
         }
       }
     }
 
-    return this.prisma.quest.update({
-      where: { id },
-      data: {
-        ...data,
-        endDate: endDate,
-      },
-    });
+    return await this.db.update('quests',
+      { id },
+      { ...data, endDate: endDate, updatedAt: new Date() }
+    );
   }
 
   async deleteQuest(id: number) {
-    return this.prisma.quest.delete({
-      where: { id },
-    });
+    await this.db.delete('quests', { id });
+    return { success: true };
   }
 
-  // Маппинг типов районов на типы предприятий
   private getBusinessTypesForDistrict(districtType: string): string[] {
     const mapping: Record<string, string[]> = {
       COURTS: ['COURT_TABLE'],
@@ -555,19 +467,14 @@ export class AdminService {
     return mapping[districtType] || [];
   }
 
-  // Управление конфигурацией предприятий для конкретного района
   async getBusinessConfigsForDistrict(districtId: number) {
-    const district = await this.prisma.district.findUnique({
-      where: { id: districtId },
-    });
-
+    const district = await this.db.findOne('districts', { id: districtId });
     if (!district) {
       throw new Error('District not found');
     }
 
     const businessTypes = this.getBusinessTypesForDistrict(district.type);
 
-    // TODO: В будущем можно хранить в БД, пока возвращаем хардкод
     const configs = businessTypes.map(type => ({
       type,
       districtId,
@@ -577,7 +484,7 @@ export class AdminService {
       baseProductionPerHour: this.getBaseProductionPerHour(type),
       baseStorageLimit: this.getBaseStorageLimit(type),
       baseMaintenanceCost: this.getBaseMaintenanceCost(type),
-      upgradeCostMultiplier: 2, // baseCost * level * multiplier
+      upgradeCostMultiplier: 2,
       incomeIncreasePerLevel: this.getIncomeIncrease(type),
       productionIncreasePerLevel: this.getProductionIncrease(type),
     }));
@@ -585,9 +492,7 @@ export class AdminService {
     return configs;
   }
 
-  // Управление конфигурацией предприятий (общее, для обратной совместимости)
   async getBusinessConfigs() {
-    // Возвращаем конфигурацию всех типов предприятий
     const businessTypes = [
       'COURT_TABLE',
       'BOARD_WORKSHOP',
@@ -598,7 +503,6 @@ export class AdminService {
       'ARENA',
     ];
 
-    // TODO: В будущем можно хранить в БД, пока возвращаем хардкод
     const configs = businessTypes.map(type => ({
       type,
       creationCost: this.getBusinessCreationCost(type),
@@ -606,7 +510,7 @@ export class AdminService {
       baseProductionPerHour: this.getBaseProductionPerHour(type),
       baseStorageLimit: this.getBaseStorageLimit(type),
       baseMaintenanceCost: this.getBaseMaintenanceCost(type),
-      upgradeCostMultiplier: 2, // baseCost * level * multiplier
+      upgradeCostMultiplier: 2,
       incomeIncreasePerLevel: this.getIncomeIncrease(type),
       productionIncreasePerLevel: this.getProductionIncrease(type),
     }));
@@ -624,7 +528,6 @@ export class AdminService {
     incomeIncreasePerLevel?: number;
     productionIncreasePerLevel?: number;
   }) {
-    // TODO: Сохранить в БД
     return { success: true, type, config };
   }
 
@@ -638,10 +541,7 @@ export class AdminService {
     incomeIncreasePerLevel?: number;
     productionIncreasePerLevel?: number;
   }) {
-    const district = await this.prisma.district.findUnique({
-      where: { id: districtId },
-    });
-
+    const district = await this.db.findOne('districts', { id: districtId });
     if (!district) {
       throw new Error('District not found');
     }
@@ -651,34 +551,43 @@ export class AdminService {
       throw new Error(`Business type ${businessType} is not allowed in district ${district.type}`);
     }
 
-    // TODO: Сохранить в БД
     return { success: true, districtId, type: businessType, config };
   }
 
-  // Управление районами
   async getAllDistricts() {
-    return this.prisma.district.findMany({
-      include: {
-        clan: {
-          include: {
+    const districts = await this.db.findMany('districts', undefined, { orderBy: 'id ASC' });
+
+    return await Promise.all(
+      districts.map(async (district) => {
+        const [clan, fund, businessCount] = await Promise.all([
+          district.clanId ? this.db.query(
+            `SELECT c.*, u.id as "leaderId", u.nickname, u."firstName"
+             FROM clans c
+             LEFT JOIN users u ON c."leaderId" = u.id
+             WHERE c.id = $1`,
+            [district.clanId]
+          ).then(r => r.rows[0]) : null,
+          this.db.findOne('district_funds', { districtId: district.id }),
+          this.db.count('businesses', { districtId: district.id }),
+        ]);
+
+        return {
+          ...district,
+          clan: clan ? {
+            ...clan,
             leader: {
-              select: {
-                id: true,
-                nickname: true,
-                firstName: true,
-              },
+              id: clan.leaderId,
+              nickname: clan.nickname,
+              firstName: clan.firstName,
             },
+          } : null,
+          fund: fund || null,
+          _count: {
+            businesses: businessCount,
           },
-        },
-        fund: true,
-        _count: {
-          select: {
-            businesses: true,
-          },
-        },
-      },
-      orderBy: { id: 'asc' },
-    });
+        };
+      })
+    );
   }
 
   async updateDistrict(id: number, data: {
@@ -687,13 +596,12 @@ export class AdminService {
     icon?: string;
     commissionRate?: number;
   }) {
-    return this.prisma.district.update({
-      where: { id },
-      data,
-    });
+    return await this.db.update('districts',
+      { id },
+      { ...data, updatedAt: new Date() }
+    );
   }
 
-  // Вспомогательные методы для получения базовых значений
   private getBusinessCreationCost(type: string): number {
     const costs: Record<string, number> = {
       COURT_TABLE: 50,

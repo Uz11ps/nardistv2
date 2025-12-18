@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
-import { PrismaModule } from './prisma/prisma.module';
+import { DatabaseModule } from './database/database.module';
 import { RedisModule } from './redis/redis.module';
 import { ConfigModule } from './config/config.module';
 import { AuthModule } from './auth/auth.module';
@@ -31,7 +31,7 @@ import { ThrottleGuard } from './common/guards/throttle.guard';
   imports: [
     ConfigModule,
     LoggerModule,
-    PrismaModule,
+    DatabaseModule,
     RedisModule,
     AuthModule,
     GamesModule,

@@ -1,29 +1,23 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { DatabaseService } from '../database/database.service';
 
 @Injectable()
 export class RatingsService {
   private readonly INITIAL_RATING = 1500;
   private readonly K_FACTOR = 32;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly db: DatabaseService) {}
 
-  /**
-   * Расчет нового рейтинга по системе Elo
-   */
   calculateEloRating(
     currentRating: number,
     opponentRating: number,
-    result: number, // 1 = победа, 0.5 = ничья, 0 = поражение
+    result: number,
   ): number {
     const expectedScore = 1 / (1 + Math.pow(10, (opponentRating - currentRating) / 400));
     const newRating = currentRating + this.K_FACTOR * (result - expectedScore);
     return Math.round(newRating);
   }
 
-  /**
-   * Обновление рейтинга после игры
-   */
   async updateRating(
     userId: number,
     opponentId: number,
@@ -48,26 +42,27 @@ export class RatingsService {
       opponentResultValue,
     );
 
-    // Обновляем рейтинги
-    await this.prisma.rating.update({
-      where: { id: userRating.id },
-      data: {
-        rating: newUserRating,
-        wins: result === 'win' ? userRating.wins + 1 : userRating.wins,
-        losses: result === 'loss' ? userRating.losses + 1 : userRating.losses,
-        draws: result === 'draw' ? userRating.draws + 1 : userRating.draws,
-      },
-    });
+    await this.db.query(
+      `UPDATE ratings SET 
+        rating = $1,
+        wins = CASE WHEN $2 = 'win' THEN wins + 1 ELSE wins END,
+        losses = CASE WHEN $2 = 'loss' THEN losses + 1 ELSE losses END,
+        draws = CASE WHEN $2 = 'draw' THEN draws + 1 ELSE draws END,
+        "updatedAt" = $3
+       WHERE id = $4`,
+      [newUserRating, result, new Date(), userRating.id]
+    );
 
-    await this.prisma.rating.update({
-      where: { id: opponentRating.id },
-      data: {
-        rating: newOpponentRating,
-        wins: opponentResultValue === 1 ? opponentRating.wins + 1 : opponentRating.wins,
-        losses: opponentResultValue === 0 ? opponentRating.losses + 1 : opponentRating.losses,
-        draws: opponentResultValue === 0.5 ? opponentRating.draws + 1 : opponentRating.draws,
-      },
-    });
+    await this.db.query(
+      `UPDATE ratings SET 
+        rating = $1,
+        wins = CASE WHEN $2 = 1 THEN wins + 1 ELSE wins END,
+        losses = CASE WHEN $2 = 0 THEN losses + 1 ELSE losses END,
+        draws = CASE WHEN $2 = 0.5 THEN draws + 1 ELSE draws END,
+        "updatedAt" = $3
+       WHERE id = $4`,
+      [newOpponentRating, opponentResultValue, new Date(), opponentRating.id]
+    );
 
     return {
       newRating: newUserRating,
@@ -76,22 +71,21 @@ export class RatingsService {
   }
 
   async getOrCreateRating(userId: number, mode: string) {
-    let rating = await this.prisma.rating.findUnique({
-      where: {
-        userId_mode: {
-          userId,
-          mode,
-        },
-      },
-    });
+    let rating = await this.db.query(
+      'SELECT * FROM ratings WHERE "userId" = $1 AND mode = $2 LIMIT 1',
+      [userId, mode]
+    ).then(r => r.rows[0]);
 
     if (!rating) {
-      rating = await this.prisma.rating.create({
-        data: {
-          userId,
-          mode,
-          rating: this.INITIAL_RATING,
-        },
+      rating = await this.db.create('ratings', {
+        userId,
+        mode,
+        rating: this.INITIAL_RATING,
+        wins: 0,
+        losses: 0,
+        draws: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
       });
     }
 
@@ -99,23 +93,26 @@ export class RatingsService {
   }
 
   async getLeaderboard(mode: string, limit: number = 100) {
-    return this.prisma.rating.findMany({
-      where: { mode },
-      orderBy: { rating: 'desc' },
-      take: limit,
-      include: {
-        user: {
-          select: {
-            id: true,
-            nickname: true,
-            firstName: true,
-            lastName: true,
-            photoUrl: true,
-            avatar: true,
-          },
-        },
+    const ratings = await this.db.query(
+      `SELECT r.*, u.id as "userId", u.nickname, u."firstName", u."lastName", u."photoUrl", u.avatar
+       FROM ratings r
+       JOIN users u ON r."userId" = u.id
+       WHERE r.mode = $1
+       ORDER BY r.rating DESC
+       LIMIT $2`,
+      [mode, limit]
+    );
+
+    return ratings.rows.map(r => ({
+      ...r,
+      user: {
+        id: r.userId,
+        nickname: r.nickname,
+        firstName: r.firstName,
+        lastName: r.lastName,
+        photoUrl: r.photoUrl,
+        avatar: r.avatar,
       },
-    });
+    }));
   }
 }
-

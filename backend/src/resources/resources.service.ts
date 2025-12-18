@@ -1,96 +1,66 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { DatabaseService } from '../database/database.service';
 
 @Injectable()
 export class ResourcesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly db: DatabaseService) {}
 
-  /**
-   * Получить ресурсы пользователя
-   */
   async getUserResources(userId: number) {
-    return this.prisma.resource.findMany({
-      where: { userId },
-      orderBy: { type: 'asc' },
-    });
+    return await this.db.findMany('resources', { userId }, { orderBy: 'type ASC' });
   }
 
-  /**
-   * Добавить ресурсы пользователю
-   */
   async addResource(userId: number, type: string, amount: number) {
-    return this.prisma.resource.upsert({
-      where: {
-        userId_type: {
-          userId,
-          type,
-        },
-      },
-      create: {
+    const existing = await this.db.query(
+      'SELECT * FROM resources WHERE "userId" = $1 AND type = $2 LIMIT 1',
+      [userId, type]
+    ).then(r => r.rows[0]);
+
+    if (existing) {
+      return await this.db.query(
+        'UPDATE resources SET amount = amount + $1, "updatedAt" = $2 WHERE "userId" = $3 AND type = $4 RETURNING *',
+        [amount, new Date(), userId, type]
+      ).then(r => r.rows[0]);
+    } else {
+      return await this.db.create('resources', {
         userId,
         type,
         amount,
-      },
-      update: {
-        amount: { increment: amount },
-      },
-    });
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+    }
   }
 
-  /**
-   * Списать ресурсы
-   */
   async removeResource(userId: number, type: string, amount: number) {
-    const resource = await this.prisma.resource.findUnique({
-      where: {
-        userId_type: {
-          userId,
-          type,
-        },
-      },
-    });
+    const resource = await this.db.query(
+      'SELECT * FROM resources WHERE "userId" = $1 AND type = $2 LIMIT 1',
+      [userId, type]
+    ).then(r => r.rows[0]);
 
     if (!resource || resource.amount < amount) {
       throw new Error('Insufficient resources');
     }
 
     if (resource.amount === amount) {
-      return this.prisma.resource.delete({
-        where: {
-          userId_type: {
-            userId,
-            type,
-          },
-        },
-      });
+      await this.db.delete('resources', { userId, type });
+      return null;
     }
 
-    return this.prisma.resource.update({
-      where: {
-        userId_type: {
-          userId,
-          type,
-        },
-      },
-      data: {
-        amount: { decrement: amount },
-      },
-    });
+    return await this.db.query(
+      'UPDATE resources SET amount = amount - $1, "updatedAt" = $2 WHERE "userId" = $3 AND type = $4 RETURNING *',
+      [amount, new Date(), userId, type]
+    ).then(r => r.rows[0]);
   }
 
-  /**
-   * Проверить наличие ресурсов
-   */
   async hasResources(userId: number, requirements: { type: string; amount: number }[]) {
-    const resources = await this.prisma.resource.findMany({
-      where: {
-        userId,
-        type: { in: requirements.map((r) => r.type) },
-      },
-    });
+    const types = requirements.map(r => r.type);
+    const resources = await this.db.query(
+      `SELECT * FROM resources WHERE "userId" = $1 AND type = ANY($2)`,
+      [userId, types]
+    );
 
     for (const req of requirements) {
-      const resource = resources.find((r) => r.type === req.type);
+      const resource = resources.rows.find((r) => r.type === req.type);
       if (!resource || resource.amount < req.amount) {
         return false;
       }
@@ -99,4 +69,3 @@ export class ResourcesService {
     return true;
   }
 }
-

@@ -1,26 +1,26 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { DatabaseService } from '../database/database.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly db: DatabaseService) {}
 
   async getProfile(userId: number) {
     // Проверяем и применяем регенерацию перед возвратом профиля
     await this.checkAndRegenerate(userId);
 
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      include: {
-        subscription: true,
-        academyRole: true,
-      },
-    });
+    const user = await this.db.findOne('users', { id: userId });
 
     if (!user) {
       throw new Error('User not found');
     }
+
+    // Получаем связанные данные
+    const [subscription, academyRole] = await Promise.all([
+      this.db.findOne('subscriptions', { userId }).catch(() => null),
+      this.db.findOne('academy_roles', { userId }).catch(() => null),
+    ]);
 
     return {
       id: user.id,
@@ -47,8 +47,8 @@ export class UsersService {
       statsPower: user.statsPower,
       referralCode: user.referralCode,
       isPremium: user.isPremium,
-      subscription: user.subscription,
-      academyRole: user.academyRole,
+      subscription,
+      academyRole,
     };
   }
 
@@ -56,9 +56,7 @@ export class UsersService {
    * Улучшить ветку развития
    */
   async upgradeStat(userId: number, statType: 'ECONOMY' | 'ENERGY' | 'LIVES' | 'POWER') {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-    });
+    const user = await this.db.findOne('users', { id: userId });
 
     if (!user) {
       throw new Error('User not found');
@@ -71,32 +69,30 @@ export class UsersService {
       throw new Error('Not enough NAR coins');
     }
 
-    // Обновляем ветку
-    const updateData: any = {};
-    updateData[`stats${statType}`] = { increment: 1 };
+    // Формируем SQL запрос для обновления
+    const statField = `stats${statType}`;
+    let updateQuery = `UPDATE users SET "${statField}" = "${statField}" + 1, "narCoin" = "narCoin" - $1`;
+    const params: any[] = [upgradeCost];
 
     // Если это ветка Сила, увеличиваем лимит
     if (statType === 'POWER') {
-      updateData.powerMax = { increment: 2 };
+      updateQuery += ', "powerMax" = "powerMax" + 2';
     }
 
     // Если это ветка Энергия, увеличиваем лимит
     if (statType === 'ENERGY') {
-      updateData.energyMax = { increment: 5 };
+      updateQuery += ', "energyMax" = "energyMax" + 5';
     }
 
     // Если это ветка Жизни, увеличиваем лимит
     if (statType === 'LIVES') {
-      updateData.livesMax = { increment: 1 };
+      updateQuery += ', "livesMax" = "livesMax" + 1';
     }
 
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: {
-        ...updateData,
-        narCoin: { decrement: upgradeCost },
-      },
-    });
+    updateQuery += ' WHERE id = $2 RETURNING *';
+    params.push(userId);
+
+    await this.db.query(updateQuery, params);
 
     return { success: true, newLevel: currentStat + 1 };
   }
@@ -117,29 +113,25 @@ export class UsersService {
   }
 
   async updateProfile(userId: number, dto: UpdateProfileDto) {
-    return this.prisma.user.update({
-      where: { id: userId },
-      data: {
+    return await this.db.update('users', 
+      { id: userId },
+      {
         nickname: dto.nickname,
         country: dto.country,
         avatar: dto.avatar,
-      },
-    });
+        updatedAt: new Date(),
+      }
+    );
   }
 
   async getStats(userId: number) {
     const [ratings, gameHistory, quests] = await Promise.all([
-      this.prisma.rating.findMany({
-        where: { userId },
-      }),
-      this.prisma.gameHistory.count({
-        where: {
-          OR: [{ whitePlayerId: userId }, { blackPlayerId: userId }],
-        },
-      }),
-      this.prisma.questProgress.count({
-        where: { userId, completed: true },
-      }),
+      this.db.findMany('ratings', { userId }),
+      this.db.query<{ count: string }>(
+        'SELECT COUNT(*) as count FROM game_history WHERE "whitePlayerId" = $1 OR "blackPlayerId" = $1',
+        [userId]
+      ).then(r => parseInt(r.rows[0].count, 10)),
+      this.db.count('quest_progress', { userId, completed: true }),
     ]);
 
     return {
@@ -153,9 +145,7 @@ export class UsersService {
    * Восстановить энергию за NAR
    */
   async restoreEnergy(userId: number, amount?: number) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-    });
+    const user = await this.db.findOne('users', { id: userId });
 
     if (!user) {
       throw new Error('User not found');
@@ -177,13 +167,10 @@ export class UsersService {
 
     const newEnergy = Math.min(user.energyMax, user.energy + restoreAmount);
 
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: {
-        energy: newEnergy,
-        narCoin: { decrement: cost },
-      },
-    });
+    await this.db.query(
+      'UPDATE users SET energy = $1, "narCoin" = "narCoin" - $2 WHERE id = $3',
+      [newEnergy, cost, userId]
+    );
 
     return {
       success: true,
@@ -198,9 +185,7 @@ export class UsersService {
    * Восстановить жизни за NAR
    */
   async restoreLives(userId: number, amount?: number) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-    });
+    const user = await this.db.findOne('users', { id: userId });
 
     if (!user) {
       throw new Error('User not found');
@@ -222,13 +207,10 @@ export class UsersService {
 
     const newLives = Math.min(user.livesMax, user.lives + restoreAmount);
 
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: {
-        lives: newLives,
-        narCoin: { decrement: cost },
-      },
-    });
+    await this.db.query(
+      'UPDATE users SET lives = $1, "narCoin" = "narCoin" - $2 WHERE id = $3',
+      [newLives, cost, userId]
+    );
 
     return {
       success: true,
@@ -244,9 +226,7 @@ export class UsersService {
    * Вызывается периодически (например, через cron или при запросе профиля)
    */
   async checkAndRegenerate(userId: number) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-    });
+    const user = await this.db.findOne('users', { id: userId });
 
     if (!user) {
       return;
@@ -264,23 +244,27 @@ export class UsersService {
     const livesRegenRate = 1 / 12 + (user.statsLives * 0.05 / 12);
     const livesToRegen = Math.floor(hoursSinceRegen * livesRegenRate);
 
-    const updateData: any = {
-      lastEnergyRegen: now,
-    };
+    const updates: string[] = ['"lastEnergyRegen" = $1'];
+    const params: any[] = [now];
 
     if (energyToRegen > 0 && user.energy < user.energyMax) {
-      updateData.energy = Math.min(user.energyMax, user.energy + energyToRegen);
+      const newEnergy = Math.min(user.energyMax, user.energy + energyToRegen);
+      updates.push(`energy = $${params.length + 1}`);
+      params.push(newEnergy);
     }
 
     if (livesToRegen > 0 && user.lives < user.livesMax) {
-      updateData.lives = Math.min(user.livesMax, user.lives + livesToRegen);
+      const newLives = Math.min(user.livesMax, user.lives + livesToRegen);
+      updates.push(`lives = $${params.length + 1}`);
+      params.push(newLives);
     }
 
-    if (Object.keys(updateData).length > 1) {
-      await this.prisma.user.update({
-        where: { id: userId },
-        data: updateData,
-      });
+    if (updates.length > 1) {
+      params.push(userId);
+      await this.db.query(
+        `UPDATE users SET ${updates.join(', ')} WHERE id = $${params.length}`,
+        params
+      );
     }
 
     return {

@@ -1,26 +1,21 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { DatabaseService } from '../database/database.service';
 import { randomBytes } from 'crypto';
 
 @Injectable()
 export class ReferralsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly db: DatabaseService) {}
 
   async generateReferralCode(userId: number): Promise<string> {
     const code = randomBytes(4).toString('hex').toUpperCase();
     
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { referralCode: code },
-    });
+    await this.db.update('users', { id: userId }, { referralCode: code });
 
     return code;
   }
 
   async useReferralCode(userId: number, code: string) {
-    const referrer = await this.prisma.user.findUnique({
-      where: { referralCode: code },
-    });
+    const referrer = await this.db.findOne('users', { referralCode: code });
 
     if (!referrer) {
       throw new Error('Invalid referral code');
@@ -30,35 +25,31 @@ export class ReferralsService {
       throw new Error('Cannot use your own referral code');
     }
 
-    // Обновляем пользователя
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { referredBy: referrer.id },
-    });
+    // Используем транзакцию для атомарности
+    await this.db.transaction(async (client) => {
+      // Обновляем пользователя
+      await client.query(
+        'UPDATE users SET "referredBy" = $1 WHERE id = $2',
+        [referrer.id, userId]
+      );
 
-    // Награждаем реферера
-    await this.prisma.user.update({
-      where: { id: referrer.id },
-      data: {
-        narCoin: { increment: 50 }, // Награда за реферала
-        xp: { increment: 10 },
-      },
+      // Награждаем реферера
+      await client.query(
+        'UPDATE users SET "narCoin" = "narCoin" + $1, xp = xp + $2 WHERE id = $3',
+        [50, 10, referrer.id]
+      );
     });
 
     return { success: true, referrerId: referrer.id };
   }
 
   async getReferralStats(userId: number) {
-    const referrals = await this.prisma.user.count({
-      where: { referredBy: userId },
-    });
+    const referrals = await this.db.count('users', { referredBy: userId });
+    const user = await this.db.findOne('users', { id: userId });
 
     return {
       totalReferrals: referrals,
-      referralCode: (await this.prisma.user.findUnique({
-        where: { id: userId },
-        select: { referralCode: true },
-      }))?.referralCode,
+      referralCode: user?.referralCode,
     };
   }
 }

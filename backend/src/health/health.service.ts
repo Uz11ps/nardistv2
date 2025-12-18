@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { DatabaseService } from '../database/database.service';
 import { RedisService } from '../redis/redis.service';
 
 @Injectable()
 export class HealthService {
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly db: DatabaseService,
     private readonly redis: RedisService,
   ) {}
 
@@ -45,8 +45,10 @@ export class HealthService {
 
   private async checkDatabase() {
     try {
-      await this.prisma.$queryRaw`SELECT 1`;
-      return { responseTime: Date.now() };
+      const start = Date.now();
+      await this.db.query('SELECT 1');
+      const responseTime = Date.now() - start;
+      return { responseTime };
     } catch (error) {
       throw new Error('Database connection failed');
     }
