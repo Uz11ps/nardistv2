@@ -31,14 +31,9 @@ fi
 echo "Current pg_hba.conf rules:"
 echo "$HBA_CONTENT" | grep -v "^#" | grep -v "^$"
 
-# 2. Проверяем подключение напрямую
+# 2. Проверяем подключение через Prisma
 echo ""
-echo "2️⃣ Testing direct connection with psql from postgres container..."
-docker exec nardist_postgres_prod psql -U nardist -d nardist_db -h 172.18.0.2 -c "SELECT 1;" 2>&1 || echo "❌ Direct connection failed"
-
-# 3. Проверяем подключение через Prisma
-echo ""
-echo "3️⃣ Testing connection via Prisma..."
+echo "2️⃣ Testing connection via Prisma..."
 if ! docker ps | grep -q nardist_backend_prod; then
   echo "⚠️  Backend not running, starting it..."
   docker compose -f docker-compose.prod.yml up -d backend
@@ -54,8 +49,12 @@ if echo "$RESULT" | grep -q "1 row\|PGRES_TUPLES_OK"; then
 else
   echo "❌ Connection failed"
   echo ""
-  echo "4️⃣ Checking PostgreSQL logs for errors..."
-  docker logs nardist_postgres_prod --tail 30 | grep -i "error\|fatal\|connection" || echo "No errors in logs"
+  echo "3️⃣ Checking PostgreSQL logs for connection attempts..."
+  echo "Last 30 lines of logs:"
+  docker logs nardist_postgres_prod --tail 30
+  echo ""
+  echo "Filtered errors/connections:"
+  docker logs nardist_postgres_prod --tail 100 | grep -iE "error|fatal|connection|authentication|listen" || echo "No relevant log entries"
   exit 1
 fi
 
