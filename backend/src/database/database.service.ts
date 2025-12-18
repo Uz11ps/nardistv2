@@ -27,18 +27,35 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       password: url.password,
       max: 20, // максимальное количество клиентов в пуле
       idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 2000,
+      connectionTimeoutMillis: 10000, // Увеличено до 10 секунд
+      // Добавляем retry логику на уровне пула
+      keepAlive: true,
+      keepAliveInitialDelayMillis: 10000,
     });
 
-    // Тестируем подключение
-    try {
-      const client = await this.pool.connect();
-      await client.query('SELECT NOW()');
-      client.release();
-      this.logger.log('Database connection established');
-    } catch (error) {
-      this.logger.error('Failed to connect to database', error);
-      throw error;
+    // Тестируем подключение с retry логикой
+    const maxRetries = 5;
+    const retryDelay = 2000; // 2 секунды между попытками
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        this.logger.log(`Attempting to connect to database (attempt ${attempt}/${maxRetries})...`);
+        const client = await this.pool.connect();
+        await client.query('SELECT NOW()');
+        client.release();
+        this.logger.log('Database connection established');
+        return; // Успешное подключение
+      } catch (error) {
+        this.logger.warn(`Database connection attempt ${attempt} failed: ${error.message}`);
+        
+        if (attempt === maxRetries) {
+          this.logger.error('Failed to connect to database after all retries', error);
+          throw error;
+        }
+        
+        // Ждем перед следующей попыткой
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+      }
     }
   }
 
