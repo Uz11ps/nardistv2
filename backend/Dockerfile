@@ -3,7 +3,8 @@ FROM node:18-alpine AS builder
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm install --only=production --legacy-peer-deps --no-audit
+# Устанавливаем все зависимости для сборки (включая dev)
+RUN npm install --legacy-peer-deps --no-audit
 
 COPY . .
 RUN npm run build
