@@ -8,9 +8,10 @@ COPY prisma ./prisma/
 
 # Устанавливаем зависимости (включая dev зависимости для Prisma CLI)
 # OpenSSL уже есть в базовом образе alpine, не устанавливаем
-ENV npm_config_loglevel=warn
+ENV npm_config_loglevel=error
+ENV npm_config_prefer_offline=true
 ENV PRISMA_SKIP_POSTINSTALL_GENERATE=true
-RUN npm install --legacy-peer-deps --no-audit
+RUN npm ci --legacy-peer-deps --no-audit --prefer-offline || npm install --legacy-peer-deps --no-audit --prefer-offline
 
 # Генерируем Prisma клиент (только типы, без подключения к БД)
 RUN npx prisma generate
@@ -25,19 +26,16 @@ FROM node:18-alpine AS production
 
 WORKDIR /app
 
-# Копируем package.json и prisma (OpenSSL уже есть в базовом образе)
+# Копируем package.json для фильтрации зависимостей
 COPY package*.json ./
-COPY prisma ./prisma/
 
-# Устанавливаем только production зависимости (без dev)
-ENV npm_config_loglevel=warn
-ENV PRISMA_SKIP_POSTINSTALL_GENERATE=true
-RUN npm install --only=production --legacy-peer-deps --no-audit
+# Копируем все node_modules из builder и удаляем dev зависимости
+# Это быстрее чем повторная установка всех пакетов
+COPY --from=builder /app/node_modules ./node_modules
+RUN npm prune --production --legacy-peer-deps --no-audit
 
-# Копируем собранное приложение и сгенерированный Prisma клиент
+# Копируем собранное приложение и сгенерированный Prisma клиент из builder
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
 EXPOSE 3000
 
