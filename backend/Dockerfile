@@ -12,7 +12,7 @@ RUN npm install --legacy-peer-deps --no-audit --silent --ignore-scripts || \
 COPY . .
 
 # Генерируем Prisma клиент (используем npm скрипт)
-RUN npm run prisma:generate || npx prisma generate || echo "Prisma generate skipped"
+RUN npm run prisma:generate || npm exec prisma generate || echo "Prisma generate skipped"
 
 # Собираем приложение
 RUN npm run build
@@ -28,8 +28,8 @@ RUN npm install --only=production --legacy-peer-deps --no-audit --silent
 # Копируем Prisma схему
 COPY --from=builder /app/prisma ./prisma
 
-# Генерируем Prisma клиент в production stage
-RUN npx prisma generate
+# Генерируем Prisma клиент в production stage (используем локально установленную версию)
+RUN npm exec prisma generate || ./node_modules/.bin/prisma generate || npx --yes prisma@5.7.0 generate
 
 # Копируем собранное приложение
 COPY --from=builder /app/dist ./dist
