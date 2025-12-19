@@ -59,12 +59,12 @@ services:
     container_name: nardist_frontend
     restart: always
     ports:
-      - "8080:80"
+      - "8081:80"
     depends_on:
       - backend
 
   # Nginx отключен - используем существующий nginx от ISPmanager
-  # Настройте проксирование в ISPmanager на порты frontend:80 и backend:3000
+  # Настройте проксирование в ISPmanager на порты frontend:8081 и backend:3000
 
 volumes:
   postgres_data:

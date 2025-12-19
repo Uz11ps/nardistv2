@@ -26,9 +26,9 @@ RUN npm install --only=production --legacy-peer-deps --no-audit --silent
 
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
+# Копируем весь Prisma клиент (и пакет, и сгенерированный клиент)
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-
-# Prisma клиент уже сгенерирован в builder stage
 
 EXPOSE 3000
 
