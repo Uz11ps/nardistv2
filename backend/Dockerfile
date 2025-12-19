@@ -21,14 +21,18 @@ FROM node:18-alpine AS production
 
 WORKDIR /app
 
+# Копируем package.json и устанавливаем зависимости (включая @prisma/client и prisma CLI)
 COPY package*.json ./
 RUN npm install --only=production --legacy-peer-deps --no-audit --silent
 
-COPY --from=builder /app/dist ./dist
+# Копируем Prisma схему
 COPY --from=builder /app/prisma ./prisma
-# Копируем весь Prisma клиент (и пакет, и сгенерированный клиент)
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+
+# Генерируем Prisma клиент в production stage
+RUN npx prisma generate
+
+# Копируем собранное приложение
+COPY --from=builder /app/dist ./dist
 
 EXPOSE 3000
 
