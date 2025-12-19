@@ -1,0 +1,13 @@
+.loading,
+.error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  font-size: 18px;
+}
+
+.error {
+  color: var(--tg-theme-destructive-text-color, #ff0000);
+}
+
